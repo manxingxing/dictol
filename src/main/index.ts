@@ -1,7 +1,35 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { closeDatabase, initializeDatabase } from './database'
+import { importDictionaryFromFile, listReadyDictionaries } from './dictionary-service'
+
+ipcMain.handle('dictionaries:list-ready', () => listReadyDictionaries())
+ipcMain.handle('dictionaries:import', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'MDX 词典', extensions: ['mdx'] }]
+  })
+
+  if (result.canceled || result.filePaths.length === 0) return null
+  return importDictionaryFromFile(result.filePaths[0])
+})
+
+if (is.dev) {
+  ipcMain.handle('debug:pglite-query', async (_, query: string, params?: unknown[]) => {
+    const database = await initializeDatabase()
+    return database.query(query, params)
+  })
+
+  ipcMain.handle(
+    'debug:pglite-exec',
+    async (_, query: string, options?: { rowMode?: 'array' | 'object' }) => {
+      const database = await initializeDatabase()
+      return database.exec(query, options)
+    }
+  )
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -65,7 +93,12 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  createWindow()
+  void initializeDatabase()
+    .then(() => createWindow())
+    .catch((error: unknown) => {
+      console.error('Failed to initialize database', error)
+      app.quit()
+    })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -81,6 +114,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('before-quit', () => {
+  void closeDatabase()
 })
 
 // In this file you can include the rest of your app's specific main process

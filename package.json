@@ -16,6 +16,8 @@
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
@@ -23,15 +25,22 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@electron-toolkit/utils": "^4.0.0",
     "@radix-ui/react-slot": "^1.2.4",
+    "@tanstack/react-query": "^5.101.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.468.0",
+    "react-resizable-panels": "^4.12.2",
     "react-router-dom": "^7.18.1",
-    "tailwind-merge": "^3.3.1"
+    "react-use": "^17.6.1",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@electric-sql/pglite-repl": "^0.4.4",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
@@ -41,6 +50,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "drizzle-kit": "^0.31.10",
     "electron": "^43.2.0",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",

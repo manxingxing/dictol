@@ -1,7 +1,38 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+
+type ReadyDictionary = {
+  id: string
+  name: string
+  description: string | null
+  status: 'ready'
+  createdAt: string
+  updatedAt: string
+}
+
+type ImportedDictionary = {
+  id: string
+  name: string
+  status: 'ready'
+  directory: string
+  files: Array<{
+    id: string
+    name: string
+    type: 'mdx' | 'mdd'
+  }>
+}
 
 const api = Object.freeze({
-  platform: process.platform
+  platform: process.platform,
+  dictionaries: Object.freeze({
+    listReady: (): Promise<ReadyDictionary[]> => ipcRenderer.invoke('dictionaries:list-ready'),
+    import: (): Promise<ImportedDictionary | null> => ipcRenderer.invoke('dictionaries:import')
+  }),
+  debug: Object.freeze({
+    pgliteQuery: (query: string, params?: unknown[]) =>
+      ipcRenderer.invoke('debug:pglite-query', query, params),
+    pgliteExec: (query: string, options?: { rowMode?: 'array' | 'object' }) =>
+      ipcRenderer.invoke('debug:pglite-exec', query, options)
+  })
 })
 
 // Use `contextBridge` APIs to expose Electron APIs to
