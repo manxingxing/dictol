@@ -3,7 +3,7 @@
 基于 Electron、React、TypeScript、Tailwind CSS 和 shadcn/ui 的桌面词典应用。
 
 
-![Screenshot](resources/snapshot.png)
+![Screenshot](resources/snapshot1.png)
 
 ## 开发环境
 
