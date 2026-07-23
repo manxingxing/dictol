@@ -8,6 +8,7 @@ declare global {
             id: string
             name: string
             description: string | null
+            recordCount: string | null
             status: 'ready'
             createdAt: string
             updatedAt: string
@@ -23,6 +24,26 @@ declare global {
             name: string
             type: 'mdx' | 'mdd'
           }[]
+        } | null>
+      }
+      entries: {
+        search: (
+          prefix: string,
+          limit?: number
+        ) => Promise<
+          {
+            id: string
+            dictionaryId: string
+            dictionaryName: string
+            word: string
+          }[]
+        >
+        get: (entryId: string) => Promise<{
+          id: string
+          dictionaryId: string
+          dictionaryName: string
+          word: string
+          html: string
         } | null>
       }
       debug: {

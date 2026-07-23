@@ -9,8 +9,16 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!Dictionaries/**'
+  - '!benchmarks/**'
+  - '!docs/**'
+  - '!native/**'
+  - '!scripts/**'
+  - '!node_modules/@dictol/mdict-native/{src,target,test,node_modules}/**'
+  - '!node_modules/@dictol/mdict-native/{Cargo.lock,Cargo.toml,README.md,build.rs,index.d.ts,package-lock.json}'
 asarUnpack:
   - resources/**
+  - node_modules/@dictol/mdict-native/*.node
 win:
   executableName: dictol
 nsis:

@@ -1,12 +1,10 @@
 import { Outlet } from 'react-router-dom'
 
-import { PGliteDebugPanel } from '@/components/PGliteDebugPanel'
-import { Sidebar } from '@/components/Sidebar'
 import { WindowTitleBar } from '@/components/WindowTitleBar'
-import { useAppStore } from '@/stores/app-store'
+import { Sidebar } from '@/components/Sidebar'
+import { PGliteDebugPanel } from '@/components/PGliteDebugPanel'
 
 export function AppLayout(): React.JSX.Element {
-
   return (
     <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
       <WindowTitleBar />

@@ -4,6 +4,7 @@ type ReadyDictionary = {
   id: string
   name: string
   description: string | null
+  recordCount: string | null
   status: 'ready'
   createdAt: string
   updatedAt: string
@@ -21,11 +22,28 @@ type ImportedDictionary = {
   }>
 }
 
+type DictionarySearchResult = {
+  id: string
+  dictionaryId: string
+  dictionaryName: string
+  word: string
+}
+
+type DictionaryEntryContent = DictionarySearchResult & {
+  html: string
+}
+
 const api = Object.freeze({
   platform: process.platform,
   dictionaries: Object.freeze({
     listReady: (): Promise<ReadyDictionary[]> => ipcRenderer.invoke('dictionaries:list-ready'),
     import: (): Promise<ImportedDictionary | null> => ipcRenderer.invoke('dictionaries:import')
+  }),
+  entries: Object.freeze({
+    search: (prefix: string, limit?: number): Promise<DictionarySearchResult[]> =>
+      ipcRenderer.invoke('dictionary-entries:search', prefix, limit),
+    get: (entryId: string): Promise<DictionaryEntryContent | null> =>
+      ipcRenderer.invoke('dictionary-entries:get', entryId)
   }),
   debug: Object.freeze({
     pgliteQuery: (query: string, params?: unknown[]) =>

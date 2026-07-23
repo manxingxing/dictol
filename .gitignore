@@ -9,3 +9,8 @@ out
 /oaldpe/
 /LDOCE5/
 /Dictionaries/
+/benchmarks/opendict-rs/target/
+/native/mdict-core/target/
+/native/mdict-node/target/
+/native/mdict-node/node_modules/
+/native/mdict-node/*.node

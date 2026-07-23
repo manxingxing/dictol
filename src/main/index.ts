@@ -3,7 +3,15 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { closeDatabase, initializeDatabase } from './database'
-import { importDictionaryFromFile, listReadyDictionaries } from './dictionary-service'
+import {
+  getDictionaryEntryContent,
+  importDictionaryFromFile,
+  listReadyDictionaries,
+  searchDictionaryEntries
+} from './dictionary-service'
+import { registerResourceProtocol, registerResourceScheme } from './resource-protocol'
+
+registerResourceScheme()
 
 ipcMain.handle('dictionaries:list-ready', () => listReadyDictionaries())
 ipcMain.handle('dictionaries:import', async () => {
@@ -15,6 +23,10 @@ ipcMain.handle('dictionaries:import', async () => {
   if (result.canceled || result.filePaths.length === 0) return null
   return importDictionaryFromFile(result.filePaths[0])
 })
+ipcMain.handle('dictionary-entries:search', (_, prefix: string, limit?: number) =>
+  searchDictionaryEntries(prefix, limit)
+)
+ipcMain.handle('dictionary-entries:get', (_, entryId: string) => getDictionaryEntryContent(entryId))
 
 if (is.dev) {
   ipcMain.handle('debug:pglite-query', async (_, query: string, params?: unknown[]) => {
@@ -94,7 +106,10 @@ app.whenReady().then(() => {
   })
 
   void initializeDatabase()
-    .then(() => createWindow())
+    .then(() => {
+      registerResourceProtocol()
+      createWindow()
+    })
     .catch((error: unknown) => {
       console.error('Failed to initialize database', error)
       app.quit()

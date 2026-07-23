@@ -17,8 +17,8 @@ export function PGliteDebugPanel(): React.JSX.Element {
   return (
     <section
       className={cn(
-        'h-64 min-h-0 shrink-0 border-t border-border bg-background [--PGliteRepl-background-color:var(--background)] [--PGliteRepl-border:1px_solid_var(--border)] [--PGliteRepl-border-color:var(--border)] [--PGliteRepl-foreground-color:var(--foreground)]}',
-        showDebugPanel ? '' : 'hidden'
+        'transition-all min-h-0 shrink-0 border-t border-border bg-background [--PGliteRepl-background-color:var(--background)] [--PGliteRepl-border:1px_solid_var(--border)] [--PGliteRepl-border-color:var(--border)] [--PGliteRepl-foreground-color:var(--foreground)]}',
+        showDebugPanel ? 'h-64' : 'h-0 overflow-hidden'
       )}
     >
       <div className="flex h-8 items-center border-b border-border px-3 text-xs font-medium text-muted-foreground">

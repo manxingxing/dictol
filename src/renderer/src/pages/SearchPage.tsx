@@ -1,29 +1,36 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Search } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import useDebounce from 'react-use/lib/useDebounce'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useReadyDictionaries } from '@/hooks/use-dictionaries'
-
-const previewResults = [
-  { word: 'abandon', phonetic: '/əˈbændən/' },
-  { word: 'ability', phonetic: '/əˈbɪləti/' },
-  { word: 'able', phonetic: '/ˈeɪbl/' },
-  { word: 'about', phonetic: '/əˈbaʊt/' }
-]
+import { useDictionarySearch } from '@/hooks/use-dictionary-entries'
+import { useAppStore } from '@/stores/app-store'
 
 export function SearchPage(): React.JSX.Element {
+  const navigate = useNavigate()
   const { data: dictionaries = [], isLoading, isError } = useReadyDictionaries()
-  const [query, setQuery] = useState('')
+  const query = useAppStore((state) => state.searchQuery)
+  const setQuery = useAppStore((state) => state.setSearchQuery)
+  const [debouncedQuery, setDebouncedQuery] = useState(query.trim())
+  useDebounce(() => setDebouncedQuery(query.trim()), 120, [query])
+  const { data: results = [], isFetching } = useDictionarySearch(debouncedQuery)
 
-  const results = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-    if (!normalizedQuery) return previewResults
-    return previewResults.filter((result) => result.word.startsWith(normalizedQuery))
-  }, [query])
+  const openFirstResult = async (): Promise<void> => {
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) return
+    const first =
+      debouncedQuery.toLowerCase() === normalizedQuery.toLowerCase() && !isFetching
+        ? results[0]
+        : undefined
+    const currentFirst =
+      first ?? (await window.dictol.entries.search(normalizedQuery, 1).then((items) => items[0]))
+    if (currentFirst) await navigate(`/search/${currentFirst.id}`)
+  }
 
   if (isLoading) {
     return (
@@ -75,23 +82,34 @@ export function SearchPage(): React.JSX.Element {
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   aria-label="搜索单词"
+                  autoFocus
                   className="pl-9"
                   onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void openFirstResult()
+                    }
+                  }}
                   placeholder="搜索单词…"
                   value={query}
                 />
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              {results.length === 0 ? (
+              {!query.trim() ? (
+                <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  输入单词开始查询
+                </p>
+              ) : results.length === 0 && !isFetching ? (
                 <p className="px-3 py-8 text-center text-sm text-muted-foreground">
                   没有找到匹配的词条
                 </p>
               ) : (
                 <ul className="space-y-1">
                   {results.map((result) => (
-                    <li key={result.word}>
-                      <NavLink to={`/search/${result.word}`} className="block">
+                    <li key={result.id}>
+                      <NavLink to={`/search/${result.id}`} className="block">
                         {({ isActive }) => (
                           <Button
                             className={`h-auto w-full justify-start px-3 py-2.5 text-left ${
@@ -101,10 +119,10 @@ export function SearchPage(): React.JSX.Element {
                             }`}
                             variant="ghost"
                           >
-                            <span className="flex flex-col items-start gap-0.5">
-                              <span>{result.word}</span>
-                              <span className="text-xs font-normal text-muted-foreground">
-                                {result.phonetic}
+                            <span className="flex min-w-0 flex-col items-start gap-0.5">
+                              <span className="truncate">{result.word}</span>
+                              <span className="truncate text-xs font-normal text-muted-foreground">
+                                {result.dictionaryName}
                               </span>
                             </span>
                           </Button>

@@ -53,13 +53,14 @@ export function DictionariesPage(): React.JSX.Element {
             type="button"
           >
             <Upload />
-            {importDictionary.isPending ? '正在导入…' : '选择 MDX 文件'}
+            {importDictionary.isPending ? '正在复制并建立索引…' : '选择 MDX 文件'}
           </Button>
           {importDictionary.isError && (
             <p className="mt-3 text-xs text-destructive">导入失败，请检查文件后重试。</p>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            选择 MDX 文件后，将复制同目录下的 MDD 资源并保存到应用数据目录，原文件不会被修改。
+            选择 MDX 文件后，将复制同目录下的 MDD、CSS、JavaScript
+            等配套资源并建立词条索引，原文件不会被修改。
           </p>
         </CardContent>
       </Card>

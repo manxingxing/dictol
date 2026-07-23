@@ -1,0 +1,17 @@
+[package]
+name = "dictol-mdict"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+adler2 = "2"
+encoding_rs = "0.8"
+flate2 = "1"
+lzo1x = "0.2"
+quick-xml = { version = "0.41", features = ["escape-html"] }
+ripemd = "0.1"
+thiserror = "2"
+
+[dev-dependencies]
+sha2 = "0.10"

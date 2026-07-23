@@ -7,6 +7,8 @@ export const dictionary = pgTable(
     id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
     name: text('name').notNull(),
     description: text('description'),
+    recordCount: bigint('record_count', { mode: 'bigint' }),
+    dictPath: text('dict_path'),
     status: text('status', {
       enum: ['pending', 'importing', 'ready', 'error']
     })
@@ -55,6 +57,29 @@ export const dictionaryFile = pgTable(
   ]
 )
 
+export const dictionaryEntry = pgTable(
+  'dictionary_entry',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    dictionaryId: bigint('dictionary_id', { mode: 'number' })
+      .notNull()
+      .references(() => dictionary.id, { onDelete: 'cascade' }),
+    dictionaryFileId: bigint('dictionary_file_id', { mode: 'number' })
+      .notNull()
+      .references(() => dictionaryFile.id, { onDelete: 'cascade' }),
+    word: text('word').notNull(),
+    normalizedWord: text('normalized_word').notNull(),
+    recordStartOffset: bigint('record_start_offset', { mode: 'bigint' }).notNull(),
+    recordEndOffset: bigint('record_end_offset', { mode: 'bigint' }).notNull(),
+    keyBlockIdx: bigint('key_block_idx', { mode: 'number' }).notNull()
+  },
+  (table) => [
+    index('dictionary_entry_dictionary_id_idx').on(table.dictionaryId),
+    index('dictionary_entry_file_id_idx').on(table.dictionaryFileId),
+    index('dictionary_entry_normalized_word_idx').on(table.normalizedWord)
+  ]
+)
+
 export const dictionaryRelations = relations(dictionary, ({ many }) => ({
   files: many(dictionaryFile)
 }))
@@ -66,7 +91,20 @@ export const dictionaryFileRelations = relations(dictionaryFile, ({ one }) => ({
   })
 }))
 
+export const dictionaryEntryRelations = relations(dictionaryEntry, ({ one }) => ({
+  dictionary: one(dictionary, {
+    fields: [dictionaryEntry.dictionaryId],
+    references: [dictionary.id]
+  }),
+  file: one(dictionaryFile, {
+    fields: [dictionaryEntry.dictionaryFileId],
+    references: [dictionaryFile.id]
+  })
+}))
+
 export type Dictionary = typeof dictionary.$inferSelect
 export type NewDictionary = typeof dictionary.$inferInsert
 export type DictionaryFile = typeof dictionaryFile.$inferSelect
 export type NewDictionaryFile = typeof dictionaryFile.$inferInsert
+export type DictionaryEntry = typeof dictionaryEntry.$inferSelect
+export type NewDictionaryEntry = typeof dictionaryEntry.$inferInsert

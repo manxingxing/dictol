@@ -7,7 +7,17 @@ import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
 export default defineConfig(
   {
-    ignores: ['**/node_modules', '**/dist', '**/out', 'oaldpe/**', 'LDOCE5/**', 'Dictionaries/**']
+    ignores: [
+      '**/node_modules',
+      '**/dist',
+      '**/out',
+      'oaldpe/**',
+      'LDOCE5/**',
+      'Dictionaries/**',
+      'native/mdict-node/index.js',
+      'native/mdict-node/index.d.ts',
+      'native/mdict-node/target/**'
+    ]
   },
   tseslint.configs.recommended,
   eslintPluginReact.configs.flat.recommended,

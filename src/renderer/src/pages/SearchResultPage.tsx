@@ -1,33 +1,38 @@
-import { useParams } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
-const previewResults = {
-  abandon: {
-    word: 'abandon',
-    phonetic: '/əˈbændən/',
-    definition: 'to leave somebody or something completely and finally'
-  },
-  ability: {
-    word: 'ability',
-    phonetic: '/əˈbɪləti/',
-    definition: 'the skill or power to do something'
-  },
-  able: {
-    word: 'able',
-    phonetic: '/ˈeɪbl/',
-    definition: 'having the skill, intelligence or opportunity to do something'
-  },
-  about: {
-    word: 'about',
-    phonetic: '/əˈbaʊt/',
-    definition: 'on the subject of somebody or something'
-  }
-} as const
+import { useAppStore } from '@/stores/app-store'
+
+type LookupWordMessage = {
+  type: 'dictol:lookup-word'
+  word: string
+}
 
 export function SearchResultPage(): React.JSX.Element {
-  const { word } = useParams()
-  const result = word ? previewResults[word as keyof typeof previewResults] : undefined
+  const { entryId } = useParams()
+  const navigate = useNavigate()
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
 
-  if (!result) {
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent<unknown>): void => {
+      if (event.source !== iframeRef.current?.contentWindow || !isLookupWordMessage(event.data)) {
+        return
+      }
+      const word = event.data.word.trim()
+      if (!word) return
+      setSearchQuery(word)
+      void window.dictol.entries.search(word, 1).then((results) => {
+        const first = results[0]
+        if (first) void navigate(`/search/${first.id}`)
+      })
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [navigate, setSearchQuery])
+
+  if (!entryId) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         选择一个词条查看详情
@@ -36,14 +41,22 @@ export function SearchResultPage(): React.JSX.Element {
   }
 
   return (
-    <article className="h-full overflow-y-auto p-8">
-      <div className="mx-auto max-w-2xl">
-        <h2 className="text-3xl font-semibold tracking-tight">{result.word}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{result.phonetic}</p>
-        <div className="mt-8 border-t border-border pt-6">
-          <p className="text-base leading-7">{result.definition}</p>
-        </div>
-      </div>
-    </article>
+    <iframe
+      key={entryId}
+      ref={iframeRef}
+      className="h-full w-full border-0 bg-white"
+      sandbox="allow-scripts allow-same-origin"
+      src={`dictol-entry://entry/${encodeURIComponent(entryId)}`}
+      title="词条内容"
+    />
+  )
+}
+
+function isLookupWordMessage(value: unknown): value is LookupWordMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as Partial<LookupWordMessage>).type === 'dictol:lookup-word' &&
+    typeof (value as Partial<LookupWordMessage>).word === 'string'
   )
 }
