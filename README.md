@@ -2,6 +2,9 @@
 
 基于 Electron、React、TypeScript、Tailwind CSS 和 shadcn/ui 的桌面词典应用。
 
+
+![Screenshot](resources/snapshot.png)
+
 ## 开发环境
 
 - Node.js 22.12 或更高版本；仓库的 `.nvmrc` 固定为 22.15.1。
