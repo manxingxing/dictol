@@ -1,8 +1,9 @@
-import { app, shell, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain, type Rectangle } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { closeDatabase, initializeDatabase } from './database'
+import { DictionaryViewManager } from './dictionary-view'
 import {
   getDictionaryEntryContent,
   importDictionaryFromFile,
@@ -12,6 +13,8 @@ import {
 import { registerResourceProtocol, registerResourceScheme } from './resource-protocol'
 
 registerResourceScheme()
+
+let dictionaryViewManager: DictionaryViewManager | undefined
 
 ipcMain.handle('dictionaries:list-ready', () => listReadyDictionaries())
 ipcMain.handle('dictionaries:import', async () => {
@@ -27,6 +30,23 @@ ipcMain.handle('dictionary-entries:search', (_, prefix: string, limit?: number) 
   searchDictionaryEntries(prefix, limit)
 )
 ipcMain.handle('dictionary-entries:get', (_, entryId: string) => getDictionaryEntryContent(entryId))
+ipcMain.handle('dictionary-view:show', (event, entryId: string) => {
+  if (!dictionaryViewManager?.acceptsHostSender(event.sender.id)) return
+  return dictionaryViewManager.show(entryId)
+})
+ipcMain.on('dictionary-view:hide', (event) => {
+  if (dictionaryViewManager?.acceptsHostSender(event.sender.id)) dictionaryViewManager.hide()
+})
+ipcMain.on('dictionary-view:set-bounds', (event, bounds: Rectangle) => {
+  if (dictionaryViewManager?.acceptsHostSender(event.sender.id) && isRectangle(bounds)) {
+    dictionaryViewManager.setBounds(bounds)
+  }
+})
+ipcMain.on('dictionary-view:lookup-word', (event, word: string) => {
+  if (dictionaryViewManager?.acceptsSender(event.sender.id) && typeof word === 'string') {
+    dictionaryViewManager.sendLookup(word)
+  }
+})
 
 if (is.dev) {
   ipcMain.handle('debug:pglite-query', async (_, query: string, params?: unknown[]) => {
@@ -70,9 +90,17 @@ function createWindow(): void {
       sandbox: true
     }
   })
+  dictionaryViewManager = new DictionaryViewManager(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.on('closed', () => {
+    if (dictionaryViewManager) {
+      dictionaryViewManager.destroy()
+      dictionaryViewManager = undefined
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -89,6 +117,14 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function isRectangle(value: unknown): value is Rectangle {
+  if (typeof value !== 'object' || value === null) return false
+  const rectangle = value as Partial<Rectangle>
+  return [rectangle.x, rectangle.y, rectangle.width, rectangle.height].every(
+    (part) => typeof part === 'number' && Number.isFinite(part) && part >= 0
+  )
 }
 
 // This method will be called when Electron has finished

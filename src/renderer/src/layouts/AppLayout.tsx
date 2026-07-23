@@ -15,9 +15,8 @@ export function AppLayout(): React.JSX.Element {
         <main className="min-w-0 flex-1">
           <Outlet />
         </main>
+        {import.meta.env.DEV && <PGliteDebugPanel />}
       </div>
-
-      {import.meta.env.DEV && <PGliteDebugPanel />}
     </div>
   )
 }

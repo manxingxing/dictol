@@ -46,6 +46,12 @@ declare global {
           html: string
         } | null>
       }
+      dictionaryView: {
+        show: (entryId: string) => Promise<void>
+        hide: () => void
+        setBounds: (bounds: { x: number; y: number; width: number; height: number }) => void
+        onLookupWord: (callback: (word: string) => void) => () => void
+      }
       debug: {
         pgliteQuery: (query: string, params?: unknown[]) => Promise<unknown>
         pgliteExec: (query: string, options?: { rowMode?: 'array' | 'object' }) => Promise<unknown>

@@ -45,6 +45,17 @@ const api = Object.freeze({
     get: (entryId: string): Promise<DictionaryEntryContent | null> =>
       ipcRenderer.invoke('dictionary-entries:get', entryId)
   }),
+  dictionaryView: Object.freeze({
+    show: (entryId: string): Promise<void> => ipcRenderer.invoke('dictionary-view:show', entryId),
+    hide: (): void => ipcRenderer.send('dictionary-view:hide'),
+    setBounds: (bounds: { x: number; y: number; width: number; height: number }): void =>
+      ipcRenderer.send('dictionary-view:set-bounds', bounds),
+    onLookupWord: (callback: (word: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, word: string): void => callback(word)
+      ipcRenderer.on('dictionary-view:lookup-word', listener)
+      return () => ipcRenderer.removeListener('dictionary-view:lookup-word', listener)
+    }
+  }),
   debug: Object.freeze({
     pgliteQuery: (query: string, params?: unknown[]) =>
       ipcRenderer.invoke('debug:pglite-query', query, params),

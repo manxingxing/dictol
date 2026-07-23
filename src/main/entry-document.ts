@@ -1,15 +1,29 @@
 export function createEntryDocument(html: string, dictionaryId: string): string {
   const baseUrl = `dictol-resource://dictionary/${dictionaryId}/`
+  const oxfordOrigins = [
+    'https://www.oxfordlearnersdictionaries.com',
+    'https://oxford-x-file.oss-cn-hangzhou.aliyuncs.com'
+  ].join(' ')
+  const contentSecurityPolicy = [
+    "default-src 'none'",
+    "style-src 'unsafe-inline' dictol-resource:",
+    `img-src data: blob: dictol-resource: ${oxfordOrigins}`,
+    `media-src blob: dictol-resource: ${oxfordOrigins}`,
+    "script-src 'unsafe-inline' 'unsafe-eval' dictol-resource:",
+    'font-src data: dictol-resource:',
+    `connect-src dictol-resource: ${oxfordOrigins} wss://speech.platform.bing.com`,
+    'base-uri dictol-resource:'
+  ].join('; ')
   const rewritten = html.replace(
     /\b(?:sound|audio|file):\/\/\/?([^"'\s<>]+)/gi,
     (_, resourcePath: string) => `${baseUrl}${resourcePath.replace(/^\/+/, '')}`
   )
-  const headContent = `<base href="${baseUrl}"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' dictol-resource:; img-src data: blob: dictol-resource:; media-src blob: dictol-resource:; script-src 'unsafe-inline' 'unsafe-eval' dictol-resource:; font-src data: dictol-resource:; connect-src dictol-resource:; base-uri dictol-resource:">`
+  const headContent = `<base href="${baseUrl}"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">`
   const withHead = /<head(?:\s[^>]*)?>/i.test(rewritten)
     ? rewritten.replace(/<head(?:\s[^>]*)?>/i, (head) => `${head}${headContent}`)
     : `<head>${headContent}</head>${rewritten}`
   const lookupBridge = `<script>(()=>{
-    const lookup=(word)=>{const value=word?.trim();if(value&&value.length<=200){window.parent.postMessage({type:'dictol:lookup-word',word:value},'*')}};
+    const lookup=(word)=>{const value=word?.trim();if(value&&value.length<=200){window.dictolEntry?.lookupWord(value)}};
     const localAudio=new Audio();
     document.addEventListener('dblclick',()=>{setTimeout(()=>lookup(window.getSelection()?.toString()),0)},true);
     document.addEventListener('click',(event)=>{

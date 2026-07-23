@@ -64,6 +64,20 @@ export type DictionaryEntryContent = {
   html: string
 }
 
+export async function getDictionaryEntryDictionaryId(entryId: string): Promise<string | null> {
+  const numericEntryId = Number(entryId)
+  if (!Number.isSafeInteger(numericEntryId) || numericEntryId <= 0) return null
+
+  const database = await getDatabase()
+  const [row] = await database
+    .select({ dictionaryId: dictionaryEntry.dictionaryId })
+    .from(dictionaryEntry)
+    .innerJoin(dictionary, eq(dictionary.id, dictionaryEntry.dictionaryId))
+    .where(and(eq(dictionaryEntry.id, numericEntryId), eq(dictionary.status, 'ready')))
+    .limit(1)
+  return row ? String(row.dictionaryId) : null
+}
+
 async function copyFile(sourcePath: string, targetPath: string): Promise<void> {
   await cp(sourcePath, targetPath)
 }

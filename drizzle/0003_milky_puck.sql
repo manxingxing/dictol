@@ -1,0 +1,1 @@
+ALTER TABLE "dictionary" ADD COLUMN "dict_path" text;

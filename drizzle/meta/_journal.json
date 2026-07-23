@@ -15,6 +15,27 @@
       "when": 1784721448444,
       "tag": "0001_military_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784730114024,
+      "tag": "0002_swift_lady_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784812784497,
+      "tag": "0003_milky_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784814761289,
+      "tag": "0004_nasty_slipstream",
+      "breakpoints": true
     }
   ]
 }

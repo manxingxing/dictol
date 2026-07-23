@@ -59,11 +59,17 @@ export function registerResourceProtocol(): void {
 async function handleEntryRequest(request: Request): Promise<Response> {
   try {
     const url = new URL(request.url)
+    const dictionaryId = /^dictionary-(\d+)$/.exec(url.hostname)?.[1]
     const entryId = decodeURIComponent(url.pathname).replace(/^\/+/, '')
-    if (!entryId) return response('Missing entry id', 'text/plain; charset=utf-8', 400)
+    if (!dictionaryId || !entryId) {
+      return response('Invalid entry URL', 'text/plain; charset=utf-8', 400)
+    }
 
     const entry = await getDictionaryEntryContent(entryId)
     if (!entry) return response('Entry not found', 'text/plain; charset=utf-8', 404)
+    if (entry.dictionaryId !== dictionaryId) {
+      return response('Dictionary mismatch', 'text/plain; charset=utf-8', 404)
+    }
     return response(createEntryDocument(entry.html, entry.dictionaryId), 'text/html; charset=utf-8')
   } catch (error) {
     console.error('Failed to load dictionary entry', error)

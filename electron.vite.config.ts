@@ -5,7 +5,16 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {},
-  preload: {},
+  preload: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/preload/index.ts'),
+          dictionary: resolve('src/preload/dictionary.ts')
+        }
+      }
+    }
+  },
   renderer: {
     resolve: {
       alias: {

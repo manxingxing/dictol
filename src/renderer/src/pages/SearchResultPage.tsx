@@ -1,36 +1,64 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useAppStore } from '@/stores/app-store'
 
-type LookupWordMessage = {
-  type: 'dictol:lookup-word'
-  word: string
-}
-
 export function SearchResultPage(): React.JSX.Element {
   const { entryId } = useParams()
   const navigate = useNavigate()
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [failedEntryId, setFailedEntryId] = useState<string | null>(null)
   const setSearchQuery = useAppStore((state) => state.setSearchQuery)
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent<unknown>): void => {
-      if (event.source !== iframeRef.current?.contentWindow || !isLookupWordMessage(event.data)) {
-        return
-      }
-      const word = event.data.word.trim()
+    return window.dictol.dictionaryView.onLookupWord((value) => {
+      const word = value.trim()
       if (!word) return
       setSearchQuery(word)
       void window.dictol.entries.search(word, 1).then((results) => {
         const first = results[0]
         if (first) void navigate(`/search/${first.id}`)
       })
-    }
-
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
+    })
   }, [navigate, setSearchQuery])
+
+  useEffect(() => {
+    if (!entryId) {
+      window.dictol.dictionaryView.hide()
+      return
+    }
+    let active = true
+    void window.dictol.dictionaryView.show(entryId).catch(() => {
+      if (active) setFailedEntryId(entryId)
+    })
+    return () => {
+      active = false
+      window.dictol.dictionaryView.hide()
+    }
+  }, [entryId])
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container || !entryId) return
+
+    const updateBounds = (): void => {
+      const bounds = container.getBoundingClientRect()
+      window.dictol.dictionaryView.setBounds({
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height
+      })
+    }
+    const observer = new ResizeObserver(updateBounds)
+    observer.observe(container)
+    window.addEventListener('resize', updateBounds)
+    updateBounds()
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateBounds)
+    }
+  }, [entryId])
 
   if (!entryId) {
     return (
@@ -40,23 +68,13 @@ export function SearchResultPage(): React.JSX.Element {
     )
   }
 
-  return (
-    <iframe
-      key={entryId}
-      ref={iframeRef}
-      className="h-full w-full border-0 bg-white"
-      sandbox="allow-scripts allow-same-origin"
-      src={`dictol-entry://entry/${encodeURIComponent(entryId)}`}
-      title="词条内容"
-    />
-  )
-}
+  if (failedEntryId === entryId) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-destructive">
+        无法读取这个词条
+      </div>
+    )
+  }
 
-function isLookupWordMessage(value: unknown): value is LookupWordMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as Partial<LookupWordMessage>).type === 'dictol:lookup-word' &&
-    typeof (value as Partial<LookupWordMessage>).word === 'string'
-  )
+  return <div ref={containerRef} className="h-full w-full bg-white" aria-label="词条内容" />
 }
