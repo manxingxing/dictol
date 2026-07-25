@@ -3,6 +3,18 @@ declare global {
     dictol: {
       platform: NodeJS.Platform
       dictionaries: {
+        list: () => Promise<
+          {
+            id: string
+            name: string
+            description: string | null
+            customCss: string
+            recordCount: string | null
+            status: 'pending' | 'importing' | 'ready' | 'error'
+            createdAt: string
+            updatedAt: string
+          }[]
+        >
         listReady: () => Promise<
           {
             id: string
@@ -25,6 +37,10 @@ declare global {
             type: 'mdx' | 'mdd'
           }[]
         } | null>
+        delete: (dictionaryId: string) => Promise<void>
+        reorder: (dictionaryIds: string[]) => Promise<void>
+        updateName: (dictionaryId: string, name: string) => Promise<void>
+        updateCustomCss: (dictionaryId: string, customCss: string) => Promise<void>
       }
       entries: {
         search: (
@@ -32,29 +48,83 @@ declare global {
           limit?: number
         ) => Promise<
           {
-            id: string
-            dictionaryId: string
-            dictionaryName: string
             word: string
+            normalizedWord: string
+            dictionaryCount: number
           }[]
         >
+        lookup: (term: string) => Promise<{
+          word: string
+          normalizedWord: string
+          dictionaries: {
+            entryId: string
+            dictionaryId: string
+            dictionaryName: string
+          }[]
+        } | null>
         get: (entryId: string) => Promise<{
           id: string
           dictionaryId: string
           dictionaryName: string
           word: string
           html: string
+          customCss: string
         } | null>
+      }
+      history: {
+        list: () => Promise<
+          {
+            id: string
+            term: string
+            queryCount: number
+            lastQueriedAt: string
+          }[]
+        >
+        record: (term: string) => Promise<void>
+        clear: () => Promise<void>
+      }
+      app: {
+        onFocusSearch: (callback: () => void) => () => void
+      }
+      wordCapture: {
+        getStatus: () => Promise<{
+          supported: boolean
+          trusted: boolean
+          registered: boolean
+          shortcut: string
+        } | null>
+        requestAccess: () => Promise<{
+          supported: boolean
+          trusted: boolean
+          registered: boolean
+          shortcut: string
+        } | null>
+        setShortcut: (shortcut: string) => Promise<{
+          ok: boolean
+          status: {
+            supported: boolean
+            trusted: boolean
+            registered: boolean
+            shortcut: string
+          }
+          error?: string
+        } | null>
+        onEvent: (
+          callback: (
+            event:
+              | { type: 'lookup'; text: string }
+              | { type: 'permission-required' }
+              | { type: 'empty' }
+              | { type: 'error'; message: string }
+          ) => void
+        ) => () => void
       }
       dictionaryView: {
         show: (entryId: string) => Promise<void>
         hide: () => void
         setBounds: (bounds: { x: number; y: number; width: number; height: number }) => void
+        onRequestBounds: (callback: () => void) => () => void
         onLookupWord: (callback: (word: string) => void) => () => void
-      }
-      debug: {
-        pgliteQuery: (query: string, params?: unknown[]) => Promise<unknown>
-        pgliteExec: (query: string, options?: { rowMode?: 'array' | 'object' }) => Promise<unknown>
       }
     }
   }

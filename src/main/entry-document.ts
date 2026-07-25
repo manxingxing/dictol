@@ -1,52 +1,44 @@
-export function createEntryDocument(html: string, dictionaryId: string): string {
+export function createEntryDocument(html: string, dictionaryId: string, customCss = ''): string {
   const baseUrl = `dictol-resource://dictionary/${dictionaryId}/`
-  const oxfordOrigins = [
+  const onlineResourceOrigins = [
+    'https://www.ldoceonline.com',
     'https://www.oxfordlearnersdictionaries.com',
     'https://oxford-x-file.oss-cn-hangzhou.aliyuncs.com'
   ].join(' ')
   const contentSecurityPolicy = [
+    'upgrade-insecure-requests',
     "default-src 'none'",
     "style-src 'unsafe-inline' dictol-resource:",
-    `img-src data: blob: dictol-resource: ${oxfordOrigins}`,
-    `media-src blob: dictol-resource: ${oxfordOrigins}`,
-    "script-src 'unsafe-inline' 'unsafe-eval' dictol-resource:",
+    `img-src data: blob: dictol-resource: ${onlineResourceOrigins}`,
+    `media-src blob: dictol-resource: http://www.ldoceonline.com ${onlineResourceOrigins}`,
+    "script-src 'unsafe-inline' 'unsafe-eval' dictol-entry: dictol-resource:",
     'font-src data: dictol-resource:',
-    `connect-src dictol-resource: ${oxfordOrigins} wss://speech.platform.bing.com`,
+    `connect-src dictol-resource: ${onlineResourceOrigins} wss://speech.platform.bing.com`,
     'base-uri dictol-resource:'
   ].join('; ')
-  const rewritten = html.replace(
-    /\b(?:sound|audio|file):\/\/\/?([^"'\s<>]+)/gi,
-    (_, resourcePath: string) => `${baseUrl}${resourcePath.replace(/^\/+/, '')}`
-  )
-  const headContent = `<base href="${baseUrl}"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">`
+  const rewritten = html
+    .replace(/\bhttp:\/\/www\.ldoceonline\.com(?=[/"'\s<>])/gi, 'https://www.ldoceonline.com')
+    .replace(
+      /\b(?:sound|audio|file):\/\/\/?([^"'\s<>]+)/gi,
+      (_, resourcePath: string) => `${baseUrl}${resourcePath.replace(/^\/+/, '')}`
+    )
+  const appearance = `<meta name="color-scheme" content="light dark">`
+  const headContent = `<base href="${baseUrl}">${appearance}<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">`
   const withHead = /<head(?:\s[^>]*)?>/i.test(rewritten)
     ? rewritten.replace(/<head(?:\s[^>]*)?>/i, (head) => `${head}${headContent}`)
     : `<head>${headContent}</head>${rewritten}`
-  const lookupBridge = `<script>(()=>{
-    const lookup=(word)=>{const value=word?.trim();if(value&&value.length<=200){window.dictolEntry?.lookupWord(value)}};
-    const localAudio=new Audio();
-    document.addEventListener('dblclick',()=>{setTimeout(()=>lookup(window.getSelection()?.toString()),0)},true);
-    document.addEventListener('click',(event)=>{
-      const anchor=event.target instanceof Element?event.target.closest('a[href]'):null;
-      const href=anchor?.getAttribute('href')?.trim();
-      if(!href||!/^entry:\\/\\//i.test(href))return;
-      event.preventDefault();
-      event.stopPropagation();
-      const target=href.replace(/^entry:\\/\\/\\/?/i,'').split('#',1)[0];
-      try{lookup(decodeURIComponent(target))}catch{lookup(target)}
-    },true);
-    document.addEventListener('click',(event)=>{
-      if(event.defaultPrevented)return;
-      const anchor=event.target instanceof Element?event.target.closest('a[href]'):null;
-      const href=anchor?.href;
-      if(!href||!/^dictol-resource:\\/\\//i.test(href)||!/[.](?:mp3|wav|ogg|oga|spx|m4a)(?:[?#]|$)/i.test(href))return;
-      event.preventDefault();
-      localAudio.pause();
-      localAudio.src=href;
-      localAudio.play().catch((error)=>console.error('Failed to play dictionary audio',error));
-    });
-  })()</script>`
-  return /<\/body>/i.test(withHead)
-    ? withHead.replace(/<\/body>/i, `${lookupBridge}</body>`)
-    : `${withHead}${lookupBridge}`
+  const customStyle = customCss
+    ? `<style id="dictol-custom-style">${escapeStyleContent(customCss)}</style>`
+    : ''
+  const withCustomStyle = customStyle
+    ? withHead.replace(/<\/head>/i, `${customStyle}</head>`)
+    : withHead
+  const lookupBridge = '<script src="dictol-entry://app/entry-bridge.js"></script>'
+  return /<\/body>/i.test(withCustomStyle)
+    ? withCustomStyle.replace(/<\/body>/i, `${lookupBridge}</body>`)
+    : `${withCustomStyle}${lookupBridge}`
+}
+
+function escapeStyleContent(value: string): string {
+  return value.replace(/<\/style/gi, '<\\/style')
 }

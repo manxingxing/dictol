@@ -1,188 +1,289 @@
 {
-  "id": "6ff79aab-bcab-4b23-8bc3-75f9d563ffe0",
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "4105e549-9c04-470f-bb78-41d80fcc4e83",
   "prevId": "00000000-0000-0000-0000-000000000000",
-  "version": "7",
-  "dialect": "postgresql",
   "tables": {
-    "public.dictionary": {
+    "dictionary": {
       "name": "dictionary",
-      "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "bigint",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "dictionary_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "9223372036854775807",
-            "cache": "1",
-            "cycle": false
-          }
+          "autoincrement": true
         },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
         },
         "description": {
           "name": "description",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "autoincrement": false
+        },
+        "record_count": {
+          "name": "record_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dict_path": {
+          "name": "dict_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false,
           "default": "'importing'"
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp with time zone",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "autoincrement": false,
+          "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp with time zone",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "autoincrement": false,
+          "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         }
       },
       "indexes": {
         "dictionary_status_idx": {
           "name": "dictionary_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
+          "columns": ["status"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "checkConstraints": {
+        "dictionary_status_check": {
+          "name": "dictionary_status_check",
+          "value": "\"dictionary\".\"status\" in ('pending', 'importing', 'ready', 'error')"
+        }
+      }
     },
-    "public.dictionary_file": {
-      "name": "dictionary_file",
-      "schema": "",
+    "dictionary_entry": {
+      "name": "dictionary_entry",
       "columns": {
         "id": {
           "name": "id",
-          "type": "bigint",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "dictionary_file_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "9223372036854775807",
-            "cache": "1",
-            "cycle": false
-          }
+          "autoincrement": true
         },
         "dictionary_id": {
           "name": "dictionary_id",
-          "type": "bigint",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dictionary_file_id": {
+          "name": "dictionary_file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "word": {
+          "name": "word",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_word": {
+          "name": "normalized_word",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "record_start_offset": {
+          "name": "record_start_offset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "record_end_offset": {
+          "name": "record_end_offset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key_block_idx": {
+          "name": "key_block_idx",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "dictionary_entry_dictionary_id_idx": {
+          "name": "dictionary_entry_dictionary_id_idx",
+          "columns": ["dictionary_id"],
+          "isUnique": false
+        },
+        "dictionary_entry_file_id_idx": {
+          "name": "dictionary_entry_file_id_idx",
+          "columns": ["dictionary_file_id"],
+          "isUnique": false
+        },
+        "dictionary_entry_normalized_word_idx": {
+          "name": "dictionary_entry_normalized_word_idx",
+          "columns": ["normalized_word"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "dictionary_entry_dictionary_id_dictionary_id_fk": {
+          "name": "dictionary_entry_dictionary_id_dictionary_id_fk",
+          "tableFrom": "dictionary_entry",
+          "tableTo": "dictionary",
+          "columnsFrom": ["dictionary_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "dictionary_entry_dictionary_file_id_dictionary_file_id_fk": {
+          "name": "dictionary_entry_dictionary_file_id_dictionary_file_id_fk",
+          "tableFrom": "dictionary_entry",
+          "tableTo": "dictionary_file",
+          "columnsFrom": ["dictionary_file_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "dictionary_file": {
+      "name": "dictionary_file",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "dictionary_id": {
+          "name": "dictionary_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         },
         "file_name": {
           "name": "file_name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
         },
         "file_path": {
           "name": "file_path",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
         },
         "file_type": {
           "name": "file_type",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
         },
         "file_size": {
           "name": "file_size",
-          "type": "bigint",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "autoincrement": false
         },
         "checksum": {
           "name": "checksum",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "autoincrement": false
         },
         "format_version": {
           "name": "format_version",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "autoincrement": false
         },
         "is_encrypted": {
           "name": "is_encrypted",
-          "type": "boolean",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false,
           "default": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp with time zone",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "autoincrement": false,
+          "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp with time zone",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "autoincrement": false,
+          "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         }
       },
       "indexes": {
+        "dictionary_file_file_path_unique": {
+          "name": "dictionary_file_file_path_unique",
+          "columns": ["file_path"],
+          "isUnique": true
+        },
         "dictionary_file_dictionary_id_idx": {
           "name": "dictionary_file_dictionary_id_idx",
-          "columns": [
-            {
-              "expression": "dictionary_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
+          "columns": ["dictionary_id"],
+          "isUnique": false
+        },
+        "dictionary_file_type_idx": {
+          "name": "dictionary_file_type_idx",
+          "columns": ["file_type"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -190,40 +291,30 @@
           "name": "dictionary_file_dictionary_id_dictionary_id_fk",
           "tableFrom": "dictionary_file",
           "tableTo": "dictionary",
-          "columnsFrom": [
-            "dictionary_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dictionary_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "dictionary_file_file_path_unique": {
-          "name": "dictionary_file_file_path_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "file_path"
-          ]
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "dictionary_file_type_check": {
+          "name": "dictionary_file_type_check",
+          "value": "\"dictionary_file\".\"file_type\" in ('mdx', 'mdd')"
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     }
   },
-  "enums": {},
-  "schemas": {},
-  "sequences": {},
-  "roles": {},
-  "policies": {},
   "views": {},
+  "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
   }
 }

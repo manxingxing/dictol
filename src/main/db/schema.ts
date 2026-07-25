@@ -1,27 +1,26 @@
 import { relations, sql } from 'drizzle-orm'
-import { bigint, boolean, check, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-export const dictionary = pgTable(
+const isoNow = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
+
+export const dictionary = sqliteTable(
   'dictionary',
   {
-    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
     description: text('description'),
-    recordCount: bigint('record_count', { mode: 'bigint' }),
+    recordCount: integer('record_count'),
     dictPath: text('dict_path'),
-    status: text('status', {
-      enum: ['pending', 'importing', 'ready', 'error']
-    })
+    customCss: text('custom_css').notNull().default(''),
+    sortOrder: integer('sort_order').notNull().default(0),
+    status: text('status', { enum: ['pending', 'importing', 'ready', 'error'] })
       .notNull()
       .default('importing'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow()
+    createdAt: text('created_at').notNull().default(isoNow),
+    updatedAt: text('updated_at').notNull().default(isoNow)
   },
   (table) => [
+    index('dictionary_sort_order_idx').on(table.sortOrder),
     index('dictionary_status_idx').on(table.status),
     check(
       'dictionary_status_check',
@@ -30,54 +29,63 @@ export const dictionary = pgTable(
   ]
 )
 
-export const dictionaryFile = pgTable(
+export const dictionaryFile = sqliteTable(
   'dictionary_file',
   {
-    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
-    dictionaryId: bigint('dictionary_id', { mode: 'number' })
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    dictionaryId: integer('dictionary_id')
       .notNull()
       .references(() => dictionary.id, { onDelete: 'cascade' }),
     fileName: text('file_name').notNull(),
     filePath: text('file_path').notNull().unique(),
     fileType: text('file_type', { enum: ['mdx', 'mdd'] }).notNull(),
-    fileSize: bigint('file_size', { mode: 'number' }),
+    fileSize: integer('file_size'),
     checksum: text('checksum'),
     formatVersion: text('format_version'),
-    isEncrypted: boolean('is_encrypted').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow()
+    isEncrypted: integer('is_encrypted', { mode: 'boolean' }).notNull().default(false),
+    createdAt: text('created_at').notNull().default(isoNow),
+    updatedAt: text('updated_at').notNull().default(isoNow)
   },
   (table) => [
     index('dictionary_file_dictionary_id_idx').on(table.dictionaryId),
+    index('dictionary_file_type_idx').on(table.fileType),
     check('dictionary_file_type_check', sql`${table.fileType} in ('mdx', 'mdd')`)
   ]
 )
 
-export const dictionaryEntry = pgTable(
+export const dictionaryEntry = sqliteTable(
   'dictionary_entry',
   {
-    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
-    dictionaryId: bigint('dictionary_id', { mode: 'number' })
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    dictionaryId: integer('dictionary_id')
       .notNull()
       .references(() => dictionary.id, { onDelete: 'cascade' }),
-    dictionaryFileId: bigint('dictionary_file_id', { mode: 'number' })
+    dictionaryFileId: integer('dictionary_file_id')
       .notNull()
       .references(() => dictionaryFile.id, { onDelete: 'cascade' }),
     word: text('word').notNull(),
     normalizedWord: text('normalized_word').notNull(),
-    recordStartOffset: bigint('record_start_offset', { mode: 'bigint' }).notNull(),
-    recordEndOffset: bigint('record_end_offset', { mode: 'bigint' }).notNull(),
-    keyBlockIdx: bigint('key_block_idx', { mode: 'number' }).notNull()
+    recordStartOffset: integer('record_start_offset').notNull(),
+    recordEndOffset: integer('record_end_offset').notNull(),
+    keyBlockIdx: integer('key_block_idx').notNull()
   },
   (table) => [
     index('dictionary_entry_dictionary_id_idx').on(table.dictionaryId),
     index('dictionary_entry_file_id_idx').on(table.dictionaryFileId),
     index('dictionary_entry_normalized_word_idx').on(table.normalizedWord)
   ]
+)
+
+export const queryHistory = sqliteTable(
+  'query_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    term: text('term').notNull(),
+    normalizedTerm: text('normalized_term').notNull().unique(),
+    queryCount: integer('query_count').notNull().default(1),
+    lastQueriedAt: text('last_queried_at').notNull().default(isoNow)
+  },
+  (table) => [index('query_history_last_queried_at_idx').on(table.lastQueriedAt)]
 )
 
 export const dictionaryRelations = relations(dictionary, ({ many }) => ({
@@ -108,3 +116,4 @@ export type DictionaryFile = typeof dictionaryFile.$inferSelect
 export type NewDictionaryFile = typeof dictionaryFile.$inferInsert
 export type DictionaryEntry = typeof dictionaryEntry.$inferSelect
 export type NewDictionaryEntry = typeof dictionaryEntry.$inferInsert
+export type QueryHistory = typeof queryHistory.$inferSelect

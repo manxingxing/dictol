@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query'
 
 type DictionarySearchResult = Awaited<ReturnType<Window['dictol']['entries']['search']>>[number]
-type DictionaryEntryContent = Awaited<ReturnType<Window['dictol']['entries']['get']>>
+type DictionaryEntryGroup = Awaited<ReturnType<Window['dictol']['entries']['lookup']>>
 
 export function useDictionarySearch(
   prefix: string,
@@ -17,13 +17,14 @@ export function useDictionarySearch(
   })
 }
 
-export function useDictionaryEntry(
-  entryId: string | undefined
-): UseQueryResult<DictionaryEntryContent, Error> {
+export function useDictionaryLookup(
+  term: string | undefined
+): UseQueryResult<DictionaryEntryGroup, Error> {
+  const normalizedTerm = term?.trim() ?? ''
   return useQuery({
-    queryKey: ['dictionary-entries', 'entry', entryId],
-    queryFn: () => window.dictol.entries.get(entryId!),
-    enabled: Boolean(entryId),
+    queryKey: ['dictionary-entries', 'lookup', normalizedTerm.toLowerCase()],
+    queryFn: () => window.dictol.entries.lookup(normalizedTerm),
+    enabled: normalizedTerm.length > 0,
     staleTime: 5 * 60_000
   })
 }

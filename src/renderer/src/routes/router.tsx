@@ -18,7 +18,7 @@ export const router = createHashRouter([
         element: <SearchPage />,
         children: [
           { index: true, element: <SearchResultPage /> },
-          { path: ':entryId', element: <SearchResultPage /> }
+          { path: ':term', element: <SearchResultPage /> }
         ]
       },
       { path: 'dictionaries', element: <DictionariesPage /> },

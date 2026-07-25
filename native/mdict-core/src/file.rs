@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -8,6 +9,8 @@ use crate::crypto::decrypt_key_index;
 use crate::encoding::{decode, decode_strict, terminator_width};
 use crate::header::{self, FileKind, Header};
 use crate::{Error, Result};
+
+const MAX_LINK_REDIRECTS: usize = 16;
 
 #[derive(Debug, Clone)]
 pub struct KeySection {
@@ -414,6 +417,8 @@ impl MdictFile {
 
     pub fn lookup_key_block_by_word(&self, word: &str) -> Result<Option<Entry>> {
         let comparison_word = comparison_key(&self.header, word);
+        let exact_word = case_comparison_key(&self.header, word);
+        let mut normalized_match = None;
         for (block_index, block) in self.key_blocks.iter().enumerate() {
             if comparison_word < block.comparison_first_key
                 || comparison_word > block.comparison_last_key
@@ -429,11 +434,14 @@ impl MdictFile {
                     ))
                 })?;
                 if comparison_key(&self.header, &entry.key_text) == comparison_word {
-                    return Ok(Some(entry));
+                    if case_comparison_key(&self.header, &entry.key_text) == exact_word {
+                        return Ok(Some(entry));
+                    }
+                    normalized_match.get_or_insert(entry);
                 }
             }
         }
-        Ok(None)
+        Ok(normalized_match)
     }
 
     pub fn lookup(&self, word: &str) -> Result<Option<LookupResult>> {
@@ -445,6 +453,14 @@ impl MdictFile {
     }
 
     pub fn read_record(&self, location: &RecordLocation) -> Result<Vec<u8>> {
+        let record = self.read_record_raw(location)?;
+        if self.kind != FileKind::Mdx {
+            return Ok(record);
+        }
+        self.resolve_link_record(record)
+    }
+
+    fn read_record_raw(&self, location: &RecordLocation) -> Result<Vec<u8>> {
         if location.end < location.start
             || location.end > self.record_section.total_decompressed_size
         {
@@ -479,6 +495,25 @@ impl MdictFile {
             logical_offset = logical_end;
         }
         Ok(output)
+    }
+
+    fn resolve_link_record(&self, mut record: Vec<u8>) -> Result<Vec<u8>> {
+        let mut visited = HashSet::new();
+        for _ in 0..MAX_LINK_REDIRECTS {
+            let decoded = self.decode_record(&record);
+            let Some(target) = parse_link_target(&decoded) else {
+                return Ok(record);
+            };
+            if !visited.insert(comparison_key(&self.header, target)) {
+                return Ok(record);
+            }
+
+            let Some(entry) = self.lookup_key_block_by_word(target)? else {
+                return Ok(record);
+            };
+            record = self.read_record_raw(&entry.location)?;
+        }
+        Ok(record)
     }
 
     pub fn decode_record(&self, bytes: &[u8]) -> String {
@@ -848,6 +883,33 @@ fn comparison_key(header: &Header, key: &str) -> String {
         stripped
     } else {
         stripped.to_lowercase()
+    }
+}
+
+fn case_comparison_key(header: &Header, key: &str) -> String {
+    if header.key_case_sensitive {
+        key.to_string()
+    } else {
+        key.to_lowercase()
+    }
+}
+
+fn parse_link_target(record: &str) -> Option<&str> {
+    let command = record.trim_end_matches('\0');
+    let command = command
+        .strip_suffix("\r\n")
+        .or_else(|| command.strip_suffix('\n'))
+        .unwrap_or(command);
+    let prefix = command.get(.."@@@LINK=".len())?;
+    if !prefix.eq_ignore_ascii_case("@@@LINK=") {
+        return None;
+    }
+
+    let target = command.get("@@@LINK=".len()..)?.trim();
+    if target.is_empty() || target.contains(['\r', '\n', '\0']) {
+        None
+    } else {
+        Some(target)
     }
 }
 

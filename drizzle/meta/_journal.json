@@ -1,40 +1,40 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1784721412778,
-      "tag": "0000_curved_silver_samurai",
+      "version": "6",
+      "when": 1784868795891,
+      "tag": "0000_tough_redwing",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "7",
-      "when": 1784721448444,
-      "tag": "0001_military_scarlet_spider",
+      "version": "6",
+      "when": 1784878421088,
+      "tag": "0001_eager_gauntlet",
       "breakpoints": true
     },
     {
       "idx": 2,
-      "version": "7",
-      "when": 1784730114024,
-      "tag": "0002_swift_lady_mastermind",
+      "version": "6",
+      "when": 1784878945189,
+      "tag": "0002_long_paper_doll",
       "breakpoints": true
     },
     {
       "idx": 3,
-      "version": "7",
-      "when": 1784812784497,
-      "tag": "0003_milky_puck",
+      "version": "6",
+      "when": 1784886767603,
+      "tag": "0003_motionless_proudstar",
       "breakpoints": true
     },
     {
       "idx": 4,
-      "version": "7",
-      "when": 1784814761289,
-      "tag": "0004_nasty_slipstream",
+      "version": "6",
+      "when": 1784909889170,
+      "tag": "0004_mean_jack_flag",
       "breakpoints": true
     }
   ]

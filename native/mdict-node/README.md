@@ -17,7 +17,7 @@ const result = await dictionary.lookup('abandon')
 const scanner = dictionary.createScanner()
 while (true) {
   const batch = await scanner.nextBatch(2048)
-  // Insert batch.entries into PGlite here.
+  // Insert batch.entries into SQLite here.
   if (batch.done) break
 }
 

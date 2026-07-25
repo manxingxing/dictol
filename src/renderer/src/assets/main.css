@@ -16,6 +16,7 @@
 }
 
 :root {
+  color-scheme: light dark;
   --background: oklch(0.985 0.004 95);
   --foreground: oklch(0.22 0.018 75);
   --card: oklch(1 0 0);
@@ -28,6 +29,23 @@
   --input: oklch(0.88 0.014 85);
   --ring: oklch(0.55 0.11 150);
   --sidebar: oklch(0.97 0.008 95);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.18 0.008 145);
+    --foreground: oklch(0.91 0.008 100);
+    --card: oklch(0.215 0.009 145);
+    --card-foreground: oklch(0.91 0.008 100);
+    --primary: oklch(0.72 0.13 150);
+    --primary-foreground: oklch(0.16 0.015 150);
+    --muted: oklch(0.255 0.01 140);
+    --muted-foreground: oklch(0.7 0.015 110);
+    --border: oklch(0.32 0.012 135);
+    --input: oklch(0.36 0.014 135);
+    --ring: oklch(0.68 0.12 150);
+    --sidebar: oklch(0.155 0.009 145);
+  }
 }
 
 @layer base {
@@ -55,6 +73,10 @@
       'Segoe UI',
       sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 35%, transparent);
   }
 
   button,

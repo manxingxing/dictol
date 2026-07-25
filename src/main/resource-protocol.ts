@@ -13,8 +13,10 @@ import { getMdictDictionary } from './mdict-runtime'
 
 const RESOURCE_SCHEME = 'dictol-resource'
 const ENTRY_SCHEME = 'dictol-entry'
+const ENTRY_BRIDGE_URL = `${ENTRY_SCHEME}://app/entry-bridge.js`
 const dictionaryFiles = new Map<number, Promise<DictionaryResourceFiles | null>>()
 let registered = false
+let entryBridgeSource: Promise<Buffer> | undefined
 
 type DictionaryResourceFiles = {
   directory: string
@@ -56,8 +58,16 @@ export function registerResourceProtocol(): void {
   protocol.handle(ENTRY_SCHEME, handleEntryRequest)
 }
 
+export function invalidateDictionaryResources(dictionaryId: number): void {
+  dictionaryFiles.delete(dictionaryId)
+}
+
 async function handleEntryRequest(request: Request): Promise<Response> {
   try {
+    if (request.url === ENTRY_BRIDGE_URL) {
+      return response(await loadEntryBridgeSource(), 'text/javascript; charset=utf-8')
+    }
+
     const url = new URL(request.url)
     const dictionaryId = /^dictionary-(\d+)$/.exec(url.hostname)?.[1]
     const entryId = decodeURIComponent(url.pathname).replace(/^\/+/, '')
@@ -70,11 +80,38 @@ async function handleEntryRequest(request: Request): Promise<Response> {
     if (entry.dictionaryId !== dictionaryId) {
       return response('Dictionary mismatch', 'text/plain; charset=utf-8', 404)
     }
-    return response(createEntryDocument(entry.html, entry.dictionaryId), 'text/html; charset=utf-8')
+    return response(
+      createEntryDocument(entry.html, entry.dictionaryId, entry.customCss),
+      'text/html; charset=utf-8'
+    )
   } catch (error) {
     console.error('Failed to load dictionary entry', error)
     return response('Failed to load entry', 'text/plain; charset=utf-8', 500)
   }
+}
+
+async function loadEntryBridgeSource(): Promise<Buffer> {
+  entryBridgeSource ??= readFirstAvailableFile([
+    join(app.getAppPath(), 'resources', 'entry-bridge.js'),
+    join(app.getAppPath(), '..', 'resources', 'entry-bridge.js')
+  ])
+  try {
+    return await entryBridgeSource
+  } catch (error) {
+    entryBridgeSource = undefined
+    throw error
+  }
+}
+
+async function readFirstAvailableFile(paths: string[]): Promise<Buffer> {
+  for (const path of paths) {
+    try {
+      return await readFile(path)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+  throw new Error(`Entry bridge script not found in: ${paths.join(', ')}`)
 }
 
 async function handleResourceRequest(request: Request): Promise<Response> {

@@ -1,8 +1,18 @@
 # Dictol 执行计划与上下文摘要
 
-> 更新日期：2026-07-22  
-> 当前阶段：方案分析与真实词典验证  
-> 约束：在用户明确要求前，不开始应用功能编码。
+> 更新日期：2026-07-24
+> 当前阶段：原生解析、索引、查询与资源链路已实现，进入真实词典体验验证。
+
+## 0. 当前实现状态
+
+- Electron、React、Tailwind CSS、shadcn/ui、React Router、TanStack Query、Zustand 已接入。
+- 正式解析层已由 `js-mdict` 切换为项目内的 Rust `mdict-core`，通过 Node-API 供 Electron 主进程直接调用。
+- 上传 MDX 后由按需创建的导入 Worker 复制同目录的 MDD/CSS/JS/PNG 文件，并以 2,000 条为一批流式遍历 MDX，将词条、规范化词条和 record offset 写入 SQLite；每批使用一个独立小事务。
+- 搜索使用 SQLite 前缀范围查询；词条正文不入库，打开结果时由 Rust 按 offset 从 MDX 读取。
+- `dictol-resource://` 协议负责外置文件及多 MDD 资源读取；同一资源会并行查询多个 MDD，图片和音频按需缓存到 `app.userData/resource-cache`。
+- 搜索界面已支持实时建议、空输入时显示最近 50 个查询词、回车打开第一项；数据库按规范化词头分组返回多个词典入口，内容区使用 shadcn Tabs 在各词典结果间切换。词条 HTML 在独立 `WebContentsView` 中运行，支持双击选词和内部链接查询。
+- 成功打开词条后按规范化词头写入 SQLite 查询历史，不绑定具体词典记录；再次查询会递增次数并更新 `last_queried_at`，最多保留最近 200 条，并支持从历史重新查询或清空记录。
+- 最小 MDX/MDD 端到端测试、OALDPE/LDOCE5 真实文件回归、Rust 单测、Node-API 测试、Clippy、TypeScript、ESLint 和生产构建均已纳入验证。
 
 ## 1. 产品目标
 
@@ -22,18 +32,18 @@
 - 桌面框架：Electron。
 - 应用前端：React。
 - 主进程/后端协调层：Node.js。
-- MDX/MDD 解析：`js-mdict` 7.x。
-- 解析运行环境：Node.js Worker Thread，不在 Electron 主线程或 Renderer 中运行。
-- 本地索引数据库：PGlite，数据库文件存放于 Electron `app.userData`。
+- MDX/MDD 解析：项目内 Rust `mdict-core`。
+- Node 集成：NAPI-RS 生成的 `@dictol/mdict-native` 原生模块。
+- 本地索引数据库：SQLite（WAL 模式），数据库文件为 Electron `app.userData/dictol.sqlite`。
 
 ### 2.2 进程边界
 
 - Renderer 不直接调用 js-mdict 或访问词典文件。
 - Renderer 只调用受控的 preload API。
-- Node.js 后端负责查询 PGlite、调度解析 Worker、组合词条响应及管理导入任务。
-- js-mdict Worker 负责 MDX/MDD 解析、索引遍历和原始记录/资源读取。
-- 导入和大文件读取不得运行在 Electron 主线程。
-- PGlite 由 Node.js 查询和写入。
+- Node.js 后端负责查询 SQLite、调用原生解析模块、组合词条响应及管理导入任务。
+- Rust 原生模块负责 MDX/MDD 元数据解析、分批遍历和按定位读取记录/资源。
+- NAPI 的扫描与读取接口以异步任务暴露，避免在 Renderer 中执行解析。
+- Electron 主进程持有 SQLite 一般查询连接；导入 Worker 只在导入期间创建，并持有独立写连接。
 
 ### 2.3 存储原则
 
@@ -41,12 +51,12 @@
 
 - 保存词典元数据、源文件信息、词条键和记录定位信息。
 - 保存 MDD 资源键和对应分卷/定位信息。
-- 不把词条 HTML、图片、音频、字体等大块内容复制到 PGlite。
+- 不把词条 HTML、图片、音频、字体等大块内容复制到 SQLite。
 
 查询词条时：
 
-- 先从 PGlite 找到一个或多个记录定位信息。
-- Node 调用 js-mdict Worker 从原始 MDX/MDD 读取内容。
+- 先从 SQLite 找到一个或多个记录定位信息。
+- Node 调用 Rust 原生模块从原始 MDX/MDD 读取内容。
 - 在查询阶段解析重定向并组合页面。
 
 源文件移动、修改或替换后，原定位信息可能失效。词典表必须保存至少：文件大小、修改时间和内容指纹；打开词典时校验，失效后要求重新索引。
@@ -59,39 +69,39 @@ React Renderer
   │ typed preload API
   ▼
 Electron Main / Node Backend
-  ├── PGlite：词典、词条和资源索引
+  ├── SQLite 读连接：词典、词条和资源索引查询
   ├── 导入任务与进度管理
   ├── 查询、别名解析、页面组合
   ├── 自定义协议处理
-  └── Worker 调度与生命周期管理
-          │
-          ▼
-      js-mdict Worker Thread
+  └── 按需导入 Worker
+        ├── SQLite 独立写连接（每批 2,000 条事务）
+        └── Rust mdict-core / NAPI-RS
         ├── MDX/MDD 头部与版本解析
         ├── Encrypted=2 索引解密
         ├── key list 与 record block 解析
-        ├── lookupAll / fetch / locator 适配
+        ├── key block lookup / stable locator
         ├── MDD 资源读取
         └── 批量导入与随机读取
 ```
 
 ## 4. 词典页面隔离
 
-词典 HTML/JS 不得直接注入 React DOM。推荐放在独立、沙箱化的词典页面中运行：
+词典 HTML/JS 不直接注入 React DOM，也不使用 iframe。当前使用独立的 `WebContentsView` 运行词典页面，React 内容区通过 `ResizeObserver` 与主进程同步原生 View 的 bounds：
 
 - `nodeIntegration: false`
 - `contextIsolation: true`
 - `sandbox: true`
-- 不向词典页面暴露 Electron、Node.js、文件系统或通用 IPC。
-- 每部词典使用独立 origin/partition，避免 Cookie、localStorage 和缓存互相污染。
+- 不向词典页面暴露 Electron、Node.js、文件系统或通用 IPC；专用 preload 只允许上报查词目标。
+- 使用 `dictol-entry://dictionary-<id>/...` 为每部词典提供独立 origin，隔离 Cookie 和 localStorage。
+- React 路由负责选择词条、View 显隐和 bounds；词典页的导航、音频及双击查词由主进程桥接。
 
 建议注册自定义协议：
 
 ```text
-dictol-dict://<dictionary-id>/entry?key=apple
-dictol-dict://<dictionary-id>/oaldpe.css
-dictol-dict://<dictionary-id>/LM5style.css
-dictol-dict://<dictionary-id>/media/english/ameProns/apple1.mp3
+dictol-entry://dictionary-<id>/<entry-id>
+dictol-resource://dictionary/<id>/oaldpe.css
+dictol-resource://dictionary/<id>/LM5style.css
+dictol-resource://dictionary/<id>/media/english/ameProns/apple1.mp3
 ```
 
 协议处理器只接受已注册词典和规范化后的相对资源键，必须阻止路径穿越。响应应设置准确 MIME 类型、缓存策略和词典级 CSP。
@@ -168,19 +178,19 @@ Locator 的最终字段由 js-mdict `KeyWordItem` 和底层 record offset 能力
 阶段 1 必须验证这些字段是否属于稳定、可序列化、可跨进程重启复用的接口。若 js-mdict 暂时不能按持久化 locator 读取，第一版允许降级为：
 
 ```text
-PGlite 保存 dictionary_id + term + ordinal
+SQLite 保存 dictionary_id + term + ordinal
 → Worker 调用 lookupAll(term)
 → 按 ordinal 选择记录
 ```
 
-此时 PGlite 负责跨词典检索、排序和过滤，js-mdict 自身的内存 key list 负责文件内定位。长期目标仍是给适配层补充稳定的批量 key/locator 和按位置读取接口。
+此时 SQLite 负责跨词典检索、排序和过滤，js-mdict 自身的内存 key list 负责文件内定位。长期目标仍是给适配层补充稳定的批量 key/locator 和按位置读取接口。
 
 ## 6. 通用 MDX 查询语义
 
 查询结果不是单一记录，必须支持：
 
 1. 使用词典头部规则规范化查询键。
-2. 从 PGlite 读取该键的全部记录位置。
+2. 从 SQLite 读取该键的全部记录位置。
 3. 逐条按位置读取原始记录。
 4. 正文记录保留。
 5. `@@@LINK=<target>` 记录递归解析目标键。
@@ -207,13 +217,13 @@ PGlite 保存 dictionary_id + term + ordinal
 
 ### 7.1 格式与规模
 
-| 文件 | MDict 版本 | Encrypted | 记录数 | 主要内容 |
-|---|---:|---:|---:|---|
-| `oaldpe.mdx` | 2.0 | 2 | 622,808 | 词条 HTML |
-| `oaldpe.mdd` | 2.0 | No | 72 | CSS、字体、配置资源 |
-| `oaldpe.1.mdd` | 2.0 | 2 | 160,805 | MP3 |
-| `oaldpe.2.mdd` | 2.0 | No | 1,874 | PNG |
-| `oaldpe.3.mdd` | 2.0 | No | 112,897 | MP3 |
+| 文件           | MDict 版本 | Encrypted |  记录数 | 主要内容            |
+| -------------- | ---------: | --------: | ------: | ------------------- |
+| `oaldpe.mdx`   |        2.0 |         2 | 622,808 | 词条 HTML           |
+| `oaldpe.mdd`   |        2.0 |        No |      72 | CSS、字体、配置资源 |
+| `oaldpe.1.mdd` |        2.0 |         2 | 160,805 | MP3                 |
+| `oaldpe.2.mdd` |        2.0 |        No |   1,874 | PNG                 |
+| `oaldpe.3.mdd` |        2.0 |        No | 112,897 | MP3                 |
 
 四个 MDD 格式相同，但文件自身的加密配置不同。`Encrypted=2` 是关键词索引加密，不要求用户输入密码。
 
@@ -264,10 +274,10 @@ PGlite 保存 dictionary_id + term + ordinal
 
 ### 8.1 格式与规模
 
-| 文件 | 大小 | MDict 版本 | Encrypted | 记录数 |
-|---|---:|---:|---:|---:|
-| `LDOCE5.mdx` | 约 184MB | 2.0 | 2 | 283,110 |
-| `LDOCE5.mdd` | 约 1.2GB | 2.0 | 2 | 183,926 |
+| 文件         |     大小 | MDict 版本 | Encrypted |  记录数 |
+| ------------ | -------: | ---------: | --------: | ------: |
+| `LDOCE5.mdx` | 约 184MB |        2.0 |         2 | 283,110 |
+| `LDOCE5.mdd` | 约 1.2GB |        2.0 |         2 | 183,926 |
 
 MDX 配置：
 
@@ -348,37 +358,37 @@ Mozilla/5.0 (Macintosh) Dictol/1.0
 
 这样可以保持桌面布局并使用本地 MDD 音频。最终 UA 需要在 macOS、Windows、Linux 上分别验证。
 
-## 9. js-mdict 解析器方案
+## 9. Rust 解析器实现
 
-主解析器改为固定版本的 `js-mdict` 7.x，直接运行在 Node.js Worker Thread 中。当前项目是个人使用，许可证不作为此次技术选型的阻断因素。
+正式解析器为项目内的 `native/mdict-core`，Node 绑定位于 `native/mdict-node`。`js-mdict` 和 Python 工具仅作为行为对照与探索工具，不进入应用运行链路。
 
-选择理由：
+当前能力：
 
-- 直接支持 MDX/MDD，并提供 `lookup`、`lookupAll`、前缀、联想和模糊查询等能力。
-- `lookupAll` 能覆盖 LDOCE5 这类重复键词典。
-- 同时支持 Node ESM/CJS，接入 Electron 的 Node 后端比原生模块简单。
-- 移除原生编译、跨平台二进制分发和 ABI 适配成本，前期能更快验证真实词典。
-- MDX 可按关键词项读取，MDD 可定位资源，具备实现“索引只存键与位置、正文按需读取”的基础能力。
+- 打开 MDX/MDD 时只解析头部和 block 元数据，不持有完整 key text 或 record 内容。
+- `createScanner().nextBatch(size)` 分批遍历所有 key，并返回 key text、key block 与 record 起止 offset。
+- `readRecord(start, end)` 根据全局解压偏移定位相应 record block，只解压命中的 block。
+- `lookupKeyBlockByWord(word)` 和 `lookup(word)` 支持按键随机查找。
+- MDD 返回原始 `Buffer`，不经过 Base64。
+- 支持当前 OALDPE 与 LDOCE5 的 MDict 2.0、UTF-8/UTF-16、Encrypted=2、无压缩/zlib/LZO block。
+- XML/HTML entity 采用 `quick-xml` 相关能力与兼容策略解析；未知实体保留原文。
 
-运行约束：
+Node 层运行约束：
 
-- 所有打开、遍历、查询和资源读取都在 Worker Thread 执行，禁止在 Electron 主线程和 Renderer 中执行。
-- 导入默认单文件顺序处理，或使用严格受限的 worker 池，避免多个大词典同时建立内存索引。
-- 活跃词典实例按需打开并使用 LRU 淘汰；worker 必须可关闭、崩溃重启和取消长任务。
-- PGlite 只由 Node 后端持有，解析 worker 不直接打开数据库。
-- `Buffer`/`ArrayBuffer` 尽量通过 transferable 传输，避免 MDD 大资源在进程内反复复制。
+- Renderer 只能通过受控 preload API 调用搜索和词条读取。
+- Electron 主进程和导入 Worker 分别持有 SQLite 连接；Rust 不直接访问数据库。
+- 原生词典实例按文件路径复用；后续需要补充显式关闭和 LRU 上限，避免用户同时启用大量词典时句柄持续增长。
+- 多 MDD 查询由 Node 层并发调度，每个 MDD 的块定位与解压在原生异步任务中完成。
 
-必须在原型阶段确认的风险：
+已验证：
 
-- js-mdict 可能在打开文件时建立并重排完整关键词列表，峰值内存必须用两部真实词典实测。
-- `KeyWordItem` 或底层 record offset 是否能稳定序列化、跨进程重启复用，需要验证；若不能，第一版使用 `dictionary_id + term + ordinal` 回查。
-- MDD 高层接口返回 Base64 会增加约三分之一体积并产生额外复制；需要确认能否通过薄封装或维护小型分支直接返回 `Buffer`/`Uint8Array`。
-- js-mdict 只负责底层格式读取；`@@@LINK`、词典专属 target 清理、HTML 组合和资源协议仍由 Node 内容层负责。
-- 同步 API 不能进入 Electron 主线程，Worker Thread 是架构要求而非可选优化。
-
-Python `mdict-utils` 继续作为验证基线，但不进入正式运行链路。最终判断依据是两部真实词典的兼容性、导入耗时、峰值内存、随机查询延迟、冷启动和损坏文件行为，而不是孤立的微基准。
+- OALDPE MDX 与四个 MDD、LDOCE5 MDX/MDD 均可打开和流式遍历。
+- 随机 record 内容与 `js-mdict` 对照一致。
+- Node-API 可直接返回 BigInt offset 与 Buffer。
+- 最小端到端样本覆盖导入、SQLite 前缀查询、按 offset 读取、MDD 资源解析和缓存命中。
 
 ## 10. 分阶段执行计划
+
+> 以下阶段保留为路线图记录。阶段 0–3 的解析选型与索引验证已经由 Rust/NAPI 实现完成；阶段 5 和阶段 8 的本轮基础链路已经完成，重定向、多记录组合、媒体 Range/SPX、安全加固和跨平台打包仍按后续阶段推进。
 
 ### 阶段 0：冻结验证范围
 
@@ -429,11 +439,11 @@ Python `mdict-utils` 继续作为验证基线，但不进入正式运行链路�
 - 错误必须可序列化，并保留文件、阶段和可诊断原因。
 - 大二进制优先通过 transferable `ArrayBuffer`/`Buffer` 交付，避免无意义复制。
 - 文件句柄、词典实例、worker、LRU 和崩溃重启生命周期明确。
-- Node 主线程不解析 MDict 二进制格式；worker 不直接访问 PGlite。
+- Node 主线程不解析 MDict 二进制格式；导入 Worker 使用独立 SQLite 写连接。
 
 验收：Node CLI 通过 Worker Thread 完成真实词典索引和随机读取，不涉及 React。
 
-### 阶段 3：PGlite 索引原型
+### 阶段 3：SQLite 索引原型
 
 目标：验证仅保存键和 locator 的数据模型。
 
@@ -443,7 +453,7 @@ Python `mdict-utils` 继续作为验证基线，但不进入正式运行链路�
 - 支持单键多记录。
 - 支持 LDOCE5 21 万以上别名记录。
 - 增加导入中断、失败清理、恢复或重新导入策略。
-- 测量 PGlite 数据库大小、导入时间和查询延迟。
+- 测量 SQLite 数据库大小、导入时间和查询延迟。
 
 验收：重启进程后无需重新导入索引；能够按稳定 locator 直接读取，或让词条按 `term + ordinal`、资源按标准化 MDD key 降级回查原始内容。
 
@@ -551,17 +561,17 @@ Python `mdict-utils` 继续作为验证基线，但不进入正式运行链路�
 
 ## 12. 关键风险与待决策事项
 
-1. **js-mdict 内存与定位能力**：重点验证完整关键词索引的峰值内存、批量遍历、稳定 locator、重复键顺序和 `Encrypted=2`。
+1. **原生实例生命周期**：当前已避免完整关键词索引常驻内存；下一步需要为已打开的 MDX/MDD 实例增加显式关闭和 LRU 上限。
 2. **词典内容适配层粒度**：建议通用 MDict worker + 可插拔 Node 内容适配器，不把具体词典 HTML 规则写进底层解析核心。
-3. **词典页面容器**：在正式实现前用最小原型比较独立 WebContentsView 与受控 iframe 的隔离、生命周期和输入体验。
+3. **词典页面容器**：已选择独立 `WebContentsView`；后续重点验证跨平台 bounds、焦点、原生 View 与 React 浮层的 z-order。
 4. **SPX 解码方案**：比较 Speex WASM、本机 FFmpeg 和第一版暂不支持，确认跨平台体积、性能及缓存格式。
 5. **网络默认策略**：建议默认离线，逐词典授权；OALDPE 默认配置与此冲突，需要产品层明确提示。
 6. **外置资源发现**：导入 MDX 时扫描同目录同 basename 资源，并记录缺失依赖，但不得盲目允许任意文件访问。
-7. **PGlite 并发模型**：明确只有 Node 后端持有数据库，避免 Renderer 和多个 worker 同时以不受控方式打开同一文件。
+7. **SQLite 并发模型**：使用 WAL；主进程负责一般查询，按需导入 Worker 使用独立写连接，多个写任务仍需由 SQLite 串行协调。
 8. **删除语义**：默认只删除 app.userData 内索引和缓存，不删除用户原始 MDX/MDD；删除源文件必须单独明确授权。
 9. **版权与分发**：应用代码和词典内容严格分离。
-10. **MDD Base64 开销**：优先让 worker 返回原始二进制；若只能使用 Base64，必须测量峰值内存并限制并发资源读取。
+10. **MDD 并发与大资源**：当前直接返回原始 `Buffer` 并并行查询多个 MDD；仍需为大资源和高并发请求设置上限，并评估 Range 支持。
 
 ## 13. 下一步建议
 
-用户允许开始编码后，从“阶段 0 + 阶段 1”开始，不直接搭建完整 Electron/React UI。第一项实现应是一个可重复运行的 Node + Worker Thread + js-mdict 解析验证工具，用两部真实词典建立基准与回归证据；只有 locator、重复键、重定向和资源读取稳定后，再接入 PGlite 与 Electron 渲染。
+优先用 OALDPE 和 LDOCE5 进行应用内人工验收，记录 CSS、JS、图片、MP3、内部链接和重定向的差异。随后补齐 `@@@LINK` 多记录组合、导入进度/取消、词典实例 LRU、媒体 Range/SPX 与词典级脚本/网络策略，再进入跨平台打包和性能基准。

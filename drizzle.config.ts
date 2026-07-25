@@ -3,9 +3,8 @@ import { defineConfig } from 'drizzle-kit'
 export default defineConfig({
   schema: './src/main/db/schema.ts',
   out: './drizzle',
-  dialect: 'postgresql',
-  driver: 'pglite',
+  dialect: 'sqlite',
   dbCredentials: {
-    url: './.drizzle/database'
+    url: './.drizzle/dictol.sqlite'
   }
 })

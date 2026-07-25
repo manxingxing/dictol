@@ -1,2 +1,0 @@
-ALTER TABLE "dictionary" ADD CONSTRAINT "dictionary_status_check" CHECK ("dictionary"."status" in ('pending', 'importing', 'ready', 'error'));--> statement-breakpoint
-ALTER TABLE "dictionary_file" ADD CONSTRAINT "dictionary_file_type_check" CHECK ("dictionary_file"."file_type" in ('mdx', 'mdd'));

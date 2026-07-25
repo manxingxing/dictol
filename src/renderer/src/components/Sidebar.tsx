@@ -77,11 +77,6 @@ export function Sidebar(): React.JSX.Element {
             </Button>
           )}
         </NavLink>
-        {!collapsed && (
-          <p className="mt-3 px-3 text-[10px] text-muted-foreground">
-            {window.dictol.platform} · Electron
-          </p>
-        )}
       </div>
     </aside>
   )

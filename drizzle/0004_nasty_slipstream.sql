@@ -1,1 +1,0 @@
-ALTER TABLE "dictionary" ADD COLUMN "record_count" bigint;

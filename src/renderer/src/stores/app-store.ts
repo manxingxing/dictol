@@ -2,18 +2,18 @@ import { create } from 'zustand'
 
 interface AppState {
   sidebarCollapsed: boolean
-  debugPanelOpen: boolean
   searchQuery: string
+  searchFocusRequest: number
+  requestSearchFocus: () => void
   toggleSidebar: () => void
-  toggleDebugPanel: () => void
   setSearchQuery: (query: string) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
   sidebarCollapsed: false,
-  debugPanelOpen: false,
   searchQuery: '',
+  searchFocusRequest: 0,
+  requestSearchFocus: () => set((state) => ({ searchFocusRequest: state.searchFocusRequest + 1 })),
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  toggleDebugPanel: () => set((state) => ({ debugPanelOpen: !state.debugPanelOpen })),
   setSearchQuery: (searchQuery) => set({ searchQuery })
 }))

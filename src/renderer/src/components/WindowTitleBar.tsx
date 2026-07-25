@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, PanelLeft, PanelLeftClose, Terminal } from 'lucide-react'
+import { ArrowLeft, ArrowRight, PanelLeft, PanelLeftClose } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/stores/app-store'
@@ -10,8 +10,6 @@ export function WindowTitleBar(): React.JSX.Element {
   const currentIndex = typeof window.history.state?.idx === 'number' ? window.history.state.idx : 0
   const sidebarCollapsed = useAppStore((state) => state.sidebarCollapsed)
   const toggleSidebar = useAppStore((state) => state.toggleSidebar)
-  const debugPanelOpen = useAppStore((state) => state.debugPanelOpen)
-  const toggleDebugPanel = useAppStore((state) => state.toggleDebugPanel)
 
   return (
     <header className="drag-region flex h-14 shrink-0 items-center border-b border-border bg-sidebar">
@@ -49,19 +47,6 @@ export function WindowTitleBar(): React.JSX.Element {
           >
             <ArrowRight />
           </Button>
-          {import.meta.env.DEV && (
-            <Button
-              aria-label={debugPanelOpen ? '隐藏数据库调试面板' : '显示数据库调试面板'}
-              aria-pressed={debugPanelOpen}
-              className={debugPanelOpen ? 'bg-muted text-[var(--primary)]' : ''}
-              onClick={toggleDebugPanel}
-              size="icon"
-              title={debugPanelOpen ? '隐藏数据库调试面板' : '显示数据库调试面板'}
-              variant="ghost"
-            >
-              <Terminal />
-            </Button>
-          )}
         </div>
       </div>
     </header>
