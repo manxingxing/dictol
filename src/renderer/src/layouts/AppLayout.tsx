@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 
 import { WindowTitleBar } from '@/components/WindowTitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/stores/app-store'
+import { useWindowWidthThreshold } from '@/hooks/use-window-width-threshold'
+import { useQueryStore } from '@/stores/query-store'
 
 export function AppLayout(): React.JSX.Element {
   const navigate = useNavigate()
-  const location = useLocation()
-  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
-  const requestSearchFocus = useAppStore((state) => state.requestSearchFocus)
+  const setSearchQuery = useQueryStore((state) => state.setSearchQuery)
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
-  const isSearchRoute = location.pathname.startsWith('/search')
+
+  useWindowWidthThreshold()
 
   useEffect(() => {
     return window.dictol.wordCapture.onEvent((event) => {
@@ -33,37 +33,6 @@ export function AppLayout(): React.JSX.Element {
       )
     })
   }, [navigate, setSearchQuery])
-
-  useEffect(() => {
-    return window.dictol.app.onFocusSearch(() => {
-      if (!isSearchRoute) return
-      requestSearchFocus()
-    })
-  }, [isSearchRoute, requestSearchFocus])
-
-  useEffect(() => {
-    if (!isSearchRoute) return
-
-    const focusSearch = (event: KeyboardEvent): void => {
-      const usesPlatformModifier =
-        window.dictol.platform === 'darwin' ? event.metaKey && !event.ctrlKey : event.ctrlKey
-      if (
-        !usesPlatformModifier ||
-        event.altKey ||
-        event.shiftKey ||
-        event.key.toLowerCase() !== 'f'
-      ) {
-        return
-      }
-
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      requestSearchFocus()
-    }
-
-    window.addEventListener('keydown', focusSearch, { capture: true })
-    return () => window.removeEventListener('keydown', focusSearch, { capture: true })
-  }, [isSearchRoute, requestSearchFocus])
 
   useEffect(() => {
     if (!captureNotice) return

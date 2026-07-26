@@ -1,12 +1,10 @@
 import { MdictDictionary } from '@dictol/mdict-native'
-import { asc, eq } from 'drizzle-orm'
 import { app, protocol } from 'electron'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, extname, join, resolve, sep } from 'node:path'
 
-import { getDatabase } from './database'
-import { dictionary, dictionaryFile } from './db/schema'
+import { DictionaryFileRepository } from './db/repository/dictionary-file-repository'
 import { getDictionaryEntryContent } from './dictionary-service'
 import { createEntryDocument } from './entry-document'
 import { getMdictDictionary } from './mdict-runtime'
@@ -15,6 +13,7 @@ const RESOURCE_SCHEME = 'dictol-resource'
 const ENTRY_SCHEME = 'dictol-entry'
 const ENTRY_BRIDGE_URL = `${ENTRY_SCHEME}://app/entry-bridge.js`
 const dictionaryFiles = new Map<number, Promise<DictionaryResourceFiles | null>>()
+const dictionaryFileRepo = new DictionaryFileRepository()
 let registered = false
 let entryBridgeSource: Promise<Buffer> | undefined
 
@@ -181,18 +180,7 @@ async function getDictionaryResourceFiles(
 async function loadDictionaryResourceFiles(
   dictionaryId: number
 ): Promise<DictionaryResourceFiles | null> {
-  const database = await getDatabase()
-  const rows = await database
-    .select({
-      dictPath: dictionary.dictPath,
-      fileName: dictionaryFile.fileName,
-      filePath: dictionaryFile.filePath,
-      fileType: dictionaryFile.fileType
-    })
-    .from(dictionaryFile)
-    .innerJoin(dictionary, eq(dictionary.id, dictionaryFile.dictionaryId))
-    .where(eq(dictionaryFile.dictionaryId, dictionaryId))
-    .orderBy(asc(dictionaryFile.fileName), asc(dictionaryFile.id))
+  const rows = await dictionaryFileRepo.listResourceFiles(dictionaryId)
 
   const firstFile = rows[0]
   if (!firstFile) return null

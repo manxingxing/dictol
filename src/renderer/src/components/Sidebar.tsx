@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { BookOpen, History, Library, Search, Settings } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/stores/app-store'
+import { selectSidebarCollapsed, useAppStore } from '@/stores/app-store'
 
 const navigation = [
   { label: '查词', path: '/search', icon: Search },
@@ -11,7 +11,7 @@ const navigation = [
 ]
 
 export function Sidebar(): React.JSX.Element {
-  const collapsed = useAppStore((state) => state.sidebarCollapsed)
+  const collapsed = useAppStore(selectSidebarCollapsed)
 
   return (
     <aside

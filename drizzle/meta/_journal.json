@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1784868795891,
-      "tag": "0000_tough_redwing",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1784878421088,
-      "tag": "0001_eager_gauntlet",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1784878945189,
-      "tag": "0002_long_paper_doll",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1784886767603,
-      "tag": "0003_motionless_proudstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1784909889170,
-      "tag": "0004_mean_jack_flag",
+      "when": 1785033860110,
+      "tag": "0000_nervous_white_tiger",
       "breakpoints": true
     }
   ]

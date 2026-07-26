@@ -1,11 +1,9 @@
-import { History, LoaderCircle, Search, Trash2 } from 'lucide-react'
+import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-
+import { History, LoaderCircle, Search, Trash2 } from 'lucide-react'
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useClearQueryHistory, useQueryHistory } from '@/hooks/use-query-history'
-import { useAppStore } from '@/stores/app-store'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -15,16 +13,104 @@ import {
   TableRow
 } from '@/components/ui/table'
 
-export function HistoryPage(): React.JSX.Element {
+import { useQueryStore } from '@/stores/query-store'
+import {
+  useClearQueryHistory,
+  useQueryHistory,
+  type QueryHistoryItem
+} from '@/hooks/use-query-history'
+import { formatTime } from '@/lib/utils'
+
+function getColumnClassName(columnId: string, header: boolean): string | undefined {
+  switch (columnId) {
+    case 'term':
+      return header ? undefined : 'max-w-0'
+    case 'queryCount':
+      return 'w-28 text-right'
+    case 'lastQueriedAt':
+      return 'w-36'
+    case 'actions':
+      return 'w-20 text-right'
+    default:
+      return undefined
+  }
+}
+
+export const HistoryPage = (): React.JSX.Element => {
   const navigate = useNavigate()
-  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
+  const setSearchQuery = useQueryStore((state) => state.setSearchQuery)
+
   const { data: history = [], isLoading, isError } = useQueryHistory()
   const clearHistory = useClearQueryHistory()
 
-  const searchHistoryTerm = async (term: string): Promise<void> => {
-    setSearchQuery(term)
-    await navigate(`/search/${encodeURIComponent(term)}`)
-  }
+  const searchHistoryTerm = useCallback(
+    async (term: string): Promise<void> => {
+      setSearchQuery(term)
+      await navigate(`/search/${encodeURIComponent(term)}`)
+    },
+    [navigate, setSearchQuery]
+  )
+
+  const columns = useMemo<ColumnDef<QueryHistoryItem>[]>(
+    () => [
+      {
+        accessorKey: 'term',
+        header: '词条',
+        cell: ({ getValue }): React.JSX.Element => (
+          <span className="block truncate font-medium">{getValue<string>()}</span>
+        )
+      },
+      {
+        accessorKey: 'queryCount',
+        header: '查询次数',
+        cell: ({ getValue }): React.JSX.Element => (
+          <span className="tabular-nums">{getValue<number>().toLocaleString('zh-CN')}</span>
+        )
+      },
+      {
+        accessorKey: 'lastQueriedAt',
+        header: '最后查询',
+        cell: ({ getValue }): React.JSX.Element => {
+          const lastQueriedAt = getValue<string>()
+          return (
+            <time dateTime={lastQueriedAt} className="text-muted-foreground">
+              {formatTime(lastQueriedAt)}
+            </time>
+          )
+        }
+      },
+      {
+        id: 'actions',
+        header: '操作',
+        cell: ({ row }): React.JSX.Element => (
+          <Button
+            aria-label={`查询 ${row.original.term}`}
+            onClick={() => {
+              void searchHistoryTerm(row.original.term).catch((error: unknown) => {
+                console.error('Failed to open query history entry', error)
+              })
+            }}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <Search />
+            查询
+          </Button>
+        )
+      }
+    ],
+    [searchHistoryTerm]
+  )
+
+  // TanStack Table returns mutable APIs that React Compiler intentionally does not memoize.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: history,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => String(row.id)
+  })
 
   return (
     <section className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-8 py-16">
@@ -54,81 +140,56 @@ export function HistoryPage(): React.JSX.Element {
           <CardDescription>最多保留 200 条记录，重复查询会更新到列表顶部。</CardDescription>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col">
-          <ScrollArea className="min-h-0 flex-1">
-            {isLoading && <p className="text-sm text-muted-foreground">正在加载…</p>}
-            {isError && <p className="text-sm text-destructive">加载查询历史失败。</p>}
-            {!isLoading && !isError && history.length === 0 && (
-              <div className="py-8 text-center">
-                <History className="mx-auto mb-3 size-6 text-muted-foreground" />
-                <p className="text-sm font-medium">暂无查询记录</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  查询单词后，最近访问的词条会显示在这里。
-                </p>
-              </div>
-            )}
-            {!isLoading && !isError && history.length > 0 && (
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>词条</TableHead>
-                    <TableHead className="w-28 text-right">查询次数</TableHead>
-                    <TableHead className="w-36">最后查询</TableHead>
-                    <TableHead className="w-20 text-right">操作</TableHead>
+          {isLoading && <p className="text-sm text-muted-foreground">正在加载…</p>}
+          {isError && <p className="text-sm text-destructive">加载查询历史失败。</p>}
+          {!isLoading && !isError && history.length === 0 && (
+            <div className="py-8 text-center">
+              <History className="mx-auto mb-3 size-6 text-muted-foreground" />
+              <p className="text-sm font-medium">暂无查询记录</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                查询单词后，最近访问的词条会显示在这里。
+              </p>
+            </div>
+          )}
+          {!isLoading && !isError && history.length > 0 && (
+            <Table className="table-fixed" containerClassName="min-h-0 flex-1 overflow-auto">
+              <TableHeader className="sticky top-0 z-10 bg-card">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow className="hover:bg-transparent" key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        className={getColumnClassName(header.column.id, true)}
+                        key={header.id}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="max-w-0 font-medium">
-                        <span className="block truncate">{item.term}</span>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        className={getColumnClassName(cell.column.id, false)}
+                        key={cell.id}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {item.queryCount.toLocaleString('zh-CN')}
-                      </TableCell>
-                      <TableCell>
-                        <time dateTime={item.lastQueriedAt} className="text-muted-foreground">
-                          {formatQueryTime(item.lastQueriedAt)}
-                        </time>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          aria-label={`查询 ${item.term}`}
-                          onClick={() => {
-                            void searchHistoryTerm(item.term).catch((error: unknown) => {
-                              console.error('Failed to open query history entry', error)
-                            })
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Search />
-                          查询
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            {clearHistory.isError && (
-              <p className="mt-3 text-xs text-destructive">清空查询历史失败。</p>
-            )}
-          </ScrollArea>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          {clearHistory.isError && (
+            <p className="mt-3 text-xs text-destructive">清空查询历史失败。</p>
+          )}
         </CardContent>
       </Card>
     </section>
   )
-}
-
-function formatQueryTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const today = new Date()
-  const sameDay = date.toDateString() === today.toDateString()
-  return new Intl.DateTimeFormat('zh-CN', {
-    ...(sameDay ? {} : { month: 'numeric', day: 'numeric' }),
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
 }

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4105e549-9c04-470f-bb78-41d80fcc4e83",
+  "id": "0a1612d6-2152-426e-be99-eb0c507fe8dc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dictionary": {
@@ -42,6 +42,22 @@
           "notNull": false,
           "autoincrement": false
         },
+        "custom_css": {
+          "name": "custom_css",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -68,9 +84,18 @@
         }
       },
       "indexes": {
+        "dictionary_sort_order_idx": {
+          "name": "dictionary_sort_order_idx",
+          "columns": [
+            "sort_order"
+          ],
+          "isUnique": false
+        },
         "dictionary_status_idx": {
           "name": "dictionary_status_idx",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -147,17 +172,23 @@
       "indexes": {
         "dictionary_entry_dictionary_id_idx": {
           "name": "dictionary_entry_dictionary_id_idx",
-          "columns": ["dictionary_id"],
+          "columns": [
+            "dictionary_id"
+          ],
           "isUnique": false
         },
         "dictionary_entry_file_id_idx": {
           "name": "dictionary_entry_file_id_idx",
-          "columns": ["dictionary_file_id"],
+          "columns": [
+            "dictionary_file_id"
+          ],
           "isUnique": false
         },
         "dictionary_entry_normalized_word_idx": {
           "name": "dictionary_entry_normalized_word_idx",
-          "columns": ["normalized_word"],
+          "columns": [
+            "normalized_word"
+          ],
           "isUnique": false
         }
       },
@@ -166,8 +197,12 @@
           "name": "dictionary_entry_dictionary_id_dictionary_id_fk",
           "tableFrom": "dictionary_entry",
           "tableTo": "dictionary",
-          "columnsFrom": ["dictionary_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "dictionary_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -175,8 +210,12 @@
           "name": "dictionary_entry_dictionary_file_id_dictionary_file_id_fk",
           "tableFrom": "dictionary_entry",
           "tableTo": "dictionary_file",
-          "columnsFrom": ["dictionary_file_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "dictionary_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -272,17 +311,23 @@
       "indexes": {
         "dictionary_file_file_path_unique": {
           "name": "dictionary_file_file_path_unique",
-          "columns": ["file_path"],
+          "columns": [
+            "file_path"
+          ],
           "isUnique": true
         },
         "dictionary_file_dictionary_id_idx": {
           "name": "dictionary_file_dictionary_id_idx",
-          "columns": ["dictionary_id"],
+          "columns": [
+            "dictionary_id"
+          ],
           "isUnique": false
         },
         "dictionary_file_type_idx": {
           "name": "dictionary_file_type_idx",
-          "columns": ["file_type"],
+          "columns": [
+            "file_type"
+          ],
           "isUnique": false
         }
       },
@@ -291,8 +336,12 @@
           "name": "dictionary_file_dictionary_id_dictionary_id_fk",
           "tableFrom": "dictionary_file",
           "tableTo": "dictionary",
-          "columnsFrom": ["dictionary_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "dictionary_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -305,6 +354,68 @@
           "value": "\"dictionary_file\".\"file_type\" in ('mdx', 'mdd')"
         }
       }
+    },
+    "query_history": {
+      "name": "query_history",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "term": {
+          "name": "term",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_term": {
+          "name": "normalized_term",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "query_count": {
+          "name": "query_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "last_queried_at": {
+          "name": "last_queried_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
+        }
+      },
+      "indexes": {
+        "query_history_normalized_term_unique": {
+          "name": "query_history_normalized_term_unique",
+          "columns": [
+            "normalized_term"
+          ],
+          "isUnique": true
+        },
+        "query_history_last_queried_at_idx": {
+          "name": "query_history_last_queried_at_idx",
+          "columns": [
+            "last_queried_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     }
   },
   "views": {},

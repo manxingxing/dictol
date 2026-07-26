@@ -4,12 +4,15 @@ CREATE TABLE `dictionary` (
 	`description` text,
 	`record_count` integer,
 	`dict_path` text,
+	`custom_css` text DEFAULT '' NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
 	`status` text DEFAULT 'importing' NOT NULL,
 	`created_at` text DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) NOT NULL,
 	`updated_at` text DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) NOT NULL,
 	CONSTRAINT "dictionary_status_check" CHECK("dictionary"."status" in ('pending', 'importing', 'ready', 'error'))
 );
 --> statement-breakpoint
+CREATE INDEX `dictionary_sort_order_idx` ON `dictionary` (`sort_order`);--> statement-breakpoint
 CREATE INDEX `dictionary_status_idx` ON `dictionary` (`status`);--> statement-breakpoint
 CREATE TABLE `dictionary_entry` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -45,4 +48,14 @@ CREATE TABLE `dictionary_file` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `dictionary_file_file_path_unique` ON `dictionary_file` (`file_path`);--> statement-breakpoint
 CREATE INDEX `dictionary_file_dictionary_id_idx` ON `dictionary_file` (`dictionary_id`);--> statement-breakpoint
-CREATE INDEX `dictionary_file_type_idx` ON `dictionary_file` (`file_type`);
+CREATE INDEX `dictionary_file_type_idx` ON `dictionary_file` (`file_type`);--> statement-breakpoint
+CREATE TABLE `query_history` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`term` text NOT NULL,
+	`normalized_term` text NOT NULL,
+	`query_count` integer DEFAULT 1 NOT NULL,
+	`last_queried_at` text DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `query_history_normalized_term_unique` ON `query_history` (`normalized_term`);--> statement-breakpoint
+CREATE INDEX `query_history_last_queried_at_idx` ON `query_history` (`last_queried_at`);

@@ -2,9 +2,16 @@ import type { ComponentProps } from 'react'
 
 import { cn } from '@/lib/utils'
 
-function Table({ className, ...props }: ComponentProps<'table'>): React.JSX.Element {
+type TableProps = ComponentProps<'table'> & {
+  containerClassName?: string
+}
+
+function Table({ className, containerClassName, ...props }: TableProps): React.JSX.Element {
   return (
-    <div className="relative w-full overflow-x-auto" data-slot="table-container">
+    <div
+      className={cn('relative w-full overflow-x-auto', containerClassName)}
+      data-slot="table-container"
+    >
       <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )

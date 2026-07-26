@@ -1,1 +1,0 @@
-ALTER TABLE `dictionary` ADD `custom_css` text DEFAULT '' NOT NULL;

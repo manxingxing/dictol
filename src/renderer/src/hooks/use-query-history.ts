@@ -8,7 +8,7 @@ import {
 
 export const queryHistoryQueryKey = ['query-history'] as const
 
-type QueryHistoryItem = Awaited<ReturnType<Window['dictol']['history']['list']>>[number]
+export type QueryHistoryItem = Awaited<ReturnType<Window['dictol']['history']['list']>>[number]
 
 export function useQueryHistory(): UseQueryResult<QueryHistoryItem[], Error> {
   return useQuery({

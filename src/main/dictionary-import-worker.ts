@@ -1,10 +1,13 @@
-import { MdictDictionary, type DictionaryEntry } from '@dictol/mdict-native'
+import { MdictDictionary } from '@dictol/mdict-native'
 import { constants } from 'node:fs'
 import { copyFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import { parentPort, workerData } from 'node:worker_threads'
 
-import { openDatabaseConnection } from './database'
+import { openDrizzleDB } from './db/drizzle'
+import { DictionaryEntryRepository } from './db/repository/dictionary-entry-repository'
+import { DictionaryFileRepository } from './db/repository/dictionary-file-repository'
+import { DictionaryRepository } from './db/repository/dictionary-repository'
 
 const IMPORT_BATCH_SIZE = 2_000
 
@@ -36,7 +39,10 @@ void importDictionary(input)
   .finally(() => parentPort?.close())
 
 async function importDictionary(data: ImportWorkerData): Promise<ImportedDictionary> {
-  const database = openDatabaseConnection(data.databasePath)
+  const { db: connection, orm } = openDrizzleDB(data.databasePath)
+  const dictionaryRepo = new DictionaryRepository(orm)
+  const dictionaryFileRepo = new DictionaryFileRepository(orm)
+  const dictionaryEntryRepo = new DictionaryEntryRepository(orm)
   const sourceDirectory = dirname(data.mdxPath)
   const selectedName = basename(data.mdxPath)
   const targetDirectory = join(data.userDataPath, 'dictionaries', data.targetDirectoryName)
@@ -55,21 +61,12 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
       .map((entry) => join(sourceDirectory, entry.name))
 
     await mkdir(targetDirectory, { recursive: true })
-    const dictionaryInsert = database
-      .prepare(
-        `insert into dictionary (name, dict_path, status, sort_order)
-         select ?, ?, 'importing', coalesce(max(sort_order), -1) + 1
-         from dictionary`
-      )
-      .run(basename(selectedName, extname(selectedName)), targetDirectory)
-    dictionaryId = toSafeNumber(dictionaryInsert.lastInsertRowid, 'dictionary id')
+    dictionaryId = await dictionaryRepo.createImporting(
+      basename(selectedName, extname(selectedName)),
+      targetDirectory
+    )
 
     const copiedFiles: ImportedDictionary['files'] = []
-    const insertFile = database.prepare(
-      `insert into dictionary_file
-        (dictionary_id, file_name, file_path, file_type, file_size)
-       values (?, ?, ?, ?, ?)`
-    )
     let mdxFileId: number | undefined
     let mdxTargetPath: string | undefined
 
@@ -82,14 +79,13 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
       const fileType = extension === '.mdx' ? 'mdx' : extension === '.mdd' ? 'mdd' : undefined
       if (!fileType) continue
 
-      const fileInsert = insertFile.run(
+      const fileId = await dictionaryFileRepo.create({
         dictionaryId,
         fileName,
-        targetPath,
+        filePath: targetPath,
         fileType,
-        fileStats.size
-      )
-      const fileId = toSafeNumber(fileInsert.lastInsertRowid, 'dictionary file id')
+        fileSize: fileStats.size
+      })
       copiedFiles.push({ id: String(fileId), name: fileName, type: fileType })
       if (fileType === 'mdx') {
         mdxFileId = fileId
@@ -97,42 +93,17 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
       }
     }
 
-    if (mdxFileId === undefined || mdxTargetPath === undefined) throw new Error('未找到 MDX 文件')
+    if (dictionaryId === undefined || mdxFileId === undefined || mdxTargetPath === undefined) {
+      throw new Error('未找到 MDX 文件')
+    }
+    const importedDictionaryId = dictionaryId
 
     const mdx = MdictDictionary.open(mdxTargetPath)
     const metadata = mdx.metadata
     const scanner = mdx.createScanner()
-    database
-      .prepare(
-        `update dictionary_file
-         set format_version = ?, is_encrypted = ?, updated_at = ?
-         where id = ?`
-      )
-      .run(
-        String(metadata.engineVersion),
-        metadata.encrypted !== 0 ? 1 : 0,
-        new Date().toISOString(),
-        mdxFileId
-      )
-
-    const insertEntry = database.prepare(
-      `insert into dictionary_entry
-        (dictionary_id, dictionary_file_id, word, normalized_word,
-         record_start_offset, record_end_offset, key_block_idx)
-       values (?, ?, ?, ?, ?, ?, ?)`
-    )
-    const insertBatch = database.transaction((entries: DictionaryEntry[]) => {
-      for (const entry of entries) {
-        insertEntry.run(
-          dictionaryId,
-          mdxFileId,
-          entry.keyText,
-          entry.keyText.toLowerCase(),
-          toSafeNumber(entry.recordStart, 'record start offset'),
-          toSafeNumber(entry.recordEnd, 'record end offset'),
-          entry.keyBlock
-        )
-      }
+    await dictionaryFileRepo.updateFormatMetadata(mdxFileId, {
+      formatVersion: String(metadata.engineVersion),
+      isEncrypted: metadata.encrypted !== 0
     })
 
     let importedEntries = 0n
@@ -142,7 +113,17 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
       batchNumber += 1
       if (batch.entries.length > 0) {
         try {
-          insertBatch(batch.entries)
+          await dictionaryEntryRepo.insertBatch(
+            batch.entries.map((entry) => ({
+              dictionaryId: importedDictionaryId,
+              dictionaryFileId: mdxFileId,
+              word: entry.keyText,
+              normalizedWord: entry.keyText.toLowerCase(),
+              recordStartOffset: toSafeNumber(entry.recordStart, 'record start offset'),
+              recordEndOffset: toSafeNumber(entry.recordEnd, 'record end offset'),
+              keyBlockIdx: entry.keyBlock
+            }))
+          )
         } catch (error) {
           const firstWord = batch.entries[0]?.keyText ?? ''
           const lastWord = batch.entries.at(-1)?.keyText ?? ''
@@ -163,22 +144,14 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
     }
 
     const readyName = metadata.title || basename(selectedName, extname(selectedName))
-    database
-      .prepare(
-        `update dictionary
-         set name = ?, description = ?, record_count = ?, status = 'ready', updated_at = ?
-         where id = ?`
-      )
-      .run(
-        readyName,
-        metadata.description || null,
-        toSafeNumber(metadata.entryCount, 'record count'),
-        new Date().toISOString(),
-        dictionaryId
-      )
+    await dictionaryRepo.markReady(importedDictionaryId, {
+      name: readyName,
+      description: metadata.description || null,
+      recordCount: toSafeNumber(metadata.entryCount, 'record count')
+    })
 
     return {
-      id: String(dictionaryId),
+      id: String(importedDictionaryId),
       name: readyName,
       status: 'ready',
       directory: targetDirectory,
@@ -187,16 +160,14 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
   } catch (error) {
     if (dictionaryId !== undefined) {
       try {
-        database
-          .prepare("update dictionary set status = 'error', updated_at = ? where id = ?")
-          .run(new Date().toISOString(), dictionaryId)
+        await dictionaryRepo.markError(dictionaryId)
       } catch (statusError) {
         console.error('Failed to mark dictionary import as errored', statusError)
       }
     }
     throw error
   } finally {
-    database.close()
+    connection.close()
   }
 }
 
