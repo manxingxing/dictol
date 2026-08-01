@@ -30,8 +30,9 @@ win:
   executableName: dictol
   icon: build/icon.ico
   target: ["nsis"]
-  certificateFile: build/codesign.pfx
-  certificatePassword: "xxxxxx"
+  signtoolOptions:
+    certificateFile: build/codesign.pfx
+    certificatePassword: "123456"
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
