@@ -23,14 +23,22 @@ asarUnpack:
   - resources/**
   - node_modules/@dictol/mdict-native/*.node
   - node_modules/selection-hook/prebuilds/**
+  - node_modules/better-sqlite3/lib/**
+  - node_modules/better-sqlite3/prebuilds/*.node
+  - node_modules/better-sqlite3/package.json
 win:
   executableName: dictol
   icon: build/icon.ico
+  target: ["nsis"]
+  certificateFile: build/codesign.pfx
+  certificatePassword: "xxxxxx"
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 mac:
   icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
