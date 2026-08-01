@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { History, Library, Search, Settings } from 'lucide-react'
 
-import appIcon from '@/assets/icon_320*320.png'
+import appIcon from '@/assets/icon_320x320.png'
 import { Button } from '@/components/ui/button'
 import { selectSidebarCollapsed, useAppStore } from '@/stores/app-store'
 
