@@ -1,5 +1,5 @@
-import { and, asc, count, eq, gte, inArray, lt, sql } from 'drizzle-orm'
-import { DictolDatabase, getOrm } from '../drizzle'
+import { and, asc, count, eq, exists, gte, inArray, lt, sql } from 'drizzle-orm'
+import { DictolDatabase } from '../drizzle'
 import { dictionary, dictionaryEntry, dictionaryFile } from '../schema'
 import type { NewDictionaryEntry } from '../schema'
 
@@ -46,15 +46,16 @@ export type EntryContent = {
   recordEndOffset: number
 }
 
+export type FirstReadyEntryLookup = {
+  hasReadyDictionary: boolean
+  entry: EntryContent | null
+}
+
 export class DictionaryEntryRepository {
-  private _db?: DictolDatabase
+  private db: DictolDatabase
 
-  constructor(db?: DictolDatabase) {
-    if (db) this._db = db
-  }
-
-  private get db(): DictolDatabase {
-    return this._db ?? getOrm()
+  constructor(db: DictolDatabase) {
+    this.db = db
   }
 
   /** 使用一条批量 INSERT 写入一批词条。 */
@@ -67,6 +68,10 @@ export class DictionaryEntryRepository {
   async searchByPrefix(prefix: string, limit = 50): Promise<EntrySearchResult[]> {
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 100)
     const upperBound = `${prefix}\u{10ffff}`
+    const belongsToReadyDictionary = this.db
+      .select({ id: dictionary.id })
+      .from(dictionary)
+      .where(and(eq(dictionary.id, dictionaryEntry.dictionaryId), eq(dictionary.status, 'ready')))
 
     const rows = await this.db
       .select({
@@ -77,10 +82,9 @@ export class DictionaryEntryRepository {
         )
       })
       .from(dictionaryEntry)
-      .innerJoin(dictionary, eq(dictionary.id, dictionaryEntry.dictionaryId))
       .where(
         and(
-          eq(dictionary.status, 'ready'),
+          exists(belongsToReadyDictionary),
           gte(dictionaryEntry.normalizedWord, prefix),
           lt(dictionaryEntry.normalizedWord, upperBound),
           sql`instr(${dictionaryEntry.word}, '@') = 0`,
@@ -165,6 +169,76 @@ export class DictionaryEntryRepository {
       .limit(1)
 
     return row
+  }
+
+  /**
+   * 选词查询专用：用一条 SQL 区分无可用词典/无匹配，并按词典顺序返回首个匹配的完整记录。
+   */
+  async findFirstReadyEntryContent(normalizedWord: string): Promise<FirstReadyEntryLookup> {
+    const [row] = await this.db
+      .select({
+        readyDictionaryId: dictionary.id,
+        id: dictionaryEntry.id,
+        word: dictionaryEntry.word,
+        dictionaryId: dictionaryEntry.dictionaryId,
+        dictionaryName: dictionary.name,
+        customCss: dictionary.customCss,
+        filePath: dictionaryFile.filePath,
+        keyBlockIdx: dictionaryEntry.keyBlockIdx,
+        recordStartOffset: dictionaryEntry.recordStartOffset,
+        recordEndOffset: dictionaryEntry.recordEndOffset
+      })
+      .from(dictionary)
+      .leftJoin(
+        dictionaryEntry,
+        and(
+          eq(dictionaryEntry.dictionaryId, dictionary.id),
+          eq(dictionaryEntry.normalizedWord, normalizedWord)
+        )
+      )
+      .leftJoin(
+        dictionaryFile,
+        and(
+          eq(dictionaryFile.id, dictionaryEntry.dictionaryFileId),
+          eq(dictionaryFile.fileType, 'mdx')
+        )
+      )
+      .where(eq(dictionary.status, 'ready'))
+      .orderBy(
+        sql`case when ${dictionaryEntry.id} is null then 1 else 0 end`,
+        asc(dictionary.sortOrder),
+        asc(dictionary.id),
+        asc(dictionaryEntry.id)
+      )
+      .limit(1)
+
+    if (!row) return { hasReadyDictionary: false, entry: null }
+    if (
+      row.id === null ||
+      row.word === null ||
+      row.dictionaryId === null ||
+      row.filePath === null ||
+      row.keyBlockIdx === null ||
+      row.recordStartOffset === null ||
+      row.recordEndOffset === null
+    ) {
+      return { hasReadyDictionary: true, entry: null }
+    }
+
+    return {
+      hasReadyDictionary: true,
+      entry: {
+        id: row.id,
+        word: row.word,
+        dictionaryId: row.dictionaryId,
+        dictionaryName: row.dictionaryName,
+        customCss: row.customCss,
+        filePath: row.filePath,
+        keyBlockIdx: row.keyBlockIdx,
+        recordStartOffset: row.recordStartOffset,
+        recordEndOffset: row.recordEndOffset
+      }
+    }
   }
 
   /** 根据 entryId 查出所属词典 ID（需 ready） */

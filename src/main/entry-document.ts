@@ -1,27 +1,21 @@
+// 如果是完整的html，就注入 css, js
+// 如果不是完整的 html(没有 head，body)， 则把内容包裹在 html 之中，再嵌入 css, js
 export function createEntryDocument(html: string, dictionaryId: string, customCss = ''): string {
   const baseUrl = `dictol-resource://dictionary/${dictionaryId}/`
-  const onlineResourceOrigins = [
-    'https://www.ldoceonline.com',
-    'https://www.oxfordlearnersdictionaries.com',
-    'https://oxford-x-file.oss-cn-hangzhou.aliyuncs.com'
-  ].join(' ')
   const contentSecurityPolicy = [
-    'upgrade-insecure-requests',
     "default-src 'none'",
-    "style-src 'unsafe-inline' dictol-resource:",
-    `img-src data: blob: dictol-resource: ${onlineResourceOrigins}`,
-    `media-src blob: dictol-resource: http://www.ldoceonline.com ${onlineResourceOrigins}`,
-    "script-src 'unsafe-inline' 'unsafe-eval' dictol-entry: dictol-resource:",
-    'font-src data: dictol-resource:',
-    `connect-src dictol-resource: ${onlineResourceOrigins} wss://speech.platform.bing.com`,
+    "style-src 'unsafe-inline' dictol-resource: http: https:",
+    'img-src data: blob: dictol-resource: http: https:',
+    'media-src blob: dictol-resource: http: https:',
+    "script-src 'unsafe-inline' 'unsafe-eval' dictol-entry: dictol-resource: http: https:",
+    'font-src data: dictol-resource: http: https:',
+    'connect-src dictol-resource: http: https: ws: wss:',
     'base-uri dictol-resource:'
   ].join('; ')
-  const rewritten = html
-    .replace(/\bhttp:\/\/www\.ldoceonline\.com(?=[/"'\s<>])/gi, 'https://www.ldoceonline.com')
-    .replace(
-      /\b(?:sound|audio|file):\/\/\/?([^"'\s<>]+)/gi,
-      (_, resourcePath: string) => `${baseUrl}${resourcePath.replace(/^\/+/, '')}`
-    )
+  const rewritten = html.replace(
+    /\b(?:sound|audio|file):\/\/\/?([^"'\s<>]+)/gi,
+    (_, resourcePath: string) => `${baseUrl}${resourcePath.replace(/^\/+/, '')}`
+  )
   const appearance = `<meta name="color-scheme" content="light dark">`
   const headContent = `<base href="${baseUrl}">${appearance}<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">`
   const withHead = /<head(?:\s[^>]*)?>/i.test(rewritten)

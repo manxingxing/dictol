@@ -1,8 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, Keyboard, Settings, ShieldAlert } from 'lucide-react'
+import { CircleAlert, CheckCircle2, Keyboard, Settings, ShieldAlert, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel
+} from '@/components/ui/field'
+import { Switch } from '@/components/ui/switch'
 
 type WordCaptureStatus = Awaited<ReturnType<typeof window.dictol.wordCapture.getStatus>>
 
@@ -10,7 +26,11 @@ export function SettingsPage(): React.JSX.Element {
   const [captureStatus, setCaptureStatus] = useState<WordCaptureStatus>(null)
   const [recordingShortcut, setRecordingShortcut] = useState(false)
   const [savingShortcut, setSavingShortcut] = useState(false)
+  const [savingSelectionLookup, setSavingSelectionLookup] = useState(false)
+  const [removingProgram, setRemovingProgram] = useState<string | null>(null)
   const [shortcutError, setShortcutError] = useState<string | null>(null)
+  const [selectionLookupError, setSelectionLookupError] = useState<string | null>(null)
+  const [excludedProgramsError, setExcludedProgramsError] = useState<string | null>(null)
   const refreshCaptureStatus = useCallback(() => {
     void window.dictol.wordCapture.getStatus().then(setCaptureStatus)
   }, [])
@@ -41,10 +61,15 @@ export function SettingsPage(): React.JSX.Element {
           ) : !captureStatus.supported ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Settings className="size-4" />
-              当前平台暂不支持快捷键取词。
+              {captureStatus.limitation ?? '当前平台暂不支持快捷键取词。'}
             </div>
           ) : (
             <>
+              {captureStatus.limitation && (
+                <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
+                  {captureStatus.limitation}
+                </div>
+              )}
               <div className="rounded-lg border border-border px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -106,6 +131,148 @@ export function SettingsPage(): React.JSX.Element {
                   </p>
                 )}
               </div>
+
+              <div
+                className="rounded-lg border border-border px-4 py-3 transition-colors data-[enabled=true]:border-primary/25 data-[enabled=true]:bg-primary/[0.025]"
+                data-enabled={captureStatus.lookupWordOnSelection}
+              >
+                <Field className="items-start gap-4" orientation="horizontal">
+                  <FieldContent>
+                    <FieldLabel className="cursor-pointer" htmlFor="lookup-word-on-selection">
+                      实时划选取词
+                    </FieldLabel>
+                    <FieldDescription
+                      className="text-xs leading-5"
+                      id="lookup-word-on-selection-description"
+                    >
+                      在其他软件中选中文字后立即查询，无需再按全局快捷键。
+                    </FieldDescription>
+                  </FieldContent>
+                  <Switch
+                    aria-describedby={
+                      selectionLookupError
+                        ? 'lookup-word-on-selection-description lookup-word-on-selection-error'
+                        : 'lookup-word-on-selection-description'
+                    }
+                    aria-invalid={Boolean(selectionLookupError)}
+                    checked={captureStatus.lookupWordOnSelection}
+                    className="mt-0.5"
+                    disabled={savingSelectionLookup}
+                    id="lookup-word-on-selection"
+                    onCheckedChange={(checked) => {
+                      setSelectionLookupError(null)
+                      setSavingSelectionLookup(true)
+                      void window.dictol.wordCapture
+                        .setSelectionEnabled(checked)
+                        .then((result) => {
+                          if (!result) {
+                            setSelectionLookupError('无法更新实时取词设置。')
+                            return
+                          }
+                          setCaptureStatus(result.status)
+                          setSelectionLookupError(result.error ?? null)
+                        })
+                        .finally(() => setSavingSelectionLookup(false))
+                    }}
+                  />
+                </Field>
+
+                {selectionLookupError && (
+                  <FieldError
+                    className="mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-5  bg-red-50  border-red-400"
+                    id="lookup-word-on-selection-error"
+                  >
+                    <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+                    <span>{selectionLookupError}selectionLookupError</span>
+                  </FieldError>
+                )}
+
+                {captureStatus.lookupWordOnSelection && (
+                  <div className="mt-2 flex justify-end border-t border-border/60 pt-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          className="h-7 px-2 text-xs text-muted-foreground"
+                          onClick={() => setExcludedProgramsError(null)}
+                          type="button"
+                          variant="ghost"
+                        >
+                          管理已排除的程序
+                          {captureStatus.excludedPrograms.length > 0 &&
+                            `（${captureStatus.excludedPrograms.length}）`}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>已排除的程序</DialogTitle>
+                          <DialogDescription>
+                            在这些程序中选择文字时，不会显示划词操作条。
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        {captureStatus.excludedPrograms.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                            暂无被排除的程序
+                          </div>
+                        ) : (
+                          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                            {captureStatus.excludedPrograms.map((programName) => (
+                              <div
+                                className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2"
+                                key={programName}
+                              >
+                                <span className="min-w-0 truncate text-sm" title={programName}>
+                                  {programName}
+                                </span>
+                                <Button
+                                  aria-label={`从排除列表删除 ${programName}`}
+                                  className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                  disabled={removingProgram !== null}
+                                  onClick={() => {
+                                    setExcludedProgramsError(null)
+                                    setRemovingProgram(programName)
+                                    void window.dictol.wordCapture
+                                      .removeExcludedProgram(programName)
+                                      .then((result) => {
+                                        if (!result) {
+                                          setExcludedProgramsError('无法更新程序排除列表。')
+                                          return
+                                        }
+                                        setCaptureStatus(result.status)
+                                        setExcludedProgramsError(result.error ?? null)
+                                      })
+                                      .finally(() => setRemovingProgram(null))
+                                  }}
+                                  size="icon"
+                                  title="删除"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {excludedProgramsError && (
+                          <FieldError className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5">
+                            <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+                            <span>{excludedProgramsError}</span>
+                          </FieldError>
+                        )}
+
+                        {window.dictol.platform === 'linux' && (
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            Linux Wayland 无法提供来源程序名，因此程序排除列表仅在 X11 会话中生效。
+                          </p>
+                        )}
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-start justify-between gap-6 rounded-lg border border-border px-4 py-3">
                 <div className="flex gap-3">
                   {captureStatus.trusted ? (

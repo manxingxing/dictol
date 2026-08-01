@@ -12,6 +12,10 @@ interface AppState {
   toggleSidebar: () => void
   windowBelowCompactThreshold: boolean
   setWindowBelowCompactThreshold: (belowThreshold: boolean) => void
+  searchQuery: string
+  setSearchQuery: (query: string) => void
+  lastQueryPath: string | undefined
+  setLastQueryPath: (query: string | undefined) => void
 }
 
 export const selectCompactMode = (state: AppState): boolean =>
@@ -31,7 +35,11 @@ export const useAppStore = create<AppState>()(
       windowBelowCompactThreshold:
         typeof window !== 'undefined' && window.innerWidth < COMPACT_MODE_WIDTH_THRESHOLD,
       setWindowBelowCompactThreshold: (windowBelowCompactThreshold) =>
-        set({ windowBelowCompactThreshold })
+        set({ windowBelowCompactThreshold }),
+      searchQuery: '',
+      setSearchQuery: (searchQuery) => set({ searchQuery }),
+      lastQueryPath: '',
+      setLastQueryPath: (lastQueryPath) => set({ lastQueryPath })
     }),
     {
       name: appPreferencesStorageKey,

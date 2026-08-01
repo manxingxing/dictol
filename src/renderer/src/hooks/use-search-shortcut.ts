@@ -1,15 +1,6 @@
-import { useCallback, useEffect, type RefObject } from 'react'
-import { isVisible } from '@/lib/utils'
+import { useEffect } from 'react'
 
-export function useSearchFocusShortcut(inputRef: RefObject<HTMLInputElement | null>): void {
-  const focusSearch = useCallback((): boolean => {
-    const input = inputRef.current
-    if (!input || !isVisible(input)) return false
-
-    input.focus({ preventScroll: true })
-    return true
-  }, [inputRef])
-
+export function useSearchShortCut(handleShortcut: () => boolean): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       const usesPlatformModifier =
@@ -23,17 +14,17 @@ export function useSearchFocusShortcut(inputRef: RefObject<HTMLInputElement | nu
         return
       }
 
-      if (!focusSearch()) return
+      if (!handleShortcut()) return
 
       event.preventDefault()
       event.stopImmediatePropagation()
     }
 
-    const stopListeningForNativeFocus = window.dictol.app.onFocusSearch(focusSearch)
+    const stopListeningForNativeShortcut = window.dictol.app.onFocusSearch(handleShortcut)
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => {
-      stopListeningForNativeFocus()
+      stopListeningForNativeShortcut()
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
-  }, [focusSearch])
+  }, [handleShortcut])
 }

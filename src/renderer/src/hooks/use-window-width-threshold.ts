@@ -3,7 +3,9 @@ import { useEffect, useRef } from 'react'
 import { COMPACT_MODE_WIDTH_THRESHOLD, useAppStore } from '@/stores/app-store'
 
 export function useWindowWidthThreshold(): void {
-  const setWindowBelowCompactThreshold = useAppStore((state) => state.setWindowBelowCompactThreshold)
+  const setWindowBelowCompactThreshold = useAppStore(
+    (state) => state.setWindowBelowCompactThreshold
+  )
 
   const widthRef = useRef<number>(window.innerWidth)
   const rafRef = useRef<number | null>(null)

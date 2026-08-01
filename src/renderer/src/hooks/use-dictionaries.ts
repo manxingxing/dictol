@@ -25,7 +25,10 @@ export function useDictionaries(): UseQueryResult<DictionarySummary[], Error> {
 export function useReadyDictionaries(): UseQueryResult<ReadyDictionary[], Error> {
   return useQuery({
     queryKey: readyDictionariesQueryKey,
-    queryFn: () => window.dictol.dictionaries.listReady(),
+    queryFn: async () => {
+      const dictionaries = await window.dictol.dictionaries.listReady()
+      return dictionaries
+    },
     staleTime: 30_000
   })
 }

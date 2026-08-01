@@ -82,30 +82,83 @@ declare global {
         >
         record: (term: string) => Promise<void>
         clear: () => Promise<void>
+        onChanged: (callback: () => void) => () => void
       }
       app: {
         onFocusSearch: (callback: () => void) => () => void
       }
+      searchPopover: {
+        show: () => void
+        hide: () => void
+        setBounds: (bounds: { x: number; y: number; width: number; height: number }) => void
+        update: (
+          query: string,
+          items: { word: string; description: string; recent: boolean }[],
+          selectedIndex: number,
+          status?: 'loading' | 'empty'
+        ) => void
+        onSelect: (callback: (word: string) => void) => () => void
+        onQueryChange: (callback: (query: string) => void) => () => void
+        onSubmit: (callback: (query: string) => void) => () => void
+        onDismiss: (callback: () => void) => () => void
+        onShown: (callback: () => void) => () => void
+        onHidden: (callback: () => void) => () => void
+      }
       wordCapture: {
         getStatus: () => Promise<{
           supported: boolean
+          limitation: string | null
           trusted: boolean
           registered: boolean
           shortcut: string
+          lookupWordOnSelection: boolean
+          excludedPrograms: string[]
         } | null>
         requestAccess: () => Promise<{
           supported: boolean
+          limitation: string | null
           trusted: boolean
           registered: boolean
           shortcut: string
+          lookupWordOnSelection: boolean
+          excludedPrograms: string[]
         } | null>
         setShortcut: (shortcut: string) => Promise<{
           ok: boolean
           status: {
             supported: boolean
+            limitation: string | null
             trusted: boolean
             registered: boolean
             shortcut: string
+            lookupWordOnSelection: boolean
+            excludedPrograms: string[]
+          }
+          error?: string
+        } | null>
+        setSelectionEnabled: (enabled: boolean) => Promise<{
+          ok: boolean
+          status: {
+            supported: boolean
+            limitation: string | null
+            trusted: boolean
+            registered: boolean
+            shortcut: string
+            lookupWordOnSelection: boolean
+            excludedPrograms: string[]
+          }
+          error?: string
+        } | null>
+        removeExcludedProgram: (programName: string) => Promise<{
+          ok: boolean
+          status: {
+            supported: boolean
+            limitation: string | null
+            trusted: boolean
+            registered: boolean
+            shortcut: string
+            lookupWordOnSelection: boolean
+            excludedPrograms: string[]
           }
           error?: string
         } | null>
@@ -123,7 +176,6 @@ declare global {
         show: (entryId: string) => Promise<void>
         hide: () => void
         setBounds: (bounds: { x: number; y: number; width: number; height: number }) => void
-        onRequestBounds: (callback: () => void) => () => void
         onLookupWord: (callback: (word: string) => void) => () => void
       }
     }

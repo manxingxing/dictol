@@ -1,18 +1,14 @@
 import { desc, eq, sql } from 'drizzle-orm'
-import { DictolDatabase, getOrm } from '../drizzle'
+import { DictolDatabase } from '../drizzle'
 import { QueryHistory, queryHistory } from '../schema'
 
 export type { QueryHistory } from '../schema'
 
 export class QueryHistoryRepository {
-  private _db?: DictolDatabase
+  private db: DictolDatabase
 
-  constructor(db?: DictolDatabase) {
-    if (db) this._db = db
-  }
-
-  private get db(): DictolDatabase {
-    return this._db ?? getOrm()
+  constructor(db: DictolDatabase) {
+    this.db = db
   }
 
   /** 写入或更新查询记录（normalizedTerm 唯一，冲突时 term 覆盖 + queryCount+1） */

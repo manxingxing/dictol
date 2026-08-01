@@ -1,0 +1,9 @@
+html,
+body,
+#root {
+  background: transparent;
+}
+
+body {
+  user-select: none;
+}

@@ -1,0 +1,177 @@
+import type { BrowserWindow } from 'electron'
+
+import { AppConfigStore, type AppConfig } from './app-config'
+import { initDrizzleDB, type DictolDatabase, type SqliteDatabase } from './db/drizzle'
+import { getDatabasePath, getMigrationsPath } from './db/paths'
+import { DBService } from './db-service'
+import { MDFileCache } from './mdict-file-cache'
+import { ResourceCache } from './resource-cache'
+import { SelectionHookService } from './selection-hook-service'
+import { ShortcutRegister } from './shortcut-register'
+import { TrayManager } from './tray-manager'
+import { WindowManager } from './window-manager'
+
+export const LOOKUP_WORD_ON_SHORTCUT = 'lookupWordOnShortcut'
+
+type MainWindowInitializer = (mainWindow: BrowserWindow) => void
+
+export class AppRuntime {
+  private initialized = false
+  private disposed = false
+  db: DictolDatabase | undefined
+  dbService: DBService | undefined
+  private dbConnection: SqliteDatabase | undefined
+  private mainWindowInitializer: MainWindowInitializer | undefined
+  windowManager: WindowManager = new WindowManager()
+  mdFileCache: MDFileCache = new MDFileCache()
+  resourceCache: ResourceCache = new ResourceCache()
+  appConfig: AppConfigStore = new AppConfigStore()
+  selectionHookService: SelectionHookService = new SelectionHookService()
+  shortcutRegister: ShortcutRegister = new ShortcutRegister()
+  trayManager: TrayManager = new TrayManager()
+
+  get isInitialized(): boolean {
+    return this.initialized
+  }
+
+  get isDisposed(): boolean {
+    return this.disposed
+  }
+
+  get mainWindow(): BrowserWindow | undefined {
+    const window = this.windowManager.mainWindow
+    return window && !window.isDestroyed() ? window : undefined
+  }
+
+  initDB(): void {
+    const { orm, db: conn } = initDrizzleDB(getDatabasePath(), getMigrationsPath())
+    this.db = orm
+    this.dbService = new DBService(orm)
+    this.dbConnection = conn
+  }
+
+  closeDB(): void {
+    if (this.dbConnection) {
+      this.dbConnection.close()
+    }
+  }
+
+  initWindowManager(): void {
+    const mainWindow = this.ensureMainWindow()
+    this.trayManager.initialize(mainWindow)
+  }
+
+  ensureMainWindow(): BrowserWindow {
+    this.windowManager.createMainWindow()
+    this.windowManager.createDictionaryView()
+    const mainWindow = this.mainWindow
+    if (!mainWindow) throw new Error('主窗口尚未初始化')
+    return mainWindow
+  }
+
+  setMainWindowInitializer(initializer: MainWindowInitializer): void {
+    this.mainWindowInitializer = initializer
+  }
+
+  getOrCreateMainWindow(): BrowserWindow {
+    const existingWindow = this.mainWindow
+    if (existingWindow) return existingWindow
+
+    const mainWindow = this.ensureMainWindow()
+    if (!this.mainWindowInitializer) {
+      throw new Error('主窗口初始化器尚未注册')
+    }
+    this.mainWindowInitializer(mainWindow)
+    return mainWindow
+  }
+
+  initialize(): void {
+    if (this.initialized) return
+    if (this.disposed) throw new Error('AppRuntime 已销毁，不能重新初始化')
+
+    this.initDB()
+    this.initWindowManager()
+    const config = this.appConfig.load()
+    this.initSelectionHook(config)
+    this.registerGlobalShortCuts(config)
+    this.initialized = true
+  }
+
+  private initSelectionHook(config: AppConfig): void {
+    const { lookupWordOnSelection, lookupWordOnShortcut } = config.featureFlags
+    if (!lookupWordOnSelection && !lookupWordOnShortcut) {
+      this.selectionHookService.stop()
+      return
+    }
+
+    const capabilities = this.selectionHookService.getCapabilities()
+    if (!capabilities.supported) {
+      this.selectionHookService.stop()
+      console.warn('Selection hook is unsupported in the current environment', capabilities)
+      return
+    }
+
+    const status = this.selectionHookService.start({
+      passiveMode: !lookupWordOnSelection,
+      excludedPrograms: config.selection.excludedPrograms
+    })
+
+    if (!status.running) {
+      console.warn('Selection hook is unavailable; continuing without cross-app lookup')
+    }
+  }
+
+  private registerGlobalShortCuts(config: AppConfig): void {
+    // 快捷键取词
+    if (config.featureFlags.lookupWordOnShortcut) {
+      this.registerLookupWordShortCut(config.shortcuts)
+    }
+  }
+
+  private registerLookupWordShortCut({
+    lookupWordOnShortcut
+  }: {
+    lookupWordOnShortcut: string
+  }): void {
+    if (this.selectionHookService.getStatus().running && lookupWordOnShortcut) {
+      this.shortcutRegister.register(
+        LOOKUP_WORD_ON_SHORTCUT,
+        lookupWordOnShortcut,
+        this.selectionHookService
+      )
+    }
+  }
+
+  restartInputServices(): void {
+    this.shortcutRegister.unregister(LOOKUP_WORD_ON_SHORTCUT)
+    const config = this.appConfig.load()
+    console.log('new config:', config)
+    this.initSelectionHook(config)
+    this.registerGlobalShortCuts(config)
+  }
+
+  dispose(): void {
+    if (this.disposed) return
+    this.disposed = true
+    this.shortcutRegister.unregisterAll()
+    this.selectionHookService.dispose()
+    this.trayManager.dispose()
+    this.windowManager.dispose()
+    this.mdFileCache.dispose()
+    this.closeDB()
+    this.db = undefined
+    this.dbService = undefined
+    this.dbConnection = undefined
+    this.mainWindowInitializer = undefined
+    this.initialized = false
+  }
+}
+
+let appRunTime: AppRuntime | undefined
+
+export function getAppRunTime(): AppRuntime {
+  if (appRunTime) return appRunTime
+
+  appRunTime = new AppRuntime()
+  return appRunTime
+}

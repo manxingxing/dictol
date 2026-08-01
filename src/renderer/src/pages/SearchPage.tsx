@@ -1,9 +1,22 @@
 import { useReadyDictionaries } from '@/hooks/use-dictionaries'
 import { EmptyDictionaryState } from './EmptyDictionaryState'
 import { SearchLayout } from '@/components/SearchLayout'
+import { useAppStore } from '@/stores/app-store'
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 
 export function SearchPage(): React.JSX.Element {
   const { data: dictionaries = [], isLoading, isError } = useReadyDictionaries()
+  const setLastQueryPath = useAppStore((state) => state.setLastQueryPath)
+
+  const location = useLocation()
+
+  useEffect(() => {
+    return () => {
+      const currentLocation = `${location.pathname}${location.search}${location.hash}`
+      setLastQueryPath(currentLocation)
+    }
+  }, [setLastQueryPath, location])
 
   if (isLoading) {
     return (

@@ -7,7 +7,7 @@ import { selectCompactMode, useAppStore } from '@/stores/app-store'
 import { SearchPanel } from '@/components/SearchPanel'
 import { cn } from '@/lib/utils'
 
-export const SearchLayout = () => {
+export const SearchLayout = (): React.JSX.Element => {
   const displayInCompactMode = useAppStore(selectCompactMode)
   const setCompactMode = useAppStore((state) => state.setCompactMode)
   const windowBelowCompactThreshold = useAppStore((state) => state.windowBelowCompactThreshold)

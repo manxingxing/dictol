@@ -10,7 +10,7 @@
 - 上传 MDX 后由按需创建的导入 Worker 复制同目录的 MDD/CSS/JS/PNG 文件，并以 2,000 条为一批流式遍历 MDX，将词条、规范化词条和 record offset 写入 SQLite；每批使用一个独立小事务。
 - 搜索使用 SQLite 前缀范围查询；词条正文不入库，打开结果时由 Rust 按 offset 从 MDX 读取。
 - `dictol-resource://` 协议负责外置文件及多 MDD 资源读取；同一资源会并行查询多个 MDD，图片和音频按需缓存到 `app.userData/resource-cache`。
-- 搜索界面已支持实时建议、空输入时显示最近 50 个查询词、回车打开第一项；数据库按规范化词头分组返回多个词典入口，内容区使用 shadcn Tabs 在各词典结果间切换。词条 HTML 在独立 `WebContentsView` 中运行，支持双击选词和内部链接查询。
+- 搜索界面已支持实时建议、空输入时显示最近 50 个查询词、回车打开第一项；数据库按规范化词头分组返回多个词典入口，内容区使用 shadcn Tabs 在各词典结果间切换。词条 HTML 在独立 `WebContentsView` 中运行，支持右键/选中文本查词和内部链接查询。
 - 成功打开词条后按规范化词头写入 SQLite 查询历史，不绑定具体词典记录；再次查询会递增次数并更新 `last_queried_at`，最多保留最近 200 条，并支持从历史重新查询或清空记录。
 - 最小 MDX/MDD 端到端测试、OALDPE/LDOCE5 真实文件回归、Rust 单测、Node-API 测试、Clippy、TypeScript、ESLint 和生产构建均已纳入验证。
 
@@ -93,7 +93,7 @@ Electron Main / Node Backend
 - `sandbox: true`
 - 不向词典页面暴露 Electron、Node.js、文件系统或通用 IPC；专用 preload 只允许上报查词目标。
 - 使用 `dictol-entry://dictionary-<id>/...` 为每部词典提供独立 origin，隔离 Cookie 和 localStorage。
-- React 路由负责选择词条、View 显隐和 bounds；词典页的导航、音频及双击查词由主进程桥接。
+- React 路由负责选择词条、View 显隐和 bounds；词典页的导航、音频及查词由主进程桥接。
 
 建议注册自定义协议：
 

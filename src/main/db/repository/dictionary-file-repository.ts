@@ -1,18 +1,14 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import { DictolDatabase, getOrm } from '../drizzle'
+import { DictolDatabase } from '../drizzle'
 import { DictionaryFile, dictionary, dictionaryFile } from '../schema'
 
 export type { DictionaryFile } from '../schema'
 
 export class DictionaryFileRepository {
-  private _db?: DictolDatabase
+  private db: DictolDatabase
 
-  constructor(db?: DictolDatabase) {
-    if (db) this._db = db
-  }
-
-  private get db(): DictolDatabase {
-    return this._db ?? getOrm()
+  constructor(db: DictolDatabase) {
+    this.db = db
   }
 
   /** 创建词典文件记录。 */

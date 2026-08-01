@@ -1,18 +1,12 @@
 import { asc, eq, sql } from 'drizzle-orm'
-import { DictolDatabase, getOrm } from '../drizzle'
+import { DictolDatabase } from '../drizzle'
 import { Dictionary, dictionary } from '../schema'
 
-// export type Dictionary = typeof dictionary.$inferSelect
-
 export class DictionaryRepository {
-  private _db?: DictolDatabase
+  private db: DictolDatabase
 
-  constructor(db?: DictolDatabase) {
-    if (db) this._db = db
-  }
-
-  private get db(): DictolDatabase {
-    return this._db ?? getOrm()
+  constructor(db: DictolDatabase) {
+    this.db = db
   }
 
   /** 创建一条正在导入的词典记录，并追加到当前排序末尾。 */

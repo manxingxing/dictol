@@ -63,9 +63,12 @@ type QueryHistoryItem = {
 
 type WordCaptureStatus = {
   supported: boolean
+  limitation: string | null
   trusted: boolean
   registered: boolean
   shortcut: string
+  lookupWordOnSelection: boolean
+  excludedPrograms: string[]
 }
 
 type WordCaptureEvent =
@@ -80,11 +83,31 @@ type WordCaptureShortcutResult = {
   error?: string
 }
 
+type SearchPopoverItem = {
+  word: string
+  description: string
+  recent: boolean
+}
+
+type WordCaptureSubscriber = (event: WordCaptureEvent) => void
+
+const wordCaptureSubscribers = new Set<WordCaptureSubscriber>()
+let pendingWordCaptureEvent: WordCaptureEvent | undefined
+
+ipcRenderer.on('word-capture:event', (_event, captureEvent: WordCaptureEvent) => {
+  if (wordCaptureSubscribers.size === 0) {
+    pendingWordCaptureEvent = captureEvent
+    return
+  }
+  wordCaptureSubscribers.forEach((subscriber) => subscriber(captureEvent))
+})
+
 const api = Object.freeze({
   platform: process.platform,
   dictionaries: Object.freeze({
     list: (): Promise<DictionarySummary[]> => ipcRenderer.invoke('dictionaries:list'),
-    listReady: (): Promise<ReadyDictionary[]> => ipcRenderer.invoke('dictionaries:list-ready'),
+    listReady: (): Promise<ReadyDictionary[]> =>
+      ipcRenderer.invoke('dictionaries:list-ready'),
     import: (): Promise<ImportedDictionary | null> => ipcRenderer.invoke('dictionaries:import'),
     delete: (dictionaryId: string): Promise<void> =>
       ipcRenderer.invoke('dictionaries:delete', dictionaryId),
@@ -106,7 +129,12 @@ const api = Object.freeze({
   history: Object.freeze({
     list: (): Promise<QueryHistoryItem[]> => ipcRenderer.invoke('query-history:list'),
     record: (term: string): Promise<void> => ipcRenderer.invoke('query-history:record', term),
-    clear: (): Promise<void> => ipcRenderer.invoke('query-history:clear')
+    clear: (): Promise<void> => ipcRenderer.invoke('query-history:clear'),
+    onChanged: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('query-history:changed', listener)
+      return () => ipcRenderer.removeListener('query-history:changed', listener)
+    }
   }),
   app: Object.freeze({
     onFocusSearch: (callback: () => void): (() => void) => {
@@ -115,17 +143,66 @@ const api = Object.freeze({
       return () => ipcRenderer.removeListener('app:focus-search', listener)
     }
   }),
+  searchPopover: Object.freeze({
+    show: (): void => ipcRenderer.send('search-popover:show'),
+    hide: (): void => ipcRenderer.send('search-popover:hide'),
+    setBounds: (bounds: { x: number; y: number; width: number; height: number }): void =>
+      ipcRenderer.send('search-popover:set-bounds', bounds),
+    update: (
+      query: string,
+      items: SearchPopoverItem[],
+      selectedIndex: number,
+      status?: 'loading' | 'empty'
+    ): void => ipcRenderer.send('search-popover:update', { query, items, selectedIndex, status }),
+    onSelect: (callback: (word: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, word: string): void => callback(word)
+      ipcRenderer.on('search-popover:selected', listener)
+      return () => ipcRenderer.removeListener('search-popover:selected', listener)
+    },
+    onQueryChange: (callback: (query: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, query: string): void => callback(query)
+      ipcRenderer.on('search-popover:query-changed', listener)
+      return () => ipcRenderer.removeListener('search-popover:query-changed', listener)
+    },
+    onSubmit: (callback: (query: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, query: string): void => callback(query)
+      ipcRenderer.on('search-popover:submitted', listener)
+      return () => ipcRenderer.removeListener('search-popover:submitted', listener)
+    },
+    onDismiss: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('search-popover:dismissed', listener)
+      return () => ipcRenderer.removeListener('search-popover:dismissed', listener)
+    },
+    onShown: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('search-popover:shown', listener)
+      return () => ipcRenderer.removeListener('search-popover:shown', listener)
+    },
+    onHidden: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('search-popover:hidden', listener)
+      return () => ipcRenderer.removeListener('search-popover:hidden', listener)
+    }
+  }),
   wordCapture: Object.freeze({
     getStatus: (): Promise<WordCaptureStatus | null> => ipcRenderer.invoke('word-capture:status'),
     requestAccess: (): Promise<WordCaptureStatus | null> =>
       ipcRenderer.invoke('word-capture:request-access'),
     setShortcut: (shortcut: string): Promise<WordCaptureShortcutResult | null> =>
       ipcRenderer.invoke('word-capture:set-shortcut', shortcut),
+    setSelectionEnabled: (enabled: boolean): Promise<WordCaptureShortcutResult | null> =>
+      ipcRenderer.invoke('word-capture:set-selection-enabled', enabled),
+    removeExcludedProgram: (programName: string): Promise<WordCaptureShortcutResult | null> =>
+      ipcRenderer.invoke('word-capture:remove-excluded-program', programName),
     onEvent: (callback: (event: WordCaptureEvent) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, captureEvent: WordCaptureEvent): void =>
+      wordCaptureSubscribers.add(callback)
+      if (pendingWordCaptureEvent) {
+        const captureEvent = pendingWordCaptureEvent
+        pendingWordCaptureEvent = undefined
         callback(captureEvent)
-      ipcRenderer.on('word-capture:event', listener)
-      return () => ipcRenderer.removeListener('word-capture:event', listener)
+      }
+      return () => wordCaptureSubscribers.delete(callback)
     }
   }),
   dictionaryView: Object.freeze({
@@ -133,11 +210,6 @@ const api = Object.freeze({
     hide: (): void => ipcRenderer.send('dictionary-view:hide'),
     setBounds: (bounds: { x: number; y: number; width: number; height: number }): void =>
       ipcRenderer.send('dictionary-view:set-bounds', bounds),
-    onRequestBounds: (callback: () => void): (() => void) => {
-      const listener = (): void => callback()
-      ipcRenderer.on('dictionary-view:request-bounds', listener)
-      return () => ipcRenderer.removeListener('dictionary-view:request-bounds', listener)
-    },
     onLookupWord: (callback: (word: string) => void): (() => void) => {
       const listener = (_event: Electron.IpcRendererEvent, word: string): void => callback(word)
       ipcRenderer.on('dictionary-view:lookup-word', listener)

@@ -6,11 +6,11 @@ import { WindowTitleBar } from '@/components/WindowTitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Button } from '@/components/ui/button'
 import { useWindowWidthThreshold } from '@/hooks/use-window-width-threshold'
-import { useQueryStore } from '@/stores/query-store'
+import { useAppStore } from '@/stores/app-store'
 
 export function AppLayout(): React.JSX.Element {
   const navigate = useNavigate()
-  const setSearchQuery = useQueryStore((state) => state.setSearchQuery)
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
 
   useWindowWidthThreshold()

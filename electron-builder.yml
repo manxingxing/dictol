@@ -3,6 +3,9 @@ productName: Dictol
 directories:
   buildResources: build
 files:
+  - out/**
+  - drizzle/**
+  - resources/**
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -16,12 +19,10 @@ files:
   - '!scripts/**'
   - '!node_modules/@dictol/mdict-native/{src,target,test,node_modules}/**'
   - '!node_modules/@dictol/mdict-native/{Cargo.lock,Cargo.toml,README.md,build.rs,index.d.ts,package-lock.json}'
-  - '!node_modules/@dictol/selection-native/{src,target,node_modules}/**'
-  - '!node_modules/@dictol/selection-native/{Cargo.lock,Cargo.toml,build.rs,index.d.ts,package-lock.json}'
 asarUnpack:
   - resources/**
   - node_modules/@dictol/mdict-native/*.node
-  - node_modules/@dictol/selection-native/*.node
+  - node_modules/selection-hook/prebuilds/**
 win:
   executableName: dictol
   icon: build/icon.ico

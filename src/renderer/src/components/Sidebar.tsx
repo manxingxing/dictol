@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { BookOpen, History, Library, Search, Settings } from 'lucide-react'
+import { History, Library, Search, Settings } from 'lucide-react'
 
+import appIcon from '@/assets/icon_320*320.png'
 import { Button } from '@/components/ui/button'
 import { selectSidebarCollapsed, useAppStore } from '@/stores/app-store'
 
@@ -12,6 +13,7 @@ const navigation = [
 
 export function Sidebar(): React.JSX.Element {
   const collapsed = useAppStore(selectSidebarCollapsed)
+  const lastQueryPath = useAppStore((state) => state.lastQueryPath)
 
   return (
     <aside
@@ -21,11 +23,11 @@ export function Sidebar(): React.JSX.Element {
     >
       <div className="relative mb-7 h-9 px-2">
         <div
-          className={`absolute top-0 flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-[left,transform] duration-200 ${
+          className={`absolute top-0 size-9 overflow-hidden rounded-xl shadow-sm transition-[left,transform] duration-200 ${
             collapsed ? 'left-1/2 -translate-x-1/2' : 'left-0 translate-x-0'
           }`}
         >
-          <BookOpen className="size-5" />
+          <img alt="" className="size-full object-cover" src={appIcon} />
         </div>
         <div
           className={`absolute left-11 top-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ${
@@ -39,7 +41,11 @@ export function Sidebar(): React.JSX.Element {
 
       <nav className="space-y-1" aria-label="主导航">
         {navigation.map(({ label, path, icon: Icon }) => (
-          <NavLink key={path} to={path} className="block">
+          <NavLink
+            key={path}
+            to={path === '/search' ? (lastQueryPath ?? path) : path}
+            className="block"
+          >
             {({ isActive }) => (
               <Button
                 aria-label={label}

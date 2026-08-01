@@ -4,10 +4,10 @@ import { NavLink } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useQueryHistory } from '@/hooks/use-query-history'
-import { useQueryStore } from '@/stores/query-store'
+import { useAppStore } from '@/stores/app-store'
 
 export function SearchHistory(): React.JSX.Element {
-  const setSearchQuery = useQueryStore((state) => state.setSearchQuery)
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
   const { data: history = [] } = useQueryHistory()
   const recentTerms = history.slice(0, 50)
 

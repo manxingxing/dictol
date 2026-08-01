@@ -1,0 +1,120 @@
+html,
+body,
+#root {
+  background: transparent;
+}
+
+body {
+  overflow: hidden;
+  user-select: none;
+}
+
+.selection-toolbar-shell {
+  box-sizing: border-box;
+  width: 100vw;
+  height: 44px;
+  padding: 2px;
+}
+
+.selection-menu {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid rgb(20 24 21 / 12%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: none;
+  color: #242824;
+  backdrop-filter: blur(16px);
+}
+
+.selection-action {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.selection-action:hover,
+.selection-action:focus-visible {
+  background: #eef0ed;
+}
+
+.selection-action:active {
+  background: #e2e5e1;
+}
+
+.selection-action-primary {
+  min-width: 0;
+  flex: 1;
+}
+
+.selection-action-more {
+  width: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+}
+
+.selection-action-logo {
+  width: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+}
+
+.selection-action-separator {
+  width: 1px;
+  height: 18px;
+  align-self: center;
+  background: rgb(20 24 21 / 12%);
+}
+
+.selection-action svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+.selection-action-logo img {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .selection-menu {
+    border-color: rgb(255 255 255 / 10%);
+    background: rgb(38 41 38 / 96%);
+    color: #ecefeb;
+  }
+
+  .selection-action-separator {
+    background: rgb(255 255 255 / 12%);
+  }
+
+  .selection-action:hover,
+  .selection-action:focus-visible {
+    background: #363a36;
+  }
+
+  .selection-action:active {
+    background: #414641;
+  }
+}

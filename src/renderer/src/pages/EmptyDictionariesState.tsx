@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export const EmptyDictionariesState = () => {
+export const EmptyDictionariesState = (): React.JSX.Element => {
   return (
     <section className="mx-auto flex max-w-3xl flex-col px-8 py-16">
       <p className="mb-2 text-sm font-medium text-primary">开始使用 Dictol</p>

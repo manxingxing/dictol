@@ -5,10 +5,21 @@ import {
   type UseMutationResult,
   type UseQueryResult
 } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 export const queryHistoryQueryKey = ['query-history'] as const
 
 export type QueryHistoryItem = Awaited<ReturnType<Window['dictol']['history']['list']>>[number]
+
+export function useQueryHistoryChangeListener(): void {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    return window.dictol.history.onChanged(() => {
+      void queryClient.invalidateQueries({ queryKey: queryHistoryQueryKey })
+    })
+  }, [queryClient])
+}
 
 export function useQueryHistory(): UseQueryResult<QueryHistoryItem[], Error> {
   return useQuery({

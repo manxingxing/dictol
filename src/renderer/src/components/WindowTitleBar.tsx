@@ -1,5 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AppWindow, ArrowLeft, ArrowRight, PanelLeft, PanelLeftClose, PanelsTopLeft } from 'lucide-react'
+import {
+  AppWindow,
+  ArrowLeft,
+  ArrowRight,
+  PanelLeft,
+  PanelLeftClose,
+  PanelsTopLeft
+} from 'lucide-react'
 
 import { CompactTitleBarSearch } from '@/components/CompactTitleBarSearch'
 import { Button } from '@/components/ui/button'
@@ -18,7 +25,6 @@ export function WindowTitleBar(): React.JSX.Element {
   const windowBelowCompactThreshold = useAppStore((state) => state.windowBelowCompactThreshold)
   const compactModeButtonLabel = compactModeEnabled ? '关闭紧凑模式' : '始终使用紧凑模式'
 
-
   return (
     <header className="drag-region flex h-14 shrink-0 items-center border-b border-border bg-sidebar">
       <div
@@ -30,6 +36,7 @@ export function WindowTitleBar(): React.JSX.Element {
           {!displayInCompactMode && (
             <Button
               aria-label={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={toggleSidebar}
               size="icon"
               title={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}

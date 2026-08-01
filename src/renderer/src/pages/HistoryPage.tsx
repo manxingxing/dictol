@@ -13,7 +13,7 @@ import {
   TableRow
 } from '@/components/ui/table'
 
-import { useQueryStore } from '@/stores/query-store'
+import { useAppStore } from '@/stores/app-store'
 import {
   useClearQueryHistory,
   useQueryHistory,
@@ -38,7 +38,7 @@ function getColumnClassName(columnId: string, header: boolean): string | undefin
 
 export const HistoryPage = (): React.JSX.Element => {
   const navigate = useNavigate()
-  const setSearchQuery = useQueryStore((state) => state.setSearchQuery)
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
 
   const { data: history = [], isLoading, isError } = useQueryHistory()
   const clearHistory = useClearQueryHistory()

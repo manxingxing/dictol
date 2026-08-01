@@ -1,7 +1,9 @@
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query'
 
-type DictionarySearchResult = Awaited<ReturnType<Window['dictol']['entries']['search']>>[number]
-type DictionaryEntryGroup = Awaited<ReturnType<Window['dictol']['entries']['lookup']>>
+export type DictionarySearchResult = Awaited<
+  ReturnType<Window['dictol']['entries']['search']>
+>[number]
+export type DictionaryEntryGroup = Awaited<ReturnType<Window['dictol']['entries']['lookup']>>
 
 export function useDictionarySearch(
   prefix: string,

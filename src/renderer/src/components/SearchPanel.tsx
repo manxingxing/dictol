@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LoaderCircle, Search, X } from 'lucide-react'
 import useDebounce from 'react-use/lib/useDebounce'
@@ -7,20 +7,25 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 import { useDictionarySearch } from '@/hooks/use-dictionary-entries'
-import { useSearchFocusShortcut } from '@/hooks/use-search-focus-shortcut'
-import { useQueryStore } from '@/stores/query-store'
+import { useSearchShortCut } from '@/hooks/use-search-shortcut'
 import { selectCompactMode, useAppStore } from '@/stores/app-store'
 import { SearchHistory } from '@/components/SearchHistory'
+import { isVisible } from '@/lib/utils'
 
 export const SearchPanel = (): React.JSX.Element => {
   const navigate = useNavigate()
-  const searchQuery = useQueryStore((state) => state.searchQuery)
-  const setSearchQuery = useQueryStore((state) => state.setSearchQuery)
+  const searchQuery = useAppStore((state) => state.searchQuery)
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
   const displayInCompactMode = useAppStore(selectCompactMode)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
-  // cmd+f, ctrl+f
-  useSearchFocusShortcut(searchInputRef)
+  const focusSearchInput = useCallback((): boolean => {
+    const input = searchInputRef.current
+    if (!input || !isVisible(input)) return false
+    input.focus({ preventScroll: true })
+    return true
+  }, [])
+  useSearchShortCut(focusSearchInput)
 
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
   useDebounce(() => setDebouncedQuery(searchQuery.trim()), 100, [searchQuery])
@@ -28,7 +33,7 @@ export const SearchPanel = (): React.JSX.Element => {
   const { data: results = [], isFetching } = useDictionarySearch(debouncedQuery)
 
   const openFirstResult = async (): Promise<void> => {
-    const normalizedQuery = searchQuery.trim();
+    const normalizedQuery = searchQuery.trim()
     if (!normalizedQuery) return
     const first =
       debouncedQuery.toLowerCase() === normalizedQuery.toLowerCase() && !isFetching

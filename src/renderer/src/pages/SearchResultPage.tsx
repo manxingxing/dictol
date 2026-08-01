@@ -4,23 +4,21 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDictionaryLookup } from '@/hooks/use-dictionary-entries'
 import { useRecordQueryHistory } from '@/hooks/use-query-history'
-import { dictionaryLayoutChangedEvent } from '@/lib/dictionary-layout'
 import { useAppStore } from '@/stores/app-store'
 
 export function SearchResultPage(): React.JSX.Element {
-  const { term } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const { term } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
+
   const [contentContainer, setContentContainer] = useState<HTMLDivElement | null>(null)
   const contentContainerRef = useCallback((node: HTMLDivElement | null): void => {
     setContentContainer(node)
   }, [])
-  const initializedSearchQuery = useRef(false)
+
   const recordedPathname = useRef<string | null>(null)
-  const [failedEntryId, setFailedEntryId] = useState<string | null>(null)
-  const searchQuery = useAppStore((state) => state.searchQuery)
-  const setSearchQuery = useAppStore((state) => state.setSearchQuery)
   const normalizedTerm = term?.trim()
   const { data: group, isLoading, isError } = useDictionaryLookup(normalizedTerm)
   const { mutateAsync: recordQueryHistory } = useRecordQueryHistory()
@@ -29,12 +27,13 @@ export function SearchResultPage(): React.JSX.Element {
     group?.dictionaries.find((item) => item.dictionaryId === requestedDictionaryId) ??
     group?.dictionaries[0]
   const activeEntryId = activeDictionary?.entryId
-
-  useEffect(() => {
-    if (initializedSearchQuery.current) return
-    initializedSearchQuery.current = true
-    if (normalizedTerm && !searchQuery.trim()) setSearchQuery(normalizedTerm)
-  }, [normalizedTerm, searchQuery, setSearchQuery])
+  const [entryFailure, setEntryFailure] = useState({
+    entryId: activeEntryId,
+    failed: false
+  })
+  if (entryFailure.entryId !== activeEntryId) {
+    setEntryFailure({ entryId: activeEntryId, failed: false })
+  }
 
   useEffect(() => {
     if (!group || recordedPathname.current === location.pathname) return
@@ -70,7 +69,10 @@ export function SearchResultPage(): React.JSX.Element {
     }
     let active = true
     void window.dictol.dictionaryView.show(activeEntryId).catch(() => {
-      if (active) setFailedEntryId(activeEntryId)
+      if (active) {
+        window.dictol.dictionaryView.hide()
+        setEntryFailure({ entryId: activeEntryId, failed: true })
+      }
     })
     return () => {
       active = false
@@ -102,18 +104,10 @@ export function SearchResultPage(): React.JSX.Element {
     }
     const observer = new ResizeObserver(scheduleBoundsUpdate)
     observer.observe(container)
-    if (container.parentElement) observer.observe(container.parentElement)
-    window.addEventListener('resize', scheduleBoundsUpdate)
-    window.addEventListener(dictionaryLayoutChangedEvent, scheduleBoundsUpdate)
-    const stopListeningForBoundsRequests =
-      window.dictol.dictionaryView.onRequestBounds(scheduleBoundsUpdate)
     scheduleBoundsUpdate()
     return () => {
       observer.disconnect()
       if (animationFrame) window.cancelAnimationFrame(animationFrame)
-      stopListeningForBoundsRequests()
-      window.removeEventListener('resize', scheduleBoundsUpdate)
-      window.removeEventListener(dictionaryLayoutChangedEvent, scheduleBoundsUpdate)
     }
   }, [activeEntryId, contentContainer])
 
@@ -135,8 +129,11 @@ export function SearchResultPage(): React.JSX.Element {
 
   if (isError || !group || group.dictionaries.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-destructive">
-        没有找到这个词条
+      <div className="flex flex-col h-full items-center justify-center">
+        <p className=" text-sm font-medium">没有找到词条解释</p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          所有词典中都没有找到 {normalizedTerm} 的解释
+        </p>
       </div>
     )
   }
@@ -164,21 +161,19 @@ export function SearchResultPage(): React.JSX.Element {
           ))}
         </TabsList>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" ref={contentContainerRef}>
         {group.dictionaries.map((item) => (
           <TabsContent
             className="m-0 h-full min-h-0 data-[state=inactive]:hidden"
-            forceMount
             key={item.dictionaryId}
             value={item.dictionaryId}
           >
-            {failedEntryId === item.entryId ? (
+            {entryFailure.entryId === item.entryId && entryFailure.failed ? (
               <div className="flex h-full items-center justify-center text-sm text-destructive">
                 无法读取这个词典中的词条
               </div>
             ) : (
               <div
-                ref={item.entryId === activeEntryId ? contentContainerRef : undefined}
                 className="h-full w-full bg-background"
                 aria-label={`${item.dictionaryName} 词条内容`}
               />
