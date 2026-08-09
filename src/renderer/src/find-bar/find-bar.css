@@ -1,0 +1,128 @@
+html,
+body,
+#root {
+  background: transparent;
+}
+
+body {
+  overflow: hidden;
+  user-select: none;
+}
+
+.find-bar-shell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  padding: 8px 10px;
+  border-radius: 0 0 10px 10px;
+  background: rgb(255 255 255 / 96%);
+  border: 1px solid rgb(20 24 21 / 12%);
+  border-top: 0;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.find-bar-shell input {
+  flex: auto;
+  min-width: 50px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgb(20 24 21 / 18%);
+  border-radius: 6px;
+  background: transparent;
+  color: #242824;
+  font: 13px/1 inherit;
+  outline: none;
+}
+
+.find-bar-shell input:focus {
+  border-color: rgb(20 24 21 / 40%);
+}
+
+.find-bar-shell .count {
+  flex:none;
+  color: #6b706b;
+  white-space: nowrap;
+  min-width: 24px;
+  text-align: right;
+  user-select: none;
+}
+
+.find-bar-shell .count:empty {
+  display: none;
+}
+
+.find-bar-shell button {
+  display: flex;
+  flex:none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgb(20 24 21 / 14%);
+  border-radius: 6px;
+  background: transparent;
+  color: #424742;
+  cursor: default;
+}
+
+.find-bar-shell button:hover {
+  background: #eef0ed;
+}
+
+.find-bar-shell button:active {
+  background: #e2e5e1;
+}
+
+.find-bar-shell button:disabled {
+  opacity: 0.34;
+}
+
+.find-bar-shell svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-color-scheme: dark) {
+  .find-bar-shell {
+    background: rgb(38 41 38 / 96%);
+    border-color: rgb(255 255 255 / 10%);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  }
+
+  .find-bar-shell input {
+    color: #ecefeb;
+    border-color: rgb(255 255 255 / 16%);
+  }
+
+  .find-bar-shell input:focus {
+    border-color: rgb(255 255 255 / 36%);
+  }
+
+  .find-bar-shell .count {
+    color: #959a95;
+  }
+
+  .find-bar-shell button {
+    color: #b4b9b4;
+    border-color: rgb(255 255 255 / 10%);
+  }
+
+  .find-bar-shell button:hover {
+    background: #363a36;
+  }
+
+  .find-bar-shell button:active {
+    background: #414641;
+  }
+}
