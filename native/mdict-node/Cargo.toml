@@ -8,7 +8,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-dictol-mdict = { path = "../mdict-core" }
+dictol-mdict = { path = "../mdict" }
 napi = { version = "3", features = ["napi8"] }
 napi-derive = "3"
 

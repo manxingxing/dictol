@@ -2,8 +2,8 @@
   "name": "@dictol/mdict-native",
   "version": "0.1.0",
   "private": true,
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "wrapper.js",
+  "types": "wrapper.d.ts",
   "files": [
     "index.js",
     "index.d.ts",
