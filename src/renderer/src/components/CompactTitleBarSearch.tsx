@@ -8,6 +8,7 @@ import { useQueryHistory } from '@/hooks/use-query-history'
 import { useSearchShortCut } from '@/hooks/use-search-shortcut'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
+import { MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT } from '../../../shared/window-chrome'
 
 type Suggestion = {
   word: string
@@ -16,9 +17,8 @@ type Suggestion = {
 }
 
 const POPOVER_HORIZONTAL_GUTTER = 12
-const POPOVER_VERTICAL_GUTTER = 8
+const POPOVER_BOTTOM_GUTTER = 8
 const POPOVER_OFFSET = 3
-const POPOVER_INPUT_HEIGHT = 36
 const POPOVER_ROW_HEIGHT = 42
 const POPOVER_SURFACE_HEIGHT = 10
 
@@ -180,13 +180,16 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
         Math.max(1, suggestions.length) * POPOVER_ROW_HEIGHT +
         POPOVER_SURFACE_HEIGHT
       : 0
+    const popoverY = Math.max(0, bounds.y)
+    const desiredHeight =
+      MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT + suggestionSurfaceHeight + POPOVER_BOTTOM_GUTTER
 
     window.dictol.searchPopover.show()
     window.dictol.searchPopover.setBounds({
-      x: bounds.x - POPOVER_HORIZONTAL_GUTTER,
-      y: bounds.y - POPOVER_VERTICAL_GUTTER,
+      x: Math.max(0, bounds.x - POPOVER_HORIZONTAL_GUTTER),
+      y: popoverY,
       width: bounds.width + POPOVER_HORIZONTAL_GUTTER * 2,
-      height: POPOVER_INPUT_HEIGHT + suggestionSurfaceHeight + POPOVER_VERTICAL_GUTTER * 2
+      height: Math.min(desiredHeight, Math.max(0, window.innerHeight - popoverY))
     })
     window.dictol.searchPopover.update(
       query,
@@ -224,13 +227,17 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
   useEffect(() => () => window.dictol.searchPopover.hide(), [])
 
   return (
-    <div ref={anchorRef} className="no-drag h-9 min-w-0 flex-1 sm:max-w-xl">
+    <div
+      ref={anchorRef}
+      className="no-drag min-w-0 flex-1 sm:max-w-[360px]"
+      style={{ height: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT }}
+    >
       <button
         aria-expanded={popoverOpen}
         aria-haspopup="listbox"
         aria-label="搜索单词"
         className={cn(
-          'relative flex h-full w-full cursor-text items-center rounded-lg border border-input bg-background/80 px-9 text-left text-sm shadow-sm outline-none',
+          'titlebar-search-trigger relative flex h-full w-full cursor-text items-center rounded-lg border px-9 text-left text-sm shadow-none outline-none',
           popoverOpen && popoverVisible && 'invisible'
         )}
         onClick={showPopover}

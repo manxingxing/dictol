@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -10,8 +10,13 @@ import { useAppStore } from '@/stores/app-store'
 export function AppLayout(): React.JSX.Element {
   const navigate = useNavigate()
   const setSearchQuery = useAppStore((state) => state.setSearchQuery)
+  const chromeTone = useAppStore((state) => state.chromeTone)
 
   useWindowWidthThreshold()
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.chromeTone = chromeTone
+  }, [chromeTone])
 
   useEffect(() => {
     return window.dictol.wordCapture.onEvent((event) => {
@@ -40,7 +45,7 @@ export function AppLayout(): React.JSX.Element {
       <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
         <Sidebar />
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto border-t">
           <Outlet />
         </main>
       </div>

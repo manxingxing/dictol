@@ -5,6 +5,7 @@ import {
   SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT,
   SELECTION_EXPLANATION_HEADER_HEIGHT
 } from '../shared/selection-explanation'
+import { MAIN_WINDOW_TITLEBAR_HEIGHT } from '../shared/window-chrome'
 import { resolvePreloadPath } from './output-path'
 import { applySelectionWindowBehavior, hideSelectionWindow } from './selection-window-behavior'
 import { WebContentsViewManager } from './web-contents-view-manager'
@@ -46,8 +47,17 @@ export class WindowManager {
       backgroundColor: darkMode ? '#171a18' : '#faf9f7',
       autoHideMenuBar: true,
       ...(process.platform === 'darwin'
-        ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 18 } }
-        : {}),
+        ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 16 } }
+        : process.platform === 'win32'
+          ? {
+              titleBarStyle: 'hidden' as const,
+              titleBarOverlay: {
+                color: '#00000000',
+                symbolColor: darkMode ? '#dddeda' : '#534f48',
+                height: MAIN_WINDOW_TITLEBAR_HEIGHT
+              }
+            }
+          : {}),
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
         preload: resolvePreloadPath('index.js'),
@@ -350,11 +360,11 @@ export class WindowManager {
       this.selectionExplanationView.setBackgroundColor(useDarkColors ? '#171a18' : '#ffffff')
     }
 
-    if (process.platform !== 'darwin') {
+    if (process.platform === 'win32') {
       window.setTitleBarOverlay({
-        color: useDarkColors ? '#151815' : '#f7f7f5',
+        color: '#00000000',
         symbolColor: useDarkColors ? '#dddeda' : '#534f48',
-        height: 56
+        height: MAIN_WINDOW_TITLEBAR_HEIGHT
       })
     }
   }

@@ -1,14 +1,13 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  AppWindow,
-  ArrowLeft,
-  ArrowRight,
-  PanelsTopLeft
-} from 'lucide-react'
+import { AppWindow, ArrowLeft, ArrowRight, PanelsTopLeft } from 'lucide-react'
 
 import { CompactTitleBarSearch } from '@/components/CompactTitleBarSearch'
 import { Button } from '@/components/ui/button'
 import { selectCompactMode, useAppStore } from '@/stores/app-store'
+import {
+  MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT,
+  MAIN_WINDOW_TITLEBAR_HEIGHT
+} from '../../../shared/window-chrome'
 
 export function WindowTitleBar(): React.JSX.Element {
   const navigate = useNavigate()
@@ -22,9 +21,12 @@ export function WindowTitleBar(): React.JSX.Element {
   const compactModeButtonLabel = compactModeEnabled ? '关闭紧凑模式' : '始终使用紧凑模式'
 
   return (
-    <header className="drag-region flex h-14 shrink-0 items-center border-b border-border bg-sidebar">
+    <header
+      className="drag-region flex shrink-0 items-center border-border bg-sidebar"
+      style={{ height: MAIN_WINDOW_TITLEBAR_HEIGHT }}
+    >
       <div
-        className={`window-titlebar-content flex h-full min-w-0 items-center gap-2 px-4 ${
+        className={`window-titlebar-content flex h-full min-w-0 items-center gap-2 px-3.5 ${
           window.dictol.platform === 'darwin' ? 'pl-24' : ''
         }`}
       >
@@ -34,6 +36,10 @@ export function WindowTitleBar(): React.JSX.Element {
             disabled={currentIndex <= 0}
             onClick={() => navigate(-1)}
             size="icon"
+            style={{
+              height: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT,
+              width: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT
+            }}
             title="后退"
             variant="ghost"
           >
@@ -43,6 +49,10 @@ export function WindowTitleBar(): React.JSX.Element {
             aria-label="前进"
             onClick={() => navigate(1)}
             size="icon"
+            style={{
+              height: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT,
+              width: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT
+            }}
             title="前进"
             variant="ghost"
           >
@@ -73,6 +83,10 @@ export function WindowTitleBar(): React.JSX.Element {
               aria-pressed={compactModeEnabled}
               onClick={toggleCompactMode}
               size="icon"
+              style={{
+                height: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT,
+                width: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT
+              }}
               title={compactModeButtonLabel}
               variant="ghost"
             >

@@ -44,7 +44,7 @@ export const SearchLayout = (): React.JSX.Element => {
   return (
     <section className="flex h-full min-h-0 flex-col">
       <ResizablePanelGroup
-        className="min-h-0 w-full flex-1 border-y border-border"
+        className="min-h-0 w-full flex-1 border-border"
         onLayoutChanged={(layout, { isUserInteraction }) => {
           if (!isUserInteraction) return
           const nextSearchPanelSize = layout['search-panel']

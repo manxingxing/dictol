@@ -4,6 +4,7 @@ import { LoaderCircle, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT } from '../../../shared/window-chrome'
 
 type SearchPopoverItem = {
   word: string
@@ -80,7 +81,7 @@ export function SearchPopoverApp(): React.JSX.Element {
   const hasSuggestions = payload.items.length > 0 || payload.status !== undefined
 
   return (
-    <div className="no-drag fixed top-2 left-3 w-[calc(100vw-24px)]">
+    <div className="no-drag fixed top-0 left-3 w-[calc(100vw-24px)]">
       <div className="relative">
         {payload.status === 'loading' ? (
           <LoaderCircle className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -93,7 +94,7 @@ export function SearchPopoverApp(): React.JSX.Element {
           aria-expanded={hasSuggestions}
           aria-label="搜索单词"
           autoFocus
-          className="no-drag h-9 bg-background px-9 shadow-sm"
+          className="no-drag border-[var(--border-strong)] bg-card px-9 shadow-none"
           maxLength={200}
           onChange={(event) => updateQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -119,6 +120,7 @@ export function SearchPopoverApp(): React.JSX.Element {
           }}
           placeholder="搜索单词…"
           role="combobox"
+          style={{ height: MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT }}
           value={query}
         />
         {query.length > 0 && (

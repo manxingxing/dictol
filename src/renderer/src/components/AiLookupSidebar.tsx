@@ -142,7 +142,7 @@ export function AiLookupSidebar(): React.JSX.Element {
   }, [followSearch, normalizedWord, searchQuery, setAiSearchTerm])
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-sidebar/40">
+    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-secondary)]">
       <div className="flex h-12 shrink-0 items-center border-b border-border px-4">
         <Sparkles className="mr-2 size-4 text-primary" />
         <h2 className="min-w-0 flex-1 text-sm font-medium">AI 查词</h2>

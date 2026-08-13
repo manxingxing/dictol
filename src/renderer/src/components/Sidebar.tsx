@@ -21,8 +21,8 @@ export function Sidebar(): React.JSX.Element {
     : navigation
 
   return (
-    <aside className="flex w-[4rem] shrink-0 flex-col border-r border-border bg-sidebar px-2 pb-4 pt-4">
-      <div className="mb-7 flex h-9 justify-center">
+    <aside className="flex w-[4rem] shrink-0 flex-col border-r border-border bg-sidebar px-2 pt-3.5 pb-3">
+      <div className="mb-[22px] flex h-9 justify-center">
         <div className="size-9 overflow-hidden rounded-xl shadow-sm" title="Dictol">
           <img alt="" className="size-full object-cover" src={appIcon} />
         </div>

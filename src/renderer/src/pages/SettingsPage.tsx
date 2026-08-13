@@ -3,6 +3,7 @@ import {
   CircleAlert,
   CheckCircle2,
   Keyboard,
+  Palette,
   Settings,
   ShieldAlert,
   Sparkles,
@@ -31,6 +32,8 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAiLookupConfig, useSaveAiLookupConfig } from '@/hooks/use-ai-lookup'
+import { cn } from '@/lib/utils'
+import { type ChromeTone, useAppStore } from '@/stores/app-store'
 
 type WordCaptureStatus = Awaited<ReturnType<typeof window.dictol.wordCapture.getStatus>>
 type AiLookupConfig = NonNullable<Awaited<ReturnType<typeof window.dictol.aiLookup.getConfig>>>
@@ -40,6 +43,8 @@ type AiLookupForm = Omit<AiLookupConfig, 'hasApiKey'> & {
 }
 
 export function SettingsPage(): React.JSX.Element {
+  const chromeTone = useAppStore((state) => state.chromeTone)
+  const setChromeTone = useAppStore((state) => state.setChromeTone)
   const [captureStatus, setCaptureStatus] = useState<WordCaptureStatus>(null)
   const [recordingShortcut, setRecordingShortcut] = useState(false)
   const [savingShortcut, setSavingShortcut] = useState(false)
@@ -110,12 +115,55 @@ export function SettingsPage(): React.JSX.Element {
       <Card className="mt-8">
         <CardHeader>
           <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Palette className="size-5" />
+          </div>
+          <CardTitle>外观</CardTitle>
+          <CardDescription>选择应用框架的色调。浅色和深色模式仍然跟随系统。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div aria-label="应用框架色调" className="grid gap-3 sm:grid-cols-2" role="group">
+            {chromeToneOptions.map((option) => {
+              const selected = chromeTone === option.value
+              return (
+                <Button
+                  aria-pressed={selected}
+                  className={cn(
+                    'h-auto justify-start gap-3 p-3 text-left',
+                    selected &&
+                      'border-primary/45 bg-primary/8 text-foreground ring-1 ring-primary/20 hover:bg-primary/10'
+                  )}
+                  key={option.value}
+                  onClick={() => setChromeTone(option.value)}
+                  type="button"
+                  variant="outline"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="grid size-10 shrink-0 grid-cols-[14px_1fr] overflow-hidden rounded-lg border border-border"
+                  >
+                    <span style={{ background: option.railColor }} />
+                    <span style={{ background: option.contentColor }} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{option.label}</span>
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </span>
+                </Button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
             <Keyboard className="size-5" />
           </div>
           <CardTitle>取词</CardTitle>
-          <CardDescription>
-            在其他软件中选择文字，在弹窗中获取词条解释。
-          </CardDescription>
+          <CardDescription>在其他软件中选择文字，在弹窗中获取词条解释。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {!captureStatus ? (
@@ -647,6 +695,29 @@ export function SettingsPage(): React.JSX.Element {
     </section>
   )
 }
+
+const chromeToneOptions: Array<{
+  value: ChromeTone
+  label: string
+  description: string
+  railColor: string
+  contentColor: string
+}> = [
+  {
+    value: 'neutral',
+    label: '中性',
+    description: '接近白色，适合多数环境',
+    railColor: '#f5f5f2',
+    contentColor: '#fffef9'
+  },
+  {
+    value: 'moss',
+    label: '苔绿',
+    description: '采用暖绿色框架',
+    railColor: '#e8ebdf',
+    contentColor: '#f8f5ec'
+  }
+]
 
 function createAiForm(): AiLookupForm {
   return {

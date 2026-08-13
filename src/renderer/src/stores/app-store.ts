@@ -6,10 +6,13 @@ export const RIGHT_SIDEBAR_DEFAULT_SIZE = '25'
 export const RIGHT_SIDEBAR_MAX_SIZE = '50'
 const appPreferencesStorageKey = 'dictol:app-preferences'
 
+export type ChromeTone = 'neutral' | 'moss'
 export type RightSidebarType = 'ai-search' | 'embed-browser'
 type ResizablePanelSize = number | string | undefined
 
 interface AppState {
+  chromeTone: ChromeTone
+  setChromeTone: (tone: ChromeTone) => void
   compactModeEnabled: boolean
   toggleCompactMode: () => void
   setCompactMode: (compactMode: boolean) => void
@@ -46,6 +49,8 @@ export const selectCompactMode = (state: AppState): boolean =>
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
+      chromeTone: 'neutral',
+      setChromeTone: (chromeTone) => set({ chromeTone }),
       compactModeEnabled: false,
       toggleCompactMode: () => set((state) => ({ compactModeEnabled: !state.compactModeEnabled })),
       setCompactMode: (compactModeEnabled) => set({ compactModeEnabled }),
@@ -97,6 +102,7 @@ export const useAppStore = create<AppState>()(
     {
       name: appPreferencesStorageKey,
       partialize: (state) => ({
+        chromeTone: state.chromeTone,
         compactModeEnabled: state.compactModeEnabled
       })
     }
