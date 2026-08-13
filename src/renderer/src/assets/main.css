@@ -37,6 +37,13 @@
   --surface-hover: #eeeeea;
   --surface-pressed: #e5e6e1;
   --accent-soft: #e3ebe5;
+  --ai-panel-background: var(--surface-secondary);
+  --ai-user-message-background: color-mix(in oklch, var(--primary) 8%, var(--card));
+  --ai-user-message-border: color-mix(in oklch, var(--primary) 14%, transparent);
+  --ai-assistant-message-background: #f1f1f1;
+  --dictionary-tab-background: #f4f4f4;
+  --dictionary-tab-hover-background: #eaeaea;
+  --search-action-dock-background: #f2f2f2;
   --dictionary-tab-active-shadow:
     inset 0 1px 0 color-mix(in oklch, white 65%, transparent),
     inset 0 -1px 0 color-mix(in oklch, var(--primary) 12%, transparent),
@@ -53,6 +60,13 @@
   --surface-hover: #ecefe5;
   --surface-pressed: #dce3d8;
   --accent-soft: #dfeadf;
+  --ai-panel-background: #f8f5ec;
+  --ai-user-message-background: #dfeadf;
+  --ai-user-message-border: rgb(53 106 77 / 12%);
+  --ai-assistant-message-background: #fffdf7;
+  --dictionary-tab-background: #f8f5ec;
+  --dictionary-tab-hover-background: var(--surface-hover);
+  --search-action-dock-background: #f8f5ec;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -76,6 +90,13 @@
     --surface-hover: #272925;
     --surface-pressed: #30332e;
     --accent-soft: #263229;
+    --ai-panel-background: var(--surface-secondary);
+    --ai-user-message-background: color-mix(in oklch, var(--primary) 12%, var(--card));
+    --ai-user-message-border: color-mix(in oklch, var(--primary) 20%, transparent);
+    --ai-assistant-message-background: color-mix(in oklch, var(--muted) 72%, var(--card));
+    --dictionary-tab-background: color-mix(in oklch, var(--muted) 55%, transparent);
+    --dictionary-tab-hover-background: var(--muted);
+    --search-action-dock-background: color-mix(in oklch, var(--muted) 58%, transparent);
     --dictionary-tab-active-shadow:
       inset 0 1px 0 color-mix(in oklch, white 24%, transparent),
       inset 0 -1px 0 color-mix(in oklch, var(--primary) 25%, transparent),
@@ -92,6 +113,10 @@
     --surface-hover: #222b21;
     --surface-pressed: #2a3529;
     --accent-soft: #24382b;
+    --ai-panel-background: #1b201a;
+    --ai-user-message-background: #273128;
+    --ai-user-message-border: rgb(141 184 154 / 16%);
+    --ai-assistant-message-background: #20251f;
   }
 }
 
@@ -160,14 +185,14 @@
 
 .dictionary-tab-trigger[data-state='inactive'] {
   border-color: color-mix(in oklch, var(--border) 70%, transparent);
-  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  background: var(--dictionary-tab-background);
   color: var(--muted-foreground);
   box-shadow: none !important;
 }
 
 .dictionary-tab-trigger[data-state='inactive']:hover {
   border-color: var(--border);
-  background: var(--muted);
+  background: var(--dictionary-tab-hover-background);
   color: var(--foreground);
 }
 
@@ -248,7 +273,7 @@
 }
 
 .search-action-dock {
-  background: color-mix(in oklch, var(--muted) 58%, transparent);
+  background: var(--search-action-dock-background);
   box-shadow: inset 0 1px 0 color-mix(in oklch, white 34%, transparent);
 }
 

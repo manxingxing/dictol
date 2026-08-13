@@ -237,7 +237,7 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
         aria-haspopup="listbox"
         aria-label="搜索单词"
         className={cn(
-          'titlebar-search-trigger relative flex h-full w-full cursor-text items-center rounded-lg border px-9 text-left text-sm shadow-none outline-none',
+          'titlebar-search-trigger relative flex h-full w-full cursor-text items-center rounded-lg border pl-9 pr-3 text-left text-sm shadow-none outline-none',
           popoverOpen && popoverVisible && 'invisible'
         )}
         onClick={showPopover}
@@ -248,7 +248,11 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
         ) : (
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         )}
-        <span className={query ? 'truncate text-foreground' : 'truncate text-muted-foreground'}>
+        <span
+          className={
+            query ? 'truncate flex-1 text-foreground' : 'truncate flex-1 text-muted-foreground'
+          }
+        >
           {query || '搜索单词…'}
         </span>
       </button>

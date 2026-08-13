@@ -25,12 +25,15 @@ body {
   height: 40px;
   padding: 4px;
   overflow: hidden;
-  border: 1px solid rgb(20 24 21 / 12%);
+  border: 1px solid rgb(255 255 255 / 68%);
   border-radius: 12px;
-  background: rgb(255 255 255 / 96%);
+  background:
+    linear-gradient(rgb(255 255 255 / 16%), rgb(255 255 255 / 4%)), rgb(246 248 245 / 88%);
+  /* The transparent BrowserWindow owns the toolbar shadow. */
   box-shadow: none;
   color: #242824;
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
 }
 
 .selection-action {
@@ -55,11 +58,11 @@ body {
 
 .selection-action:hover,
 .selection-action:focus-visible {
-  background: #eef0ed;
+  background: rgb(255 255 255 / 52%);
 }
 
 .selection-action:active {
-  background: #e2e5e1;
+  background: rgb(218 224 217 / 62%);
 }
 
 .selection-action-primary {
@@ -100,8 +103,8 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .selection-menu {
-    border-color: rgb(255 255 255 / 10%);
-    background: rgb(38 41 38 / 96%);
+    border-color: rgb(255 255 255 / 14%);
+    background: linear-gradient(rgb(255 255 255 / 7%), transparent), rgb(30 34 30 / 88%);
     color: #ecefeb;
   }
 
@@ -111,10 +114,10 @@ body {
 
   .selection-action:hover,
   .selection-action:focus-visible {
-    background: #363a36;
+    background: rgb(255 255 255 / 11%);
   }
 
   .selection-action:active {
-    background: #414641;
+    background: rgb(255 255 255 / 17%);
   }
 }

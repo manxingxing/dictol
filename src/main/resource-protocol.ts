@@ -13,6 +13,7 @@ import { ENTRY_BRIDGE_URL, ENTRY_GLOBAL_STYLE_URL, ENTRY_SCHEME } from './entry-
 const MAX_PREPARED_ENTRY_DOCUMENTS = 32
 const STATIC_RESOURCE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const dictionaryFiles = new Map<number, Promise<DictionaryResourceFiles | null>>()
+const suspendedDictionaryResources = new Set<number>()
 const preparedEntryDocuments = new Map<string, string>()
 let registered = false
 const entryAssetSources = new Map<string, Promise<Buffer>>()
@@ -71,6 +72,15 @@ export function invalidateDictionaryResources(dictionaryId: number): void {
   for (const key of preparedEntryDocuments.keys()) {
     if (key.startsWith(prefix)) preparedEntryDocuments.delete(key)
   }
+}
+
+/** Stop new resource loads and wait for the current file-discovery promise to settle. */
+export async function suspendDictionaryResources(dictionaryId: number): Promise<() => void> {
+  suspendedDictionaryResources.add(dictionaryId)
+  const pending = dictionaryFiles.get(dictionaryId)
+  invalidateDictionaryResources(dictionaryId)
+  if (pending) await pending.catch(() => undefined)
+  return () => suspendedDictionaryResources.delete(dictionaryId)
 }
 
 export function prepareEntryDocument(
@@ -184,6 +194,7 @@ export async function loadDictionaryResource(
   resourcePath: string,
   runtime = getAppRunTime()
 ): Promise<LoadedDictionaryResource | null> {
+  if (suspendedDictionaryResources.has(dictionaryId)) return null
   const mimeType = getMimeType(resourcePath)
   const cached = await runtime.resourceCache.read(dictionaryId, resourcePath, mimeType)
   if (cached) return { bytes: cached, mimeType, source: 'cache' }
@@ -209,6 +220,7 @@ async function getDictionaryResourceFiles(
   runtime: AppRuntime,
   dictionaryId: number
 ): Promise<DictionaryResourceFiles | null> {
+  if (suspendedDictionaryResources.has(dictionaryId)) return null
   let pending = dictionaryFiles.get(dictionaryId)
   if (!pending) {
     pending = loadDictionaryResourceFiles(runtime, dictionaryId)

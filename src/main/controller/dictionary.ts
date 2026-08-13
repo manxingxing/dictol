@@ -10,7 +10,7 @@ import {
   createDictionaryImportPreview,
   resolveDictionaryImportSelection
 } from '../dictionary-import-files'
-import { invalidateDictionaryResources } from '../resource-protocol'
+import { invalidateDictionaryResources, suspendDictionaryResources } from '../resource-protocol'
 import { BaseController } from './base-controller'
 
 export class DictionaryController extends BaseController {
@@ -56,16 +56,20 @@ export class DictionaryController extends BaseController {
 
   deleteDictionary = async (_event: IpcMainInvokeEvent, dictionaryId: string): Promise<void> => {
     const numericId = Number(dictionaryId)
-    if (Number.isSafeInteger(numericId) && numericId > 0) {
-      invalidateDictionaryResources(numericId)
-    }
+    const validNumericId = Number.isSafeInteger(numericId) && numericId > 0
     this.runtime.windowManager.dictionaryView?.hide()
     const dictionaryPath = await this.db.getDictionaryPath(dictionaryId)
-    if (dictionaryPath) this.runtime.mdFileCache.invalidateMdictDirectory(dictionaryPath)
-    await this.db.deleteDictionary(dictionaryId)
-    if (Number.isSafeInteger(numericId) && numericId > 0) {
-      await this.runtime.resourceCache.removeDictionary(numericId)
+    const resumeResources = validNumericId ? await suspendDictionaryResources(numericId) : undefined
+
+    try {
+      if (dictionaryPath) await this.runtime.mdFileCache.closeMdictDirectory(dictionaryPath)
+      await this.db.deleteDictionary(dictionaryId)
+    } catch (error) {
+      if (dictionaryPath) this.runtime.mdFileCache.allowMdictDirectory(dictionaryPath)
+      resumeResources?.()
+      throw error
     }
+    if (validNumericId) await this.runtime.resourceCache.removeDictionary(numericId)
   }
 
   reorderDictionaries = async (

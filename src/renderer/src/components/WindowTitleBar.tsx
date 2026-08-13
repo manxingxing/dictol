@@ -65,18 +65,6 @@ export function WindowTitleBar(): React.JSX.Element {
         </div>
 
         <div className="no-drag flex shrink-0 items-center">
-          {/* {isSearchRoute && (
-            <Button
-              aria-label={rightSidebarButtonLabel}
-              aria-pressed={rightSidebarOpen}
-              onClick={toggleRightSidebar}
-              size="icon"
-              title={rightSidebarButtonLabel}
-              variant="ghost"
-            >
-              {rightSidebarOpen ? <PanelRightClose /> : <PanelRightOpen />}
-            </Button>
-          )} */}
           {!windowBelowCompactThreshold && (
             <Button
               aria-label={compactModeButtonLabel}

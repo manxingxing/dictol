@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { copyFile, rename, rm, unlink } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { Worker } from 'node:worker_threads'
 
 import type { DictionaryImportSourceFile } from '../shared/dictionary-import'
@@ -23,6 +24,9 @@ import {
 } from './db/repository/wordbook-repository'
 
 export type DictionaryStatus = 'pending' | 'importing' | 'ready' | 'error'
+
+const WINDOWS_RENAME_RETRY_LIMIT = 10
+const WINDOWS_RENAME_RETRY_DELAY_MS = 25
 
 export type DictionarySummary = {
   id: string
@@ -502,7 +506,7 @@ export class DBService {
 
     if (dictionaryDirectory && stagedDirectory) {
       try {
-        await rename(dictionaryDirectory, stagedDirectory)
+        await renameDictionaryDirectory(dictionaryDirectory, stagedDirectory)
         directoryWasStaged = true
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -514,7 +518,7 @@ export class DBService {
     } catch (error) {
       if (directoryWasStaged && dictionaryDirectory && stagedDirectory) {
         try {
-          await rename(stagedDirectory, dictionaryDirectory)
+          await renameDictionaryDirectory(stagedDirectory, dictionaryDirectory)
         } catch (restoreError) {
           console.error('Failed to restore dictionary directory after database deletion failed', {
             dictionaryId,
@@ -846,6 +850,26 @@ function parseWordbookImportText(text: string): string[] {
     words.push(word)
   }
   return words
+}
+
+async function renameDictionaryDirectory(source: string, destination: string): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(source, destination)
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      const retryableOnWindows = code === 'EPERM' || code === 'EACCES' || code === 'EBUSY'
+      if (
+        process.platform !== 'win32' ||
+        !retryableOnWindows ||
+        attempt >= WINDOWS_RENAME_RETRY_LIMIT
+      ) {
+        throw error
+      }
+      await delay(WINDOWS_RENAME_RETRY_DELAY_MS * (attempt + 1))
+    }
+  }
 }
 
 function toWordbookWordItem(row: WordbookWordWithWordbook): WordbookWordItem {

@@ -20,11 +20,14 @@
       flex-direction: row;
       gap: 2px;
       padding: 4px;
-      border: 1px solid rgba(20, 24, 21, .12);
+      border: 1px solid rgba(255, 255, 255, .68);
       border-radius: 12px;
-      background: rgba(255, 255, 255, .96);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
-      backdrop-filter: blur(16px);
+      background:
+        linear-gradient(rgba(255, 255, 255, .16), rgba(255, 255, 255, .04)),
+        rgba(246, 248, 245, .88);
+      box-shadow: 0 8px 22px rgba(20, 24, 21, .15);
+      -webkit-backdrop-filter: blur(22px) saturate(145%);
+      backdrop-filter: blur(22px) saturate(145%);
     }
     button {
       display: flex;
@@ -40,8 +43,8 @@
       white-space: nowrap;
       cursor: default;
     }
-    button:hover { background: #eef0ed; }
-    button:active { background: #e2e5e1; }
+    button:hover { background: rgba(255, 255, 255, .52); }
+    button:active { background: rgba(218, 224, 217, .62); }
     button:disabled { opacity: .38; }
     svg {
       width: 14px;
@@ -54,13 +57,15 @@
     }
     @media (prefers-color-scheme: dark) {
       :host .menu {
-        border-color: rgba(255, 255, 255, .1);
-        background: rgba(38, 41, 38, .96);
-        box-shadow: 0 10px 28px rgba(0, 0, 0, .38);
+        border-color: rgba(255, 255, 255, .14);
+        background:
+          linear-gradient(rgba(255, 255, 255, .07), transparent),
+          rgba(30, 34, 30, .88);
+        box-shadow: 0 10px 26px rgba(0, 0, 0, .34);
       }
       :host button { color: #ecefeb; }
-      :host button:hover { background: #363a36; }
-      :host button:active { background: #414641; }
+      :host button:hover { background: rgba(255, 255, 255, .11); }
+      :host button:active { background: rgba(255, 255, 255, .17); }
     }
   `
   const contextMenu = document.createElement('div')

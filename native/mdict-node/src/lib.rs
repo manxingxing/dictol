@@ -15,6 +15,47 @@ use napi_derive::napi;
 const DEFAULT_BATCH_SIZE: u32 = 2_048;
 const MAXIMUM_BATCH_SIZE: u32 = 100_000;
 
+/// Owns the binding's strong reference separately from the JavaScript wrapper lifetime.
+///
+/// Deleting a JS reference is not enough on Windows because garbage collection is
+/// nondeterministic and the underlying memory mapping keeps the file locked. `close`
+/// releases this reference as soon as no scanner or async task is using the dictionary.
+struct CloseableDictionary<T> {
+    value: Mutex<Option<Arc<T>>>,
+}
+
+impl<T> CloseableDictionary<T> {
+    fn new(value: T) -> Self {
+        Self {
+            value: Mutex::new(Some(Arc::new(value))),
+        }
+    }
+
+    fn get(&self) -> Result<Arc<T>> {
+        self.value
+            .lock()
+            .map_err(|_| Error::from_reason("dictionary state lock is poisoned"))?
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| Error::from_reason("dictionary is closed"))
+    }
+
+    fn close(&self) -> Result<bool> {
+        let mut value = self
+            .value
+            .lock()
+            .map_err(|_| Error::from_reason("dictionary state lock is poisoned"))?;
+        let Some(dictionary) = value.as_ref() else {
+            return Ok(true);
+        };
+        if Arc::strong_count(dictionary) > 1 {
+            return Ok(false);
+        }
+        value.take();
+        Ok(true)
+    }
+}
+
 /// Node-API 暴露的稳定元数据视图。
 #[napi(object, object_from_js = false)]
 pub struct DictionaryMetadata {
@@ -114,7 +155,7 @@ pub struct MddResource {
 /// 文本词典入口。除基础二进制读取外，还负责 LINK 和 StyleSheet 语义。
 #[napi]
 pub struct Mdx {
-    dictionary: Arc<CoreMdx>,
+    dictionary: CloseableDictionary<CoreMdx>,
 }
 
 #[napi]
@@ -124,46 +165,46 @@ impl Mdx {
     pub fn open(path: String, options: Option<OpenOptions>) -> Result<Self> {
         CoreMdx::open_with_options(path, apply_options(options))
             .map(|dictionary| Self {
-                dictionary: Arc::new(dictionary),
+                dictionary: CloseableDictionary::new(dictionary),
             })
             .map_err(to_napi_error)
     }
 
     /// 返回词典元数据。
     #[napi(getter)]
-    pub fn metadata(&self) -> DictionaryMetadata {
-        metadata_from_mdict(self.dictionary.as_mdict())
+    pub fn metadata(&self) -> Result<DictionaryMetadata> {
+        Ok(metadata_from_mdict(self.dictionary.get()?.as_mdict()))
     }
 
     /// 创建顺序 key 批量扫描器。
     #[napi(ts_return_type = "MdxKeyScanner")]
-    pub fn keys(&self) -> MdxKeyScanner {
-        MdxKeyScanner {
+    pub fn keys(&self) -> Result<MdxKeyScanner> {
+        Ok(MdxKeyScanner {
             state: Arc::new(MdxKeyScannerState {
-                dictionary: Arc::clone(&self.dictionary),
+                dictionary: self.dictionary.get()?,
                 scanner: Mutex::new(KeyScanner::new()),
                 busy: AtomicBool::new(false),
             }),
-        }
+        })
     }
 
     /// 创建顺序 key+record 批量扫描器。
     #[napi(ts_return_type = "MdxEntryScanner")]
-    pub fn entries(&self) -> MdxEntryScanner {
-        MdxEntryScanner {
+    pub fn entries(&self) -> Result<MdxEntryScanner> {
+        Ok(MdxEntryScanner {
             state: Arc::new(MdxEntryScannerState {
-                dictionary: Arc::clone(&self.dictionary),
+                dictionary: self.dictionary.get()?,
                 scanner: Mutex::new(KeyScanner::new()),
                 busy: AtomicBool::new(false),
             }),
-        }
+        })
     }
 
     /// 读取一个可能跨越多个 Record Block 的原始 record。
     #[napi(ts_return_type = "Promise<Buffer>")]
     pub fn read_record(&self, start: BigInt, end: BigInt) -> Result<AsyncTask<ReadMdxRecordTask>> {
         Ok(AsyncTask::new(ReadMdxRecordTask {
-            dictionary: Arc::clone(&self.dictionary),
+            dictionary: self.dictionary.get()?,
             start: bigint_to_u64(start, "start")?,
             end: bigint_to_u64(end, "end")?,
         }))
@@ -178,7 +219,7 @@ impl Mdx {
         redirect_link: bool,
     ) -> Result<AsyncTask<ReadRecordTextTask>> {
         Ok(AsyncTask::new(ReadRecordTextTask {
-            dictionary: Arc::clone(&self.dictionary),
+            dictionary: self.dictionary.get()?,
             start: bigint_to_u64(start, "start")?,
             end: bigint_to_u64(end, "end")?,
             redirect_link,
@@ -187,54 +228,60 @@ impl Mdx {
 
     /// 异步查找一个精确 key。
     #[napi(ts_return_type = "Promise<DictionaryEntry | null>")]
-    pub fn find_key(&self, word: String) -> AsyncTask<FindMdxKeyTask> {
-        AsyncTask::new(FindMdxKeyTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn find_key(&self, word: String) -> Result<AsyncTask<FindMdxKeyTask>> {
+        Ok(AsyncTask::new(FindMdxKeyTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 异步查找全部精确匹配 key，按 MDX 原始顺序返回。
     #[napi(ts_return_type = "Promise<DictionaryEntry[]>")]
-    pub fn find_keys(&self, word: String) -> AsyncTask<FindMdxKeysTask> {
-        AsyncTask::new(FindMdxKeysTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn find_keys(&self, word: String) -> Result<AsyncTask<FindMdxKeysTask>> {
+        Ok(AsyncTask::new(FindMdxKeysTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 异步返回 comparison key 以指定前缀开头的全部 MDX key。
     #[napi(ts_return_type = "Promise<DictionaryEntry[]>")]
-    pub fn prefix(&self, prefix: String) -> AsyncTask<PrefixMdxTask> {
-        AsyncTask::new(PrefixMdxTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn prefix(&self, prefix: String) -> Result<AsyncTask<PrefixMdxTask>> {
+        Ok(AsyncTask::new(PrefixMdxTask {
+            dictionary: self.dictionary.get()?,
             prefix,
-        })
+        }))
     }
 
     /// 查找 key 并返回解析后的 UTF-8 文本。
     #[napi(ts_return_type = "Promise<string | null>")]
-    pub fn lookup_text(&self, word: String) -> AsyncTask<LookupTextTask> {
-        AsyncTask::new(LookupTextTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn lookup_text(&self, word: String) -> Result<AsyncTask<LookupTextTask>> {
+        Ok(AsyncTask::new(LookupTextTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 查找全部精确匹配 key 并返回解析后的 UTF-8 文本。
     #[napi(ts_return_type = "Promise<string[]>")]
-    pub fn lookup_all_text(&self, word: String) -> AsyncTask<LookupAllTextTask> {
-        AsyncTask::new(LookupAllTextTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn lookup_all_text(&self, word: String) -> Result<AsyncTask<LookupAllTextTask>> {
+        Ok(AsyncTask::new(LookupAllTextTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
+    }
+
+    /// Deterministically release the MDX memory mapping when it is no longer busy.
+    #[napi]
+    pub fn close(&self) -> Result<bool> {
+        self.dictionary.close()
     }
 }
 
 /// 单个物理 MDD 二进制资源入口。
 #[napi]
 pub struct Mdd {
-    dictionary: Arc<CoreMdd>,
+    dictionary: CloseableDictionary<CoreMdd>,
 }
 
 #[napi]
@@ -244,73 +291,73 @@ impl Mdd {
     pub fn open(path: String, options: Option<OpenOptions>) -> Result<Self> {
         CoreMdd::open_with_options(path, apply_options(options))
             .map(|dictionary| Self {
-                dictionary: Arc::new(dictionary),
+                dictionary: CloseableDictionary::new(dictionary),
             })
             .map_err(to_napi_error)
     }
 
     /// 返回该 MDD 文件的元数据。
     #[napi(getter)]
-    pub fn metadata(&self) -> DictionaryMetadata {
-        metadata_from_mdict(self.dictionary.as_mdict())
+    pub fn metadata(&self) -> Result<DictionaryMetadata> {
+        Ok(metadata_from_mdict(self.dictionary.get()?.as_mdict()))
     }
 
     /// 创建该文件的 key 批量扫描器。
     #[napi(ts_return_type = "MddKeyScanner")]
-    pub fn keys(&self) -> MddKeyScanner {
-        MddKeyScanner {
+    pub fn keys(&self) -> Result<MddKeyScanner> {
+        Ok(MddKeyScanner {
             state: Arc::new(MddKeyScannerState {
-                dictionary: Arc::clone(&self.dictionary),
+                dictionary: self.dictionary.get()?,
                 scanner: Mutex::new(KeyScanner::new()),
                 busy: AtomicBool::new(false),
             }),
-        }
+        })
     }
 
     /// 创建该文件的 key+record 批量扫描器。
     #[napi(ts_return_type = "MddEntryScanner")]
-    pub fn entries(&self) -> MddEntryScanner {
-        MddEntryScanner {
+    pub fn entries(&self) -> Result<MddEntryScanner> {
+        Ok(MddEntryScanner {
             state: Arc::new(MddEntryScannerState {
-                dictionary: Arc::clone(&self.dictionary),
+                dictionary: self.dictionary.get()?,
                 scanner: Mutex::new(KeyScanner::new()),
                 busy: AtomicBool::new(false),
             }),
-        }
+        })
     }
 
     /// 查找一个资源 key，并返回该文件内的 record 地址。
     #[napi(ts_return_type = "Promise<DictionaryEntry | null>")]
-    pub fn find_key(&self, word: String) -> AsyncTask<FindMddKeyTask> {
-        AsyncTask::new(FindMddKeyTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn find_key(&self, word: String) -> Result<AsyncTask<FindMddKeyTask>> {
+        Ok(AsyncTask::new(FindMddKeyTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 返回该文件中全部精确匹配的资源位置。
     #[napi(ts_return_type = "Promise<DictionaryEntry[]>")]
-    pub fn find_keys(&self, word: String) -> AsyncTask<FindMddKeysTask> {
-        AsyncTask::new(FindMddKeysTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn find_keys(&self, word: String) -> Result<AsyncTask<FindMddKeysTask>> {
+        Ok(AsyncTask::new(FindMddKeysTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 异步返回该文件中以指定前缀开头的资源 key。
     #[napi(ts_return_type = "Promise<DictionaryEntry[]>")]
-    pub fn prefix(&self, prefix: String) -> AsyncTask<PrefixMddTask> {
-        AsyncTask::new(PrefixMddTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn prefix(&self, prefix: String) -> Result<AsyncTask<PrefixMddTask>> {
+        Ok(AsyncTask::new(PrefixMddTask {
+            dictionary: self.dictionary.get()?,
             prefix,
-        })
+        }))
     }
 
     /// 读取该文件中的一个原始 record。
     #[napi(ts_return_type = "Promise<Buffer>")]
     pub fn read_record(&self, start: BigInt, end: BigInt) -> Result<AsyncTask<ReadMddRecordTask>> {
         Ok(AsyncTask::new(ReadMddRecordTask {
-            dictionary: Arc::clone(&self.dictionary),
+            dictionary: self.dictionary.get()?,
             start: bigint_to_u64(start, "start")?,
             end: bigint_to_u64(end, "end")?,
         }))
@@ -318,18 +365,24 @@ impl Mdd {
 
     /// 查找并读取一个 MDD 二进制资源。
     #[napi(ts_return_type = "Promise<MddResource | null>")]
-    pub fn lookup(&self, word: String) -> AsyncTask<LookupMddTask> {
-        AsyncTask::new(LookupMddTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn lookup(&self, word: String) -> Result<AsyncTask<LookupMddTask>> {
+        Ok(AsyncTask::new(LookupMddTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
+    }
+
+    /// Deterministically release the MDD memory mapping when it is no longer busy.
+    #[napi]
+    pub fn close(&self) -> Result<bool> {
+        self.dictionary.close()
     }
 }
 
 /// 按调用方顺序查询多个物理 MDD 文件的资源列表入口。
 #[napi]
 pub struct MddList {
-    dictionary: Arc<CoreMddList>,
+    dictionary: CloseableDictionary<CoreMddList>,
 }
 
 #[napi]
@@ -342,66 +395,68 @@ impl MddList {
         }
         CoreMddList::open_with_options(paths, apply_options(options))
             .map(|dictionary| Self {
-                dictionary: Arc::new(dictionary),
+                dictionary: CloseableDictionary::new(dictionary),
             })
             .map_err(to_napi_error)
     }
 
     /// 返回列表包含的物理 MDD 文件数量。
     #[napi(getter)]
-    pub fn volume_count(&self) -> u32 {
-        self.dictionary.volume_count() as u32
+    pub fn volume_count(&self) -> Result<u32> {
+        Ok(self.dictionary.get()?.volume_count() as u32)
     }
 
     /// 创建跨全部文件的 key 批量扫描器。
     #[napi(ts_return_type = "MddListKeyScanner")]
-    pub fn keys(&self) -> MddListKeyScanner {
-        MddListKeyScanner {
+    pub fn keys(&self) -> Result<MddListKeyScanner> {
+        let dictionary = self.dictionary.get()?;
+        Ok(MddListKeyScanner {
             state: Arc::new(MddListKeyScannerState {
-                dictionary: Arc::clone(&self.dictionary),
-                scanner: Mutex::new(self.dictionary.key_scanner()),
+                scanner: Mutex::new(dictionary.key_scanner()),
+                dictionary,
                 busy: AtomicBool::new(false),
             }),
-        }
+        })
     }
 
     /// 创建跨全部文件的 key+record 批量扫描器。
     #[napi(ts_return_type = "MddListEntryScanner")]
-    pub fn entries(&self) -> MddListEntryScanner {
-        MddListEntryScanner {
+    pub fn entries(&self) -> Result<MddListEntryScanner> {
+        let dictionary = self.dictionary.get()?;
+        Ok(MddListEntryScanner {
             state: Arc::new(MddListEntryScannerState {
-                dictionary: Arc::clone(&self.dictionary),
-                scanner: Mutex::new(self.dictionary.entry_scanner()),
+                scanner: Mutex::new(dictionary.entry_scanner()),
+                dictionary,
                 busy: AtomicBool::new(false),
             }),
-        }
+        })
     }
 
     /// 查找一个资源 key，并返回所在文件和 record 地址。
     #[napi(ts_return_type = "Promise<MddListDictionaryEntry | null>")]
-    pub fn find_key(&self, word: String) -> AsyncTask<FindMddListKeyTask> {
-        AsyncTask::new(FindMddListKeyTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn find_key(&self, word: String) -> Result<AsyncTask<FindMddListKeyTask>> {
+        Ok(AsyncTask::new(FindMddListKeyTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 返回列表中全部精确匹配的资源位置。
     #[napi(ts_return_type = "Promise<MddListDictionaryEntry[]>")]
-    pub fn find_keys(&self, word: String) -> AsyncTask<FindMddListKeysTask> {
-        AsyncTask::new(FindMddListKeysTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn find_keys(&self, word: String) -> Result<AsyncTask<FindMddListKeysTask>> {
+        Ok(AsyncTask::new(FindMddListKeysTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
     }
 
     /// 返回全部文件中以指定前缀开头的资源 key。
     #[napi(ts_return_type = "Promise<MddListDictionaryEntry[]>")]
-    pub fn prefix(&self, prefix: String) -> AsyncTask<PrefixMddListTask> {
-        AsyncTask::new(PrefixMddListTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn prefix(&self, prefix: String) -> Result<AsyncTask<PrefixMddListTask>> {
+        Ok(AsyncTask::new(PrefixMddListTask {
+            dictionary: self.dictionary.get()?,
             prefix,
-        })
+        }))
     }
 
     /// 读取指定文件中的一个原始 record。
@@ -413,7 +468,7 @@ impl MddList {
         end: BigInt,
     ) -> Result<AsyncTask<ReadMddListRecordTask>> {
         Ok(AsyncTask::new(ReadMddListRecordTask {
-            dictionary: Arc::clone(&self.dictionary),
+            dictionary: self.dictionary.get()?,
             volume,
             start: bigint_to_u64(start, "start")?,
             end: bigint_to_u64(end, "end")?,
@@ -422,11 +477,17 @@ impl MddList {
 
     /// 按文件优先级查找并读取一个 MDD 二进制资源。
     #[napi(ts_return_type = "Promise<MddResource | null>")]
-    pub fn lookup(&self, word: String) -> AsyncTask<LookupMddListTask> {
-        AsyncTask::new(LookupMddListTask {
-            dictionary: Arc::clone(&self.dictionary),
+    pub fn lookup(&self, word: String) -> Result<AsyncTask<LookupMddListTask>> {
+        Ok(AsyncTask::new(LookupMddListTask {
+            dictionary: self.dictionary.get()?,
             word,
-        })
+        }))
+    }
+
+    /// Deterministically release every MDD volume mapping when no operation is busy.
+    #[napi]
+    pub fn close(&self) -> Result<bool> {
+        self.dictionary.close()
     }
 }
 

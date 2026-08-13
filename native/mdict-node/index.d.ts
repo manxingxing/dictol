@@ -20,6 +20,8 @@ export declare class Mdd {
   readRecord(start: bigint, end: bigint): Promise<Buffer>
   /** 查找并读取一个 MDD 二进制资源。 */
   lookup(word: string): Promise<MddResource | null>
+  /** Deterministically release the MDD memory mapping when it is no longer busy. */
+  close(): boolean
 }
 
 /** 单个 MDD 文件的 entry 批量扫描器。 */
@@ -54,6 +56,8 @@ export declare class MddList {
   readRecord(volume: number, start: bigint, end: bigint): Promise<Buffer>
   /** 按文件优先级查找并读取一个 MDD 二进制资源。 */
   lookup(word: string): Promise<MddResource | null>
+  /** Deterministically release every MDD volume mapping when no operation is busy. */
+  close(): boolean
 }
 
 /** MDD 文件列表的 entry 批量扫描器。 */
@@ -92,6 +96,8 @@ export declare class Mdx {
   lookupText(word: string): Promise<string | null>
   /** 查找全部精确匹配 key 并返回解析后的 UTF-8 文本。 */
   lookupAllText(word: string): Promise<string[]>
+  /** Deterministically release the MDX memory mapping when it is no longer busy. */
+  close(): boolean
 }
 
 /** MDX entry 批量扫描器。 */

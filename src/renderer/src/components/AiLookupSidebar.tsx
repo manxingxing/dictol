@@ -142,7 +142,7 @@ export function AiLookupSidebar(): React.JSX.Element {
   }, [followSearch, normalizedWord, searchQuery, setAiSearchTerm])
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-secondary)]">
+    <div className="flex h-full min-h-0 flex-col bg-[var(--ai-panel-background)]">
       <div className="flex h-12 shrink-0 items-center border-b border-border px-4">
         <Sparkles className="mr-2 size-4 text-primary" />
         <h2 className="min-w-0 flex-1 text-sm font-medium">AI 查词</h2>
@@ -213,8 +213,8 @@ function AiLookupThread({ word }: AiLookupThreadProps): React.JSX.Element {
             <div
               className={
                 isUser
-                  ? 'rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm text-foreground'
-                  : 'rounded-2xl rounded-bl-md bg-muted/70 px-3 py-2.5 text-sm leading-6'
+                  ? 'rounded-2xl rounded-br-md border border-[var(--ai-user-message-border)] bg-[var(--ai-user-message-background)] px-3 py-2 text-sm text-foreground'
+                  : 'rounded-2xl rounded-bl-md bg-[var(--ai-assistant-message-background)] px-3 py-2.5 text-sm leading-6'
               }
             >
               <MessagePrimitive.Parts components={{ Text: MarkdownMessagePart }} />
@@ -235,7 +235,7 @@ function AiLookupThread({ word }: AiLookupThreadProps): React.JSX.Element {
   )
 
   return (
-    <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col bg-background">
+    <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col bg-[var(--ai-panel-background)]">
       <ThreadPrimitive.Viewport className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto scroll-pb-24 px-3 py-4 pb-24">
         <ThreadPrimitive.Empty>
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
