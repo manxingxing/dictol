@@ -7,10 +7,15 @@ import {
   screen,
   shell,
   type IpcMainEvent,
+  type IpcMainInvokeEvent,
   type Point,
   type Rectangle
 } from 'electron'
-import type { DictionaryEntryRecord } from '../db-service'
+import type { DictionaryEntryRecord, DictionaryMatch } from '../db-service'
+import type {
+  SelectionExplanationDictionary,
+  SelectionExplanationPayload
+} from '../../shared/selection-explanation'
 import type {
   CapturedSelection,
   MouseDownListener,
@@ -19,7 +24,7 @@ import type {
 } from '../selection-hook-service'
 import type { WebContentsViewManager } from '../web-contents-view-manager'
 import { createEntryDocument } from '../entry-document'
-import { decodeMdxRecord } from '../mdict-runtime'
+import { readDictionaryEntryText } from '../dictionary-entry-content'
 import { resolveRendererPath } from '../output-path'
 import { hasPreparedEntryDocument, prepareEntryDocument } from '../resource-protocol'
 import { hideSelectionWindow, showSelectionWindowInactive } from '../selection-window-behavior'
@@ -27,6 +32,8 @@ import { BaseController } from './base-controller'
 
 const MAX_SELECTION_LENGTH = 200
 const TOOLBAR_HEIGHT = 44
+const TOOLBAR_WIDTH = 310
+const TOOLBAR_WIDTH_WITH_AI = 390
 const MOUSE_ANCHOR_GAP = 16
 const SELECTION_ANCHOR_GAP = 4
 const EXPLANATION_SELECTION_GAP = 8
@@ -62,14 +69,7 @@ type SelectionToolbarPayload = {
   word: string
   programName: string
   canExclude: boolean
-}
-
-type ExplanationPayload = {
-  requestId: number
-  word: string
-  dictionaryName?: string
-  state: 'loading' | 'empty' | 'content' | 'error'
-  message?: string
+  aiEnabled: boolean
 }
 
 type PendingExplanationLoading = {
@@ -84,13 +84,16 @@ export class SelectionToolbarController extends BaseController {
   private explanationWebContentsId: number | undefined
   private toolbarLoaded = false
   private explanationLoaded = false
-  private explanationPayload: ExplanationPayload | undefined
+  private explanationPayload: SelectionExplanationPayload | undefined
+  private explanationDictionaryMatches: DictionaryMatch[] = []
+  private loadedExplanationDictionaryId: string | undefined
   private pendingExplanationLoading: PendingExplanationLoading | undefined
   private lookupVersion = 0
   private preferredExplanationSize: ExplanationSize = { width: 520, height: 600 }
   private appliedExplanationSize: ExplanationSize | undefined
   private inactivityTimer: ReturnType<typeof setTimeout> | undefined
   private nativeMenu: Menu | undefined
+  private activeAiRequestId: string | undefined
 
   override mount(): void {
     this.runtime.selectionHookService.onSelection(this.handleSelection)
@@ -98,6 +101,7 @@ export class SelectionToolbarController extends BaseController {
     this.runtime.selectionHookService.onMouseWheel(this.handleMouseWheel)
     ipcMain.on('selection-toolbar:lookup-in-main', this.lookupInMain)
     ipcMain.on('selection-toolbar:explain', this.explain)
+    ipcMain.on('selection-toolbar:ai-explain', this.aiExplain)
     ipcMain.on('selection-toolbar:copy', this.copy)
     ipcMain.on('selection-toolbar:google', this.google)
     ipcMain.on('selection-toolbar:open-menu', this.openNativeMenu)
@@ -105,14 +109,17 @@ export class SelectionToolbarController extends BaseController {
     ipcMain.on('selection-toolbar:activity', this.handleToolbarActivity)
     ipcMain.on('selection-explanation:close', this.closeExplanation)
     ipcMain.on('selection-explanation:loading-ready', this.handleExplanationLoadingReady)
+    ipcMain.on('selection-explanation:select-dictionary', this.selectExplanationDictionary)
     ipcMain.on('selection-explanation:open-in-main', this.openExplanationInMain)
     ipcMain.on('selection-explanation:lookup-word', this.lookupFromExplanation)
     ipcMain.on('selection-explanation:copy-text', this.copyFromExplanation)
+    ipcMain.handle('selection-explanation:is-starred', this.isWordStarred)
+    ipcMain.handle('selection-explanation:toggle-star', this.toggleWordStar)
   }
 
   private readonly handleSelection: SelectionListener = (capture): void => {
     const word = capture.selection.text.trim()
-    if (!word || word.length > MAX_SELECTION_LENGTH) return
+    if (!word) return
 
     if (capture.source === 'shortcut') {
       this.currentCapture = capture
@@ -128,6 +135,7 @@ export class SelectionToolbarController extends BaseController {
     this.hideExplanation()
 
     const window = this.initializeToolbarWindow()
+    this.syncToolbarSize(window, this.runtime.appConfig.load().aiLookup.enabled)
     this.positionToolbar(window, TOOLBAR_HEIGHT)
     if (this.toolbarLoaded) this.showToolbar(window)
     this.prewarmExplanationWindow()
@@ -151,6 +159,15 @@ export class SelectionToolbarController extends BaseController {
     const word = this.currentCapture.selection.text.trim()
     this.hideToolbar()
     void this.showExplanation(word)
+  }
+
+  private readonly aiExplain = (event: IpcMainEvent): void => {
+    if (!this.acceptsToolbarSender(event) || !this.currentCapture) return
+    if (!this.runtime.appConfig.load().aiLookup.enabled) return
+    const word = this.currentCapture.selection.text.trim()
+    if (!word) return
+    this.hideToolbar()
+    void this.showAiExplanation(word)
   }
 
   private readonly lookupInMain = (event: IpcMainEvent): void => {
@@ -271,6 +288,51 @@ export class SelectionToolbarController extends BaseController {
     this.openWordInMain(word)
   }
 
+  private readonly selectExplanationDictionary = (
+    event: IpcMainEvent,
+    dictionaryId: string
+  ): void => {
+    if (
+      !this.acceptsExplanationSender(event) ||
+      typeof dictionaryId !== 'string' ||
+      this.explanationPayload?.mode !== 'dictionary'
+    ) {
+      return
+    }
+
+    const match = this.explanationDictionaryMatches.find(
+      (dictionary) => dictionary.dictionaryId === dictionaryId
+    )
+    if (!match) return
+    if (
+      this.explanationPayload.activeDictionaryId === dictionaryId &&
+      (this.explanationPayload.state === 'loading' ||
+        this.explanationPayload.state === 'refreshing' ||
+        this.explanationPayload.state === 'content')
+    ) {
+      return
+    }
+    void this.showExplanationDictionary(match)
+  }
+
+  private readonly isWordStarred = async (
+    event: IpcMainInvokeEvent,
+    word: string
+  ): Promise<boolean> => {
+    const normalizedWord = this.getCurrentExplanationWord(event, word)
+    if (!normalizedWord) return false
+    return await this.db.isWordStarred(normalizedWord)
+  }
+
+  private readonly toggleWordStar = async (
+    event: IpcMainInvokeEvent,
+    word: string
+  ): Promise<void> => {
+    const normalizedWord = this.getCurrentExplanationWord(event, word)
+    if (!normalizedWord) return
+    await this.db.toggleStarWord(normalizedWord)
+  }
+
   private readonly lookupFromExplanation = (event: IpcMainEvent, word: string): void => {
     if (!this.acceptsExplanationViewSender(event) || typeof word !== 'string') return
     const normalizedWord = word.trim()
@@ -320,11 +382,22 @@ export class SelectionToolbarController extends BaseController {
     const payload: SelectionToolbarPayload = {
       word: capture.selection.text.trim(),
       programName,
-      canExclude: Boolean(programName)
+      canExclude: Boolean(programName),
+      aiEnabled: this.runtime.appConfig.load().aiLookup.enabled
     }
+    this.syncToolbarSize(window, payload.aiEnabled)
+    this.positionToolbar(window, TOOLBAR_HEIGHT)
     window.webContents.send('selection-toolbar:update', payload)
     showSelectionWindowInactive(window, { preventActivationOnClick: true })
     this.scheduleToolbarAutoHide()
+  }
+
+  private syncToolbarSize(window: BrowserWindow, aiEnabled: boolean): void {
+    if (window.isDestroyed()) return
+    const width = aiEnabled ? TOOLBAR_WIDTH_WITH_AI : TOOLBAR_WIDTH
+    const [currentWidth, currentHeight] = window.getSize()
+    if (currentWidth === width && currentHeight === TOOLBAR_HEIGHT) return
+    window.setSize(width, TOOLBAR_HEIGHT, false)
   }
 
   private scheduleToolbarAutoHide(): void {
@@ -347,10 +420,21 @@ export class SelectionToolbarController extends BaseController {
     this.explanationWebContentsId = window.webContents.id
     this.explanationLoaded = false
 
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || input.key !== 'Escape') return
+      event.preventDefault()
+      this.hideExplanation()
+    })
     window.on('resize', () => this.rememberExplanationSize(window))
     window.webContents.on('did-finish-load', () => {
       this.explanationLoaded = true
       this.flushExplanationPayload()
+      if (
+        this.explanationPayload?.mode === 'ai' &&
+        this.explanationPayload.requestId === this.lookupVersion
+      ) {
+        showSelectionWindowInactive(window)
+      }
     })
     window.webContents.on('will-navigate', (event) => event.preventDefault())
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -380,6 +464,11 @@ export class SelectionToolbarController extends BaseController {
 
   private configureExplanationView(): void {
     const view = this.explanationView
+    view.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || input.key !== 'Escape') return
+      event.preventDefault()
+      this.hideExplanation()
+    })
     view.webContents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('https://') || url.startsWith('http://')) {
         void shell.openExternal(url).catch((error: unknown) => {
@@ -402,76 +491,232 @@ export class SelectionToolbarController extends BaseController {
     const normalizedWord = word.trim()
     if (!normalizedWord || normalizedWord.length > MAX_SELECTION_LENGTH) return
 
+    this.cancelAiExplanation()
+    this.explanationDictionaryMatches = []
+    this.loadedExplanationDictionaryId = undefined
+    this.runtime.windowManager.setSelectionExplanationSwitcherVisible(false)
     const version = ++this.lookupVersion
     const window = this.initializeExplanationWindow()
+    const keepWindowVisible = window.isVisible()
     this.resolvePendingExplanationLoading()
     const loadingReady = this.waitForExplanationLoading(version)
-    hideSelectionWindow(window)
-    this.explanationView.hide()
-    this.updateExplanation({ requestId: version, word: normalizedWord, state: 'loading' })
+    if (!keepWindowVisible) {
+      hideSelectionWindow(window)
+      this.explanationView.hide()
+    }
+    this.updateExplanation({
+      mode: 'dictionary',
+      requestId: version,
+      word: normalizedWord,
+      state: 'loading'
+    })
     this.positionExplanation(window)
 
     try {
-      const lookupPromise = this.db.lookupFirstReadyDictionaryEntry(normalizedWord)
+      const lookupPromise = this.db.lookupDictionaryEntryGroup(normalizedWord)
       await loadingReady
       if (version !== this.lookupVersion) return
-      showSelectionWindowInactive(window)
+      if (!keepWindowVisible) showSelectionWindowInactive(window)
 
-      const lookup = await lookupPromise
+      const group = await lookupPromise
       if (version !== this.lookupVersion) return
-      if (!lookup.hasReadyDictionary) {
-        this.updateExplanation({
-          requestId: version,
-          word: normalizedWord,
-          state: 'empty',
-          message: '还没有可用词典，请先在主应用中导入词典。'
-        })
-        return
-      }
-
-      const entry = lookup.entry
-      if (!entry) {
-        this.updateExplanation({
-          requestId: version,
-          word: normalizedWord,
-          state: 'empty',
-          message: `所有词典中都没有找到“${normalizedWord}”的解释。`
-        })
-        return
-      }
-
-      if (!hasPreparedEntryDocument(entry.dictionaryId, entry.id)) {
-        const mdx = this.runtime.mdFileCache.fetch(entry.filePath)
-        const bytes = await mdx.readRecord(
-          BigInt(entry.recordStartOffset),
-          BigInt(entry.recordEndOffset)
-        )
+      const firstMatch = group?.dictionaries[0]
+      if (!firstMatch) {
+        const hasReadyDictionary = (await this.db.listReadyDictionaries()).length > 0
         if (version !== this.lookupVersion) return
-        prepareEntryDocument(
-          entry.dictionaryId,
-          entry.id,
-          createEntryDocument(
-            decodeMdxRecord(bytes, mdx.metadata.encoding),
-            entry.dictionaryId,
-            entry.customCss
-          )
-        )
+        this.explanationView.hide()
+        this.updateExplanation({
+          mode: 'dictionary',
+          requestId: version,
+          word: normalizedWord,
+          state: 'empty',
+          message: hasReadyDictionary
+            ? `所有词典中都没有找到“${normalizedWord}”的解释。`
+            : '还没有可用词典，请先在主应用中导入词典。'
+        })
+        return
       }
 
-      await this.loadExplanationEntry(entry, version)
+      this.explanationDictionaryMatches = group.dictionaries
+      const dictionaries = this.getExplanationDictionaryOptions()
+      this.runtime.windowManager.setSelectionExplanationSwitcherVisible(dictionaries.length > 1)
+      this.updateExplanation({
+        mode: 'dictionary',
+        requestId: version,
+        word: normalizedWord,
+        dictionaryName: firstMatch.dictionaryName,
+        dictionaries,
+        activeDictionaryId: firstMatch.dictionaryId,
+        state: 'loading'
+      })
+      const entry = await this.db.getDictionaryEntryRecord(firstMatch.entryId)
+      if (version !== this.lookupVersion) return
+      if (!entry) throw new Error('首个词典命中的词条记录不存在')
+      if (!(await this.prepareExplanationEntry(entry, version))) return
+
+      await this.loadExplanationEntry(entry, version, normalizedWord, dictionaries, true)
     } catch (error) {
       if (version !== this.lookupVersion || isNavigationAborted(error)) return
       console.error('Failed to show selection explanation', { word: normalizedWord, error })
+      this.explanationView.hide()
+      const dictionaries = this.getExplanationDictionaryOptions()
+      const activeDictionaryId = this.explanationPayload?.activeDictionaryId
       this.updateExplanation({
+        mode: 'dictionary',
         requestId: version,
         word: normalizedWord,
+        dictionaryName: this.explanationPayload?.dictionaryName,
+        dictionaries: dictionaries.length > 0 ? dictionaries : undefined,
+        activeDictionaryId,
         state: 'error',
         message: '词条内容加载失败，请稍后再试。'
       })
     }
   }
 
-  private async loadExplanationEntry(entry: DictionaryEntryRecord, version: number): Promise<void> {
+  private async showAiExplanation(word: string): Promise<void> {
+    const normalizedWord = word.trim()
+    if (!normalizedWord) return
+
+    this.resolvePendingExplanationLoading()
+    this.explanationDictionaryMatches = []
+    this.loadedExplanationDictionaryId = undefined
+    this.runtime.windowManager.setSelectionExplanationSwitcherVisible(false)
+    const version = ++this.lookupVersion
+    const requestId = `selection-${version}`
+    this.cancelAiExplanation()
+    this.activeAiRequestId = requestId
+    const window = this.initializeExplanationWindow()
+    this.explanationView.hide()
+    this.updateExplanation({
+      mode: 'ai',
+      requestId: version,
+      word: normalizedWord,
+      state: 'loading'
+    })
+    this.positionExplanation(window)
+    if (this.explanationLoaded) showSelectionWindowInactive(window)
+
+    let content = ''
+    this.runtime.aiLookupService.start(
+      requestId,
+      [{ role: 'user', content: `请解释“${normalizedWord}”` }],
+      'selection-toolbar',
+      (event) => {
+        if (version !== this.lookupVersion) return
+        if (event.type === 'delta') {
+          content += event.text
+          this.updateExplanation({
+            mode: 'ai',
+            requestId: version,
+            word: normalizedWord,
+            state: 'content',
+            content
+          })
+        } else if (event.type === 'done') {
+          this.updateExplanation({
+            mode: 'ai',
+            requestId: version,
+            word: normalizedWord,
+            state: 'content',
+            content
+          })
+        } else {
+          this.updateExplanation({
+            mode: 'ai',
+            requestId: version,
+            word: normalizedWord,
+            state: 'error',
+            message: event.message
+          })
+        }
+      }
+    )
+  }
+
+  private async showExplanationDictionary(match: DictionaryMatch): Promise<void> {
+    const word = this.explanationPayload?.word.trim()
+    if (!word) return
+
+    const version = ++this.lookupVersion
+    this.resolvePendingExplanationLoading()
+    this.cancelAiExplanation()
+    const dictionaries = this.getExplanationDictionaryOptions()
+    this.updateExplanation({
+      mode: 'dictionary',
+      requestId: version,
+      word,
+      dictionaryName: match.dictionaryName,
+      dictionaries,
+      activeDictionaryId: match.dictionaryId,
+      state: 'refreshing'
+    })
+
+    try {
+      const entry = await this.db.getDictionaryEntryRecord(match.entryId)
+      if (version !== this.lookupVersion) return
+      if (!entry) throw new Error('所选词典的词条记录不存在')
+      if (!(await this.prepareExplanationEntry(entry, version))) return
+      await this.loadExplanationEntry(entry, version, word, dictionaries, false)
+    } catch (error) {
+      if (version !== this.lookupVersion || isNavigationAborted(error)) return
+      console.error('Failed to switch selection explanation dictionary', {
+        word,
+        dictionaryId: match.dictionaryId,
+        error
+      })
+      const loadedDictionary = this.explanationDictionaryMatches.find(
+        (dictionary) => dictionary.dictionaryId === this.loadedExplanationDictionaryId
+      )
+      this.updateExplanation(
+        loadedDictionary
+          ? {
+              mode: 'dictionary',
+              requestId: version,
+              word,
+              dictionaryName: loadedDictionary.dictionaryName,
+              dictionaries,
+              activeDictionaryId: loadedDictionary.dictionaryId,
+              state: 'content'
+            }
+          : {
+              mode: 'dictionary',
+              requestId: version,
+              word,
+              dictionaryName: match.dictionaryName,
+              dictionaries,
+              activeDictionaryId: match.dictionaryId,
+              state: 'error',
+              message: '该词典的词条内容加载失败，请稍后再试。'
+            }
+      )
+    }
+  }
+
+  private async prepareExplanationEntry(
+    entry: DictionaryEntryRecord,
+    version: number
+  ): Promise<boolean> {
+    if (hasPreparedEntryDocument(entry.dictionaryId, entry.id)) return true
+
+    const records = await this.db.getDictionaryEntryRecords(entry.id)
+    const html = await readDictionaryEntryText(this.runtime, records)
+    if (version !== this.lookupVersion) return false
+    prepareEntryDocument(
+      entry.dictionaryId,
+      entry.id,
+      createEntryDocument(html, entry.dictionaryId, entry.customCss)
+    )
+    return true
+  }
+
+  private async loadExplanationEntry(
+    entry: DictionaryEntryRecord,
+    version: number,
+    word: string,
+    dictionaries: SelectionExplanationDictionary[],
+    recordQuery: boolean
+  ): Promise<void> {
     const view = this.explanationView
     const url = `dictol-entry://dictionary-${entry.dictionaryId}/${encodeURIComponent(entry.id)}`
     let shown = false
@@ -479,13 +724,17 @@ export class SelectionToolbarController extends BaseController {
       if (shown || version !== this.lookupVersion || view.webContents.getURL() !== url) return
       shown = true
       this.updateExplanation({
+        mode: 'dictionary',
         requestId: version,
-        word: entry.word,
+        word,
         dictionaryName: entry.dictionaryName,
+        dictionaries,
+        activeDictionaryId: entry.dictionaryId,
         state: 'content'
       })
       view.show()
-      this.recordSuccessfulQuery(entry.word)
+      this.loadedExplanationDictionaryId = entry.dictionaryId
+      if (recordQuery) this.recordSuccessfulQuery(word)
     }
     const handleDomReady = (): void => showLoadedEntry()
     view.webContents.on('dom-ready', handleDomReady)
@@ -512,7 +761,14 @@ export class SelectionToolbarController extends BaseController {
       })
   }
 
-  private updateExplanation(payload: ExplanationPayload): void {
+  private getExplanationDictionaryOptions(): SelectionExplanationDictionary[] {
+    return this.explanationDictionaryMatches.map((dictionary) => ({
+      dictionaryId: dictionary.dictionaryId,
+      dictionaryName: dictionary.dictionaryName
+    }))
+  }
+
+  private updateExplanation(payload: SelectionExplanationPayload): void {
     this.explanationPayload = payload
     this.flushExplanationPayload()
   }
@@ -583,8 +839,18 @@ export class SelectionToolbarController extends BaseController {
 
   private hideExplanation(): void {
     this.lookupVersion += 1
+    this.cancelAiExplanation()
     this.resolvePendingExplanationLoading()
+    this.explanationDictionaryMatches = []
+    this.loadedExplanationDictionaryId = undefined
+    this.runtime.windowManager.setSelectionExplanationSwitcherVisible(false)
     hideSelectionWindow(this.currentExplanationWindow)
+  }
+
+  private cancelAiExplanation(): void {
+    if (!this.activeAiRequestId) return
+    this.runtime.aiLookupService.cancel(this.activeAiRequestId)
+    this.activeAiRequestId = undefined
   }
 
   private openWordInMain(word: string): void {
@@ -614,9 +880,26 @@ export class SelectionToolbarController extends BaseController {
     }
   }
 
-  private acceptsExplanationSender(event: IpcMainEvent): boolean {
+  private acceptsExplanationSender(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
     const window = this.currentExplanationWindow
     return Boolean(window && window.webContents.id === event.sender.id)
+  }
+
+  private getCurrentExplanationWord(
+    event: IpcMainEvent | IpcMainInvokeEvent,
+    word: unknown
+  ): string | undefined {
+    if (!this.acceptsExplanationSender(event) || typeof word !== 'string') return undefined
+    const normalizedWord = word.trim()
+    if (!normalizedWord || normalizedWord.length > MAX_SELECTION_LENGTH) return undefined
+    if (
+      this.explanationPayload?.mode !== 'dictionary' ||
+      this.explanationPayload.state !== 'content' ||
+      this.explanationPayload.word.trim() !== normalizedWord
+    ) {
+      return undefined
+    }
+    return normalizedWord
   }
 
   private acceptsExplanationViewSender(event: IpcMainEvent): boolean {

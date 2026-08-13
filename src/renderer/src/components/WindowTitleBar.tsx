@@ -3,8 +3,6 @@ import {
   AppWindow,
   ArrowLeft,
   ArrowRight,
-  PanelLeft,
-  PanelLeftClose,
   PanelsTopLeft
 } from 'lucide-react'
 
@@ -17,8 +15,6 @@ export function WindowTitleBar(): React.JSX.Element {
   const location = useLocation()
   const currentIndex = typeof window.history.state?.idx === 'number' ? window.history.state.idx : 0
 
-  const sidebarCollapsed = useAppStore((state) => state.sidebarCollapsed)
-  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
   const compactModeEnabled = useAppStore((state) => state.compactModeEnabled)
   const toggleCompactMode = useAppStore((state) => state.toggleCompactMode)
   const displayInCompactMode = useAppStore(selectCompactMode)
@@ -33,18 +29,6 @@ export function WindowTitleBar(): React.JSX.Element {
         }`}
       >
         <div className="no-drag flex shrink-0 items-center gap-1" data-route={location.key}>
-          {!displayInCompactMode && (
-            <Button
-              aria-label={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={toggleSidebar}
-              size="icon"
-              title={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
-              variant="ghost"
-            >
-              {sidebarCollapsed ? <PanelLeftClose /> : <PanelLeft />}
-            </Button>
-          )}
           <Button
             aria-label="后退"
             disabled={currentIndex <= 0}
@@ -71,6 +55,18 @@ export function WindowTitleBar(): React.JSX.Element {
         </div>
 
         <div className="no-drag flex shrink-0 items-center">
+          {/* {isSearchRoute && (
+            <Button
+              aria-label={rightSidebarButtonLabel}
+              aria-pressed={rightSidebarOpen}
+              onClick={toggleRightSidebar}
+              size="icon"
+              title={rightSidebarButtonLabel}
+              variant="ghost"
+            >
+              {rightSidebarOpen ? <PanelRightClose /> : <PanelRightOpen />}
+            </Button>
+          )} */}
           {!windowBelowCompactThreshold && (
             <Button
               aria-label={compactModeButtonLabel}
@@ -84,7 +80,6 @@ export function WindowTitleBar(): React.JSX.Element {
             </Button>
           )}
         </div>
-        {windowBelowCompactThreshold && <div className="h-full w-14 shrink-0" aria-hidden="true" />}
       </div>
     </header>
   )

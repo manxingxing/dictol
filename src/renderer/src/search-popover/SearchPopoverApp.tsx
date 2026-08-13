@@ -57,6 +57,7 @@ export function SearchPopoverApp(): React.JSX.Element {
     () =>
       window.dictolSearchPopover.onFocus(() => {
         inputRef.current?.focus({ preventScroll: true })
+        inputRef.current?.select()
       }),
     []
   )

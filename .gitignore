@@ -5,11 +5,12 @@ out
 .eslintcache
 *.log*
 
+opendesign
+
 # Local dictionary samples
-/oaldpe/
-/LDOCE5/
 /Dictionaries/
 /benchmarks/opendict-rs/target/
+/native/mdict/target/
 /native/mdict-core/target/
 /native/mdict-node/target/
 /native/mdict-node/node_modules/

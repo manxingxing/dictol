@@ -1,6 +1,10 @@
 import { BrowserWindow, nativeTheme, systemPreferences } from 'electron'
 
 import icon from '../../resources/icon.png?asset'
+import {
+  SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT,
+  SELECTION_EXPLANATION_HEADER_HEIGHT
+} from '../shared/selection-explanation'
 import { resolvePreloadPath } from './output-path'
 import { applySelectionWindowBehavior, hideSelectionWindow } from './selection-window-behavior'
 import { WebContentsViewManager } from './web-contents-view-manager'
@@ -8,20 +12,28 @@ import { WebContentsViewManager } from './web-contents-view-manager'
 export class WindowManager {
   mainWindow: BrowserWindow | undefined
   dictionaryView: WebContentsViewManager | undefined
+  embedBrowserView: WebContentsViewManager | undefined
   searchPopoverView: WebContentsViewManager | undefined
   selectionToolbarWindow: BrowserWindow | undefined
   selectionExplanationWindow: BrowserWindow | undefined
   selectionExplanationView: WebContentsViewManager | undefined
+  findBarView: WebContentsViewManager | undefined
   private activeSpaceSubscriptionId: number | undefined
   private observingNativeAppearance = false
+  private selectionExplanationSwitcherVisible = false
+  private updateSelectionExplanationViewBounds: (() => void) | undefined
 
   createMainWindow(): BrowserWindow {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) return this.mainWindow
 
     this.dictionaryView?.dispose()
+    this.embedBrowserView?.dispose()
     this.searchPopoverView?.dispose()
+    this.findBarView?.dispose()
     this.dictionaryView = undefined
+    this.embedBrowserView = undefined
     this.searchPopoverView = undefined
+    this.findBarView = undefined
 
     const darkMode = nativeTheme.shouldUseDarkColors
     // Create the browser window.
@@ -33,16 +45,9 @@ export class WindowManager {
       show: false,
       backgroundColor: darkMode ? '#171a18' : '#faf9f7',
       autoHideMenuBar: true,
-      titleBarStyle: 'hidden',
       ...(process.platform === 'darwin'
-        ? { trafficLightPosition: { x: 16, y: 18 } }
-        : {
-            titleBarOverlay: {
-              color: darkMode ? '#151815' : '#f7f7f5',
-              symbolColor: darkMode ? '#dddeda' : '#534f48',
-              height: 56
-            }
-          }),
+        ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 18 } }
+        : {}),
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
         preload: resolvePreloadPath('index.js'),
@@ -107,6 +112,50 @@ export class WindowManager {
 
     this.searchPopoverView = searchPopoverView
     return searchPopoverView
+  }
+
+  createEmbedBrowserView(): WebContentsViewManager {
+    if (this.embedBrowserView && !this.embedBrowserView.isDestroyed) {
+      return this.embedBrowserView
+    }
+
+    const mainWindow = this.requireMainWindow()
+    const embedBrowserView = new WebContentsViewManager(mainWindow, {
+      view: {
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          webSecurity: true
+        }
+      }
+    })
+
+    this.embedBrowserView = embedBrowserView
+    return embedBrowserView
+  }
+
+  createFindBarView(): WebContentsViewManager {
+    if (this.findBarView && !this.findBarView.isDestroyed) {
+      return this.findBarView
+    }
+
+    const mainWindow = this.requireMainWindow()
+    const findBarView = new WebContentsViewManager(mainWindow, {
+      backgroundColor: '#00000000',
+      view: {
+        webPreferences: {
+          preload: resolvePreloadPath('find-bar.js'),
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          webSecurity: true
+        }
+      }
+    })
+
+    this.findBarView = findBarView
+    return findBarView
   }
 
   createSelectionToolbarWindow(): BrowserWindow {
@@ -196,16 +245,24 @@ export class WindowManager {
     })
     const updateViewBounds = (): void => {
       const [width, height] = window.getContentSize()
+      const viewTop =
+        SELECTION_EXPLANATION_HEADER_HEIGHT +
+        (this.selectionExplanationSwitcherVisible
+          ? SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT
+          : 0)
       view.setBounds({
         x: 1,
-        y: 44,
+        y: viewTop,
         width: Math.max(0, width - 2),
-        height: Math.max(0, height - 45)
+        height: Math.max(0, height - viewTop - 1)
       })
     }
+    this.updateSelectionExplanationViewBounds = updateViewBounds
     window.on('resize', updateViewBounds)
     window.on('closed', () => {
       view.dispose()
+      this.selectionExplanationSwitcherVisible = false
+      this.updateSelectionExplanationViewBounds = undefined
       if (this.selectionExplanationView === view) this.selectionExplanationView = undefined
       if (this.selectionExplanationWindow === window) this.selectionExplanationWindow = undefined
     })
@@ -214,6 +271,12 @@ export class WindowManager {
     this.selectionExplanationWindow = window
     this.selectionExplanationView = view
     return window
+  }
+
+  setSelectionExplanationSwitcherVisible(visible: boolean): void {
+    if (this.selectionExplanationSwitcherVisible === visible) return
+    this.selectionExplanationSwitcherVisible = visible
+    this.updateSelectionExplanationViewBounds?.()
   }
 
   dispose(): void {
@@ -226,8 +289,10 @@ export class WindowManager {
       this.activeSpaceSubscriptionId = undefined
     }
     this.dictionaryView?.dispose()
+    this.embedBrowserView?.dispose()
     this.searchPopoverView?.dispose()
     this.selectionExplanationView?.dispose()
+    this.findBarView?.dispose()
     if (this.selectionToolbarWindow && !this.selectionToolbarWindow.isDestroyed()) {
       this.selectionToolbarWindow.destroy()
     }
@@ -236,10 +301,14 @@ export class WindowManager {
     }
 
     this.dictionaryView = undefined
+    this.embedBrowserView = undefined
     this.searchPopoverView = undefined
     this.selectionToolbarWindow = undefined
     this.selectionExplanationWindow = undefined
     this.selectionExplanationView = undefined
+    this.selectionExplanationSwitcherVisible = false
+    this.updateSelectionExplanationViewBounds = undefined
+    this.findBarView = undefined
     this.mainWindow = undefined
   }
 

@@ -1,6 +1,15 @@
 import { dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { extname, isAbsolute } from 'node:path'
 
+import type {
+  DictionaryImportPreview,
+  DictionaryImportRequest
+} from '../../shared/dictionary-import'
 import type { DictionarySummary, ImportedDictionary, ReadyDictionary } from '../db-service'
+import {
+  createDictionaryImportPreview,
+  resolveDictionaryImportSelection
+} from '../dictionary-import-files'
 import { invalidateDictionaryResources } from '../resource-protocol'
 import { BaseController } from './base-controller'
 
@@ -8,6 +17,7 @@ export class DictionaryController extends BaseController {
   override mount(): void {
     ipcMain.handle('dictionaries:list-ready', this.listReady)
     ipcMain.handle('dictionaries:list', this.listDictionaries)
+    ipcMain.handle('dictionaries:select-file', this.selectImportFile)
     ipcMain.handle('dictionaries:import', this.importDictionary)
     ipcMain.handle('dictionaries:delete', this.deleteDictionary)
     ipcMain.handle('dictionaries:reorder', this.reorderDictionaries)
@@ -23,14 +33,25 @@ export class DictionaryController extends BaseController {
     return this.db.listDictionaries()
   }
 
-  importDictionary = async (): Promise<ImportedDictionary | null> => {
+  selectImportFile = async (): Promise<DictionaryImportPreview | null> => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [{ name: 'MDX 词典', extensions: ['mdx'] }]
     })
 
     if (result.canceled || result.filePaths.length === 0) return null
-    return this.db.importDictionaryFromFile(result.filePaths[0])
+    return createDictionaryImportPreview(result.filePaths[0])
+  }
+
+  importDictionary = async (
+    _event: IpcMainInvokeEvent,
+    request: unknown
+  ): Promise<ImportedDictionary> => {
+    if (!isDictionaryImportRequest(request)) {
+      throw new Error('请选择有效的 MDX 文件')
+    }
+    const sourceFiles = await resolveDictionaryImportSelection(request)
+    return this.db.importDictionaryFromFile(request.mdxPath, sourceFiles)
   }
 
   deleteDictionary = async (_event: IpcMainInvokeEvent, dictionaryId: string): Promise<void> => {
@@ -83,4 +104,21 @@ export class DictionaryController extends BaseController {
       view.reload()
     }
   }
+}
+
+function isDictionaryImportRequest(value: unknown): value is DictionaryImportRequest {
+  if (!value || typeof value !== 'object') return false
+  const request = value as DictionaryImportRequest
+  return (
+    typeof request.mdxPath === 'string' &&
+    isAbsolute(request.mdxPath) &&
+    extname(request.mdxPath).toLowerCase() === '.mdx' &&
+    Array.isArray(request.selectedRelativePaths) &&
+    request.selectedRelativePaths.length > 0 &&
+    request.selectedRelativePaths.length <= 20_000 &&
+    request.selectedRelativePaths.every(
+      (relativePath) =>
+        typeof relativePath === 'string' && relativePath.length > 0 && relativePath.length <= 1_000
+    )
+  )
 }

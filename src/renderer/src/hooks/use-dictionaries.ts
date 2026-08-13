@@ -12,6 +12,7 @@ export const dictionariesQueryKey = ['dictionaries', 'all'] as const
 type DictionarySummary = Awaited<ReturnType<Window['dictol']['dictionaries']['list']>>[number]
 type ReadyDictionary = Awaited<ReturnType<Window['dictol']['dictionaries']['listReady']>>[number]
 type ImportedDictionary = Awaited<ReturnType<Window['dictol']['dictionaries']['import']>>
+type DictionaryImportRequest = Parameters<Window['dictol']['dictionaries']['import']>[0]
 type ReorderDictionariesContext = { previousDictionaries?: DictionarySummary[] }
 
 export function useDictionaries(): UseQueryResult<DictionarySummary[], Error> {
@@ -33,11 +34,15 @@ export function useReadyDictionaries(): UseQueryResult<ReadyDictionary[], Error>
   })
 }
 
-export function useImportDictionary(): UseMutationResult<ImportedDictionary | null, Error, void> {
+export function useImportDictionary(): UseMutationResult<
+  ImportedDictionary,
+  Error,
+  DictionaryImportRequest
+> {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => window.dictol.dictionaries.import(),
+    mutationFn: (request) => window.dictol.dictionaries.import(request),
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: dictionariesQueryKey }),

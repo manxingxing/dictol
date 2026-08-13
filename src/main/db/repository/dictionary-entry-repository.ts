@@ -37,18 +37,13 @@ export type EntryLookupRow = {
 export type EntryContent = {
   id: number
   word: string
+  normalizedWord: string
   dictionaryId: number
   dictionaryName: string
   customCss: string
   filePath: string
-  keyBlockIdx: number
   recordStartOffset: number
   recordEndOffset: number
-}
-
-export type FirstReadyEntryLookup = {
-  hasReadyDictionary: boolean
-  entry: EntryContent | null
 }
 
 export class DictionaryEntryRepository {
@@ -148,11 +143,11 @@ export class DictionaryEntryRepository {
       .select({
         id: dictionaryEntry.id,
         word: dictionaryEntry.word,
+        normalizedWord: dictionaryEntry.normalizedWord,
         dictionaryId: dictionaryEntry.dictionaryId,
         dictionaryName: dictionary.name,
         customCss: dictionary.customCss,
         filePath: dictionaryFile.filePath,
-        keyBlockIdx: dictionaryEntry.keyBlockIdx,
         recordStartOffset: dictionaryEntry.recordStartOffset,
         recordEndOffset: dictionaryEntry.recordEndOffset
       })
@@ -172,73 +167,39 @@ export class DictionaryEntryRepository {
   }
 
   /**
-   * 选词查询专用：用一条 SQL 区分无可用词典/无匹配，并按词典顺序返回首个匹配的完整记录。
+   * 根据一个展示入口找出同一词典中比较值相同的所有 record。
+   *
+   * MDX 可以把一个词条拆成多个同名 key；返回值按逻辑 record 地址排序，
+   * 以便调用方按文件顺序拼接为一个展示文档。
    */
-  async findFirstReadyEntryContent(normalizedWord: string): Promise<FirstReadyEntryLookup> {
-    const [row] = await this.db
+  async findEntryContentsForDisplay(entryId: number): Promise<EntryContent[]> {
+    const entry = await this.findEntryContent(entryId)
+    if (!entry) return []
+
+    return this.db
       .select({
-        readyDictionaryId: dictionary.id,
         id: dictionaryEntry.id,
         word: dictionaryEntry.word,
+        normalizedWord: dictionaryEntry.normalizedWord,
         dictionaryId: dictionaryEntry.dictionaryId,
         dictionaryName: dictionary.name,
         customCss: dictionary.customCss,
         filePath: dictionaryFile.filePath,
-        keyBlockIdx: dictionaryEntry.keyBlockIdx,
         recordStartOffset: dictionaryEntry.recordStartOffset,
         recordEndOffset: dictionaryEntry.recordEndOffset
       })
-      .from(dictionary)
-      .leftJoin(
-        dictionaryEntry,
+      .from(dictionaryEntry)
+      .innerJoin(dictionary, eq(dictionary.id, dictionaryEntry.dictionaryId))
+      .innerJoin(dictionaryFile, eq(dictionaryFile.id, dictionaryEntry.dictionaryFileId))
+      .where(
         and(
-          eq(dictionaryEntry.dictionaryId, dictionary.id),
-          eq(dictionaryEntry.normalizedWord, normalizedWord)
-        )
-      )
-      .leftJoin(
-        dictionaryFile,
-        and(
-          eq(dictionaryFile.id, dictionaryEntry.dictionaryFileId),
+          eq(dictionaryEntry.dictionaryId, entry.dictionaryId),
+          eq(dictionaryEntry.normalizedWord, entry.normalizedWord),
+          eq(dictionary.status, 'ready'),
           eq(dictionaryFile.fileType, 'mdx')
         )
       )
-      .where(eq(dictionary.status, 'ready'))
-      .orderBy(
-        sql`case when ${dictionaryEntry.id} is null then 1 else 0 end`,
-        asc(dictionary.sortOrder),
-        asc(dictionary.id),
-        asc(dictionaryEntry.id)
-      )
-      .limit(1)
-
-    if (!row) return { hasReadyDictionary: false, entry: null }
-    if (
-      row.id === null ||
-      row.word === null ||
-      row.dictionaryId === null ||
-      row.filePath === null ||
-      row.keyBlockIdx === null ||
-      row.recordStartOffset === null ||
-      row.recordEndOffset === null
-    ) {
-      return { hasReadyDictionary: true, entry: null }
-    }
-
-    return {
-      hasReadyDictionary: true,
-      entry: {
-        id: row.id,
-        word: row.word,
-        dictionaryId: row.dictionaryId,
-        dictionaryName: row.dictionaryName,
-        customCss: row.customCss,
-        filePath: row.filePath,
-        keyBlockIdx: row.keyBlockIdx,
-        recordStartOffset: row.recordStartOffset,
-        recordEndOffset: row.recordEndOffset
-      }
-    }
+      .orderBy(asc(dictionaryEntry.recordStartOffset), asc(dictionaryEntry.id))
   }
 
   /** 根据 entryId 查出所属词典 ID（需 ready） */

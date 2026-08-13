@@ -1,9 +1,10 @@
-import { MdictDictionary } from '@dictol/mdict-native'
+import { Mdx } from '@dictol/mdict-native'
 import { constants } from 'node:fs'
-import { copyFile, mkdir, readdir, stat } from 'node:fs/promises'
+import { copyFile, mkdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import { parentPort, workerData } from 'node:worker_threads'
 
+import type { DictionaryImportSourceFile } from '../shared/dictionary-import'
 import { openDrizzleDB } from './db/drizzle'
 import { DictionaryEntryRepository } from './db/repository/dictionary-entry-repository'
 import { DictionaryFileRepository } from './db/repository/dictionary-file-repository'
@@ -14,6 +15,7 @@ const IMPORT_BATCH_SIZE = 2_000
 type ImportWorkerData = {
   databasePath: string
   mdxPath: string
+  sourceFiles: DictionaryImportSourceFile[]
   userDataPath: string
   targetDirectoryName: string
 }
@@ -21,7 +23,7 @@ type ImportWorkerData = {
 type ImportedDictionary = {
   id: string
   name: string
-  status: 'ready'
+  status: 'importing'
   directory: string
   files: Array<{ id: string; name: string; type: 'mdx' | 'mdd' }>
 }
@@ -29,50 +31,47 @@ type ImportedDictionary = {
 const input = workerData as ImportWorkerData
 
 void importDictionary(input)
-  .then((value) => parentPort?.postMessage({ ok: true, value }))
   .catch((error: unknown) => {
     parentPort?.postMessage({
-      ok: false,
+      type: 'error',
       error: error instanceof Error ? error.message : String(error)
     })
   })
   .finally(() => parentPort?.close())
 
-async function importDictionary(data: ImportWorkerData): Promise<ImportedDictionary> {
+async function importDictionary(data: ImportWorkerData): Promise<void> {
   const { db: connection, orm } = openDrizzleDB(data.databasePath)
   const dictionaryRepo = new DictionaryRepository(orm)
   const dictionaryFileRepo = new DictionaryFileRepository(orm)
   const dictionaryEntryRepo = new DictionaryEntryRepository(orm)
-  const sourceDirectory = dirname(data.mdxPath)
   const selectedName = basename(data.mdxPath)
   const targetDirectory = join(data.userDataPath, 'dictionaries', data.targetDirectoryName)
   let dictionaryId: number | undefined
 
   try {
-    const sourceEntries = await readdir(sourceDirectory, { withFileTypes: true })
-    const companionExtensions = new Set(['.mdd', '.css', '.js', '.png'])
-    const sourceFiles = sourceEntries
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          entry.name !== selectedName &&
-          companionExtensions.has(extname(entry.name).toLowerCase())
-      )
-      .map((entry) => join(sourceDirectory, entry.name))
-
     await mkdir(targetDirectory, { recursive: true })
     dictionaryId = await dictionaryRepo.createImporting(
       basename(selectedName, extname(selectedName)),
       targetDirectory
     )
+    parentPort?.postMessage({
+      type: 'created',
+      value: {
+        id: String(dictionaryId),
+        name: basename(selectedName, extname(selectedName)),
+        status: 'importing',
+        directory: targetDirectory,
+        files: []
+      } satisfies ImportedDictionary
+    })
 
-    const copiedFiles: ImportedDictionary['files'] = []
     let mdxFileId: number | undefined
     let mdxTargetPath: string | undefined
 
-    for (const sourcePath of [data.mdxPath, ...sourceFiles]) {
-      const fileName = basename(sourcePath)
-      const targetPath = join(targetDirectory, fileName)
+    for (const { sourcePath, relativePath } of data.sourceFiles) {
+      const fileName = basename(relativePath)
+      const targetPath = join(targetDirectory, relativePath)
+      await mkdir(dirname(targetPath), { recursive: true })
       await copyFile(sourcePath, targetPath, constants.COPYFILE_FICLONE)
       const fileStats = await stat(targetPath)
       const extension = extname(fileName).toLowerCase()
@@ -86,7 +85,6 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
         fileType,
         fileSize: fileStats.size
       })
-      copiedFiles.push({ id: String(fileId), name: fileName, type: fileType })
       if (fileType === 'mdx') {
         mdxFileId = fileId
         mdxTargetPath = targetPath
@@ -98,9 +96,9 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
     }
     const importedDictionaryId = dictionaryId
 
-    const mdx = MdictDictionary.open(mdxTargetPath)
+    const mdx = Mdx.open(mdxTargetPath)
     const metadata = mdx.metadata
-    const scanner = mdx.createScanner()
+    const scanner = mdx.keys()
     await dictionaryFileRepo.updateFormatMetadata(mdxFileId, {
       formatVersion: String(metadata.engineVersion),
       isEncrypted: metadata.encrypted !== 0
@@ -120,8 +118,7 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
               word: entry.keyText,
               normalizedWord: entry.keyText.toLowerCase(),
               recordStartOffset: toSafeNumber(entry.recordStart, 'record start offset'),
-              recordEndOffset: toSafeNumber(entry.recordEnd, 'record end offset'),
-              keyBlockIdx: entry.keyBlock
+              recordEndOffset: toSafeNumber(entry.recordEnd, 'record end offset')
             }))
           )
         } catch (error) {
@@ -149,14 +146,6 @@ async function importDictionary(data: ImportWorkerData): Promise<ImportedDiction
       description: metadata.description || null,
       recordCount: toSafeNumber(metadata.entryCount, 'record count')
     })
-
-    return {
-      id: String(importedDictionaryId),
-      name: readyName,
-      status: 'ready',
-      directory: targetDirectory,
-      files: copiedFiles
-    }
   } catch (error) {
     if (dictionaryId !== undefined) {
       try {

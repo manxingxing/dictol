@@ -6,6 +6,7 @@ files:
   - out/**
   - drizzle/**
   - resources/**
+  - '!resources/ecdict/**'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -13,6 +14,7 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!Dictionaries/**'
+  - '!dictionaries/**'
   - '!benchmarks/**'
   - '!docs/**'
   - '!native/**'
@@ -26,15 +28,50 @@ asarUnpack:
   - node_modules/better-sqlite3/lib/**
   - node_modules/better-sqlite3/prebuilds/*.node
   - node_modules/better-sqlite3/package.json
+extraResources:
+  - from: resources/ecdict
+    to: ecdict
 win:
   executableName: dictol
   icon: build/icon.ico
+  artifactName: ${name}-${version}-${arch}-setup.${ext}
+  files:
+    # Keep the Windows package self-contained while excluding unrelated
+    # source, dictionary, and native-driver variants.
+    - out/**
+    - drizzle/**
+    - resources/**
+    - '!resources/ecdict/**'
+    - '!**/.vscode/*'
+    - '!src/*'
+    - '!electron.vite.config.{js,ts,mjs,cjs}'
+    - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+    - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+    - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+    - '!Dictionaries/**'
+    - '!dictionaries/**'
+    - '!benchmarks/**'
+    - '!docs/**'
+    - '!native/**'
+    - '!scripts/**'
+    - '!node_modules/@dictol/mdict-native/{src,target,test,node_modules}/**'
+    - '!node_modules/@dictol/mdict-native/{Cargo.lock,Cargo.toml,README.md,build.rs,index.d.ts,package-lock.json}'
+    - '!node_modules/@dictol/mdict-native/*.darwin-*.node'
+    - '!node_modules/@dictol/mdict-native/*.win32-arm64*.node'
+    - '!node_modules/better-sqlite3/{deps,src}/**'
+    - '!node_modules/better-sqlite3/prebuilds/darwin*.node'
+    - '!node_modules/better-sqlite3/prebuilds/linux*.node'
+    - '!node_modules/better-sqlite3/prebuilds/win32-arm64.node'
+    - '!node_modules/selection-hook/{build,docs,src}/**'
+    - '!node_modules/selection-hook/prebuilds/darwin*/**'
+    - '!node_modules/selection-hook/prebuilds/linux*/**'
+    - '!node_modules/selection-hook/prebuilds/win32-arm64/**'
   target: ["nsis"]
   signtoolOptions:
     certificateFile: build/codesign.pfx
     certificatePassword: "123456"
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-${version}-${arch}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -42,10 +79,54 @@ nsis:
   allowToChangeInstallationDirectory: true
 mac:
   icon: build/icon.icns
+  artifactName: ${name}-${version}-${arch}-mac.${ext}
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
+  electronLanguages:
+    - en
+    - zh_CN
+    - zh_TW
+  files:
+    # Keep the full base filter here. electron-builder treats a platform
+    # filter made of ignores alone as a separate, implicit include-all set.
+    - out/**
+    - drizzle/**
+    - resources/**
+    - '!resources/ecdict/**'
+    - '!**/.vscode/*'
+    - '!src/*'
+    - '!electron.vite.config.{js,ts,mjs,cjs}'
+    - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+    - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+    - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+    - '!Dictionaries/**'
+    - '!dictionaries/**'
+    - '!benchmarks/**'
+    - '!docs/**'
+    - '!native/**'
+    - '!scripts/**'
+    - '!node_modules/@dictol/mdict-native/{src,target,test,node_modules}/**'
+    - '!node_modules/@dictol/mdict-native/{Cargo.lock,Cargo.toml,README.md,build.rs,index.d.ts,package-lock.json}'
+    # The production main-process bundle contains the used Drizzle modules.
+    - '!node_modules/drizzle-orm/**'
+    # ExcelJS runs from lib/ in the main process; its browser distribution is
+    # not used by Dictol.
+    - '!node_modules/exceljs/dist/**'
+    # Keep macOS native modules only; the opposite macOS architecture is tiny
+    # and is retained so the same app resources remain usable when inspected
+    # or repackaged on either Intel or Apple Silicon.
+    - '!node_modules/@dictol/mdict-native/*.win32-*.node'
+    - node_modules/@dictol/mdict-native/*.darwin-*.node
+    - '!node_modules/better-sqlite3/{deps,src}/**'
+    - '!node_modules/better-sqlite3/prebuilds/linux*.node'
+    - '!node_modules/better-sqlite3/prebuilds/win32*.node'
+    - node_modules/better-sqlite3/prebuilds/darwin-*.node
+    - '!node_modules/selection-hook/{build,docs,src}/**'
+    - '!node_modules/selection-hook/prebuilds/linux*/**'
+    - '!node_modules/selection-hook/prebuilds/win32*/**'
+    - node_modules/selection-hook/prebuilds/darwin-*/selection-hook.node
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   icon: build/icon.png
   target:

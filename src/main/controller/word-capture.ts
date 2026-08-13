@@ -1,4 +1,10 @@
-import { ipcMain, systemPreferences, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import {
+  ipcMain,
+  shell,
+  systemPreferences,
+  type IpcMainInvokeEvent,
+  type WebContents
+} from 'electron'
 
 import { LOOKUP_WORD_ON_SHORTCUT } from '../app-runtime'
 import type { AppConfig } from '../app-config'
@@ -20,10 +26,19 @@ export type WordCaptureShortcutResult = {
   error?: string
 }
 
+export type OpenInputMonitoringSettingsResult = {
+  ok: boolean
+  error?: string
+}
+
+const MACOS_INPUT_MONITORING_SETTINGS_URL =
+  'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent'
+
 export class WordCaptureController extends BaseController {
   override mount(): void {
     ipcMain.handle('word-capture:status', this.getStatus)
     ipcMain.handle('word-capture:request-access', this.requestAccess)
+    ipcMain.handle('word-capture:open-input-monitoring-settings', this.openInputMonitoringSettings)
     ipcMain.handle('word-capture:set-shortcut', this.setShortcut)
     ipcMain.handle('word-capture:set-selection-enabled', this.setSelectionEnabled)
     ipcMain.handle('word-capture:remove-excluded-program', this.removeExcludedProgram)
@@ -38,6 +53,26 @@ export class WordCaptureController extends BaseController {
     if (!this.acceptsSender(event.sender)) return null
     if (process.platform === 'darwin') systemPreferences.isTrustedAccessibilityClient(true)
     return this.createStatus()
+  }
+
+  openInputMonitoringSettings = async (
+    event: IpcMainInvokeEvent
+  ): Promise<OpenInputMonitoringSettingsResult | null> => {
+    if (!this.acceptsSender(event.sender)) return null
+    if (process.platform !== 'darwin') {
+      return { ok: false, error: '输入监控设置仅适用于 macOS。' }
+    }
+
+    try {
+      await shell.openExternal(MACOS_INPUT_MONITORING_SETTINGS_URL)
+      return { ok: true }
+    } catch (error) {
+      console.error('Failed to open macOS input monitoring settings', error)
+      return {
+        ok: false,
+        error: '无法打开系统设置，请手动前往“隐私与安全性 > 输入监控”。'
+      }
+    }
   }
 
   setShortcut = (event: IpcMainInvokeEvent, shortcut: string): WordCaptureShortcutResult | null => {
@@ -64,7 +99,8 @@ export class WordCaptureController extends BaseController {
         ...previousConfig.shortcuts,
         lookupWordOnShortcut: shortcut.trim()
       },
-      selection: { ...previousConfig.selection }
+      selection: { ...previousConfig.selection },
+      aiLookup: { ...previousConfig.aiLookup }
     }
 
     try {
@@ -106,7 +142,8 @@ export class WordCaptureController extends BaseController {
         lookupWordOnSelection: enabled
       },
       shortcuts: { ...previousConfig.shortcuts },
-      selection: { ...previousConfig.selection }
+      selection: { ...previousConfig.selection },
+      aiLookup: { ...previousConfig.aiLookup }
     }
 
     try {

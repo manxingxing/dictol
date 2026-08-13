@@ -3,6 +3,8 @@ import { RouterProvider } from 'react-router-dom'
 
 import { useQueryHistoryChangeListener } from '@/hooks/use-query-history'
 import { router } from '@/routes/router'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
+import { Toaster } from './components/ui/sonner'
 
 const queryClient = new QueryClient()
 
@@ -13,9 +15,12 @@ function AppContent(): React.JSX.Element {
 
 function App(): React.JSX.Element {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Toaster position="top-center" />
+        <AppContent />
+      </QueryClientProvider>
+    </AppErrorBoundary>
   )
 }
 

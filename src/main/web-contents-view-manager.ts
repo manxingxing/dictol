@@ -42,7 +42,7 @@ export class WebContentsViewManager {
   }
 
   get isDestroyed(): boolean {
-    return this.disposed || this.webContents.isDestroyed()
+    return this.disposed || this.webContents?.isDestroyed() !== false
   }
 
   show(): boolean {
@@ -117,8 +117,19 @@ export class WebContentsViewManager {
     if (this.disposed) return
     this.hide()
     this.disposed = true
-    if (!this.mainWindow.isDestroyed()) this.mainWindow.contentView.removeChildView(this.view)
-    if (!this.webContents.isDestroyed()) this.webContents.close()
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.contentView.removeChildView(this.view)
+      }
+    } catch {
+      // mainWindow may be in a torn-down state during app quit
+    }
+    try {
+      const wc = this.view?.webContents
+      if (wc && !wc.isDestroyed()) wc.close()
+    } catch {
+      // webContents may already be destroyed
+    }
     this.eventBus.removeAllListeners()
   }
 }

@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+import type {
+  AiChatRequest,
+  AiLookupPublicConfig,
+  AiSaveConfigRequest,
+  AiStreamEvent
+} from '../shared/ai-ipc'
+import type { DictionaryImportPreview, DictionaryImportRequest } from '../shared/dictionary-import'
+
 type ReadyDictionary = {
   id: string
   name: string
@@ -18,13 +26,20 @@ type DictionarySummary = Omit<ReadyDictionary, 'status'> & {
 type ImportedDictionary = {
   id: string
   name: string
-  status: 'ready'
+  status: 'importing'
   directory: string
   files: Array<{
     id: string
     name: string
     type: 'mdx' | 'mdd'
   }>
+}
+
+type OnlineDictionaryConfig = {
+  id: string
+  name: string
+  faviconUrl: string
+  urlTemplate: string
 }
 
 type DictionaryMatch = {
@@ -61,6 +76,49 @@ type QueryHistoryItem = {
   lastQueriedAt: string
 }
 
+type WordbookSummary = {
+  id: string
+  name: string
+  isDefault: boolean
+  wordCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+type WordbookWordItem = {
+  id: string
+  wordbookId: string
+  wordbookName: string
+  word: string
+  star: number
+  dictionaryWord: string | null
+  phonetic: string | null
+  definition: string | null
+  translation: string | null
+  ecdictVersion: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+type WordbookExportRequest =
+  | { scope: 'all' }
+  | { scope: 'wordbook'; wordbookId: string }
+  | { scope: 'selected'; wordIds: string[] }
+
+type WordbookExportStatus = {
+  state: 'idle' | 'exporting' | 'completed' | 'error'
+  destinationPath: string | null
+  error: string | null
+}
+
+type WordbookImportResult = {
+  imported: number
+  matched: number
+  unmatched: number
+  wordbookId: string
+  wordbookName: string
+}
+
 type WordCaptureStatus = {
   supported: boolean
   limitation: string | null
@@ -83,11 +141,18 @@ type WordCaptureShortcutResult = {
   error?: string
 }
 
+type OpenInputMonitoringSettingsResult = {
+  ok: boolean
+  error?: string
+}
+
 type SearchPopoverItem = {
   word: string
   description: string
   recent: boolean
 }
+
+type AiStreamEventPayload = AiStreamEvent & { requestId: string }
 
 type WordCaptureSubscriber = (event: WordCaptureEvent) => void
 
@@ -106,9 +171,11 @@ const api = Object.freeze({
   platform: process.platform,
   dictionaries: Object.freeze({
     list: (): Promise<DictionarySummary[]> => ipcRenderer.invoke('dictionaries:list'),
-    listReady: (): Promise<ReadyDictionary[]> =>
-      ipcRenderer.invoke('dictionaries:list-ready'),
-    import: (): Promise<ImportedDictionary | null> => ipcRenderer.invoke('dictionaries:import'),
+    listReady: (): Promise<ReadyDictionary[]> => ipcRenderer.invoke('dictionaries:list-ready'),
+    selectFile: (): Promise<DictionaryImportPreview | null> =>
+      ipcRenderer.invoke('dictionaries:select-file'),
+    import: (request: DictionaryImportRequest): Promise<ImportedDictionary> =>
+      ipcRenderer.invoke('dictionaries:import', request),
     delete: (dictionaryId: string): Promise<void> =>
       ipcRenderer.invoke('dictionaries:delete', dictionaryId),
     reorder: (dictionaryIds: string[]): Promise<void> =>
@@ -117,6 +184,14 @@ const api = Object.freeze({
       ipcRenderer.invoke('dictionaries:update-name', dictionaryId, name),
     updateCustomCss: (dictionaryId: string, customCss: string): Promise<void> =>
       ipcRenderer.invoke('dictionaries:update-custom-css', dictionaryId, customCss)
+  }),
+  onlineDictionaries: Object.freeze({
+    list: (): Promise<OnlineDictionaryConfig[]> => ipcRenderer.invoke('online-dictionaries:list'),
+    add: (input: Omit<OnlineDictionaryConfig, 'id'>): Promise<OnlineDictionaryConfig> =>
+      ipcRenderer.invoke('online-dictionaries:add', input),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke('online-dictionaries:remove', id),
+    reorder: (ids: string[]): Promise<void> =>
+      ipcRenderer.invoke('online-dictionaries:reorder', ids)
   }),
   entries: Object.freeze({
     search: (prefix: string, limit?: number): Promise<DictionarySearchResult[]> =>
@@ -136,11 +211,64 @@ const api = Object.freeze({
       return () => ipcRenderer.removeListener('query-history:changed', listener)
     }
   }),
+  wordbooks: Object.freeze({
+    list: (): Promise<WordbookSummary[]> => ipcRenderer.invoke('wordbooks:list'),
+    create: (name: string): Promise<WordbookSummary> =>
+      ipcRenderer.invoke('wordbooks:create', name),
+    listWords: (wordbookId?: string, page = 1, pageSize = 25) =>
+      ipcRenderer.invoke('wordbooks:list-words', wordbookId, page, pageSize),
+    filterWords: (keyword: string, wordbookId?: string, page = 1, pageSize = 25) =>
+      ipcRenderer.invoke('wordbooks:filter-words', keyword, wordbookId, page, pageSize),
+    addWord: (word: string, star?: number): Promise<WordbookWordItem> =>
+      ipcRenderer.invoke('wordbooks:add-word', word, star),
+    importWords: (text: string, wordbookId?: string): Promise<WordbookImportResult> =>
+      ipcRenderer.invoke('wordbooks:import-words', text, wordbookId),
+    toggleStar: (word: string): Promise<void> => ipcRenderer.invoke('wordbooks:toggle-star', word),
+    unStarWord: (word: string): Promise<void> => ipcRenderer.invoke('wordbooks:unstar-word', word),
+    isStarred: (word: string): Promise<boolean> => ipcRenderer.invoke('wordbooks:is-starred', word),
+    updateStar: (word: string, star: number): Promise<void> =>
+      ipcRenderer.invoke('wordbooks:update-star', word, star),
+    moveWords: (wordIds: string[], destinationWordbookId: string): Promise<void> =>
+      ipcRenderer.invoke('wordbooks:move-words', wordIds, destinationWordbookId),
+    export: (
+      request: WordbookExportRequest,
+      directoryPath: string
+    ): Promise<{ started: boolean }> =>
+      ipcRenderer.invoke('wordbooks:export', request, directoryPath),
+    getExportStatus: (): Promise<WordbookExportStatus> =>
+      ipcRenderer.invoke('wordbooks:export-status'),
+    onExportStatus: (callback: (status: WordbookExportStatus) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, status: WordbookExportStatus): void =>
+        callback(status)
+      ipcRenderer.on('wordbooks:export-status-changed', listener)
+      return () => ipcRenderer.removeListener('wordbooks:export-status-changed', listener)
+    },
+    selectDirectory: (): Promise<string | null> => ipcRenderer.invoke('wordbooks:select-directory'),
+    deleteWordbook: (wordbookId: string): Promise<void> =>
+      ipcRenderer.invoke('wordbooks:delete', wordbookId),
+    renameWordbook: (wordbookId: string, name: string): Promise<void> =>
+      ipcRenderer.invoke('wordbooks:rename', wordbookId, name)
+  }),
   app: Object.freeze({
     onFocusSearch: (callback: () => void): (() => void) => {
       const listener = (): void => callback()
       ipcRenderer.on('app:focus-search', listener)
       return () => ipcRenderer.removeListener('app:focus-search', listener)
+    }
+  }),
+  aiLookup: Object.freeze({
+    getConfig: (): Promise<AiLookupPublicConfig | null> =>
+      ipcRenderer.invoke('ai-lookup:get-config'),
+    saveConfig: (request: AiSaveConfigRequest): Promise<AiLookupPublicConfig | null> =>
+      ipcRenderer.invoke('ai-lookup:save-config', request),
+    startChat: (request: AiChatRequest): Promise<string | null> =>
+      ipcRenderer.invoke('ai-lookup:start-chat', request),
+    cancel: (requestId: string): void => ipcRenderer.send('ai-lookup:cancel', requestId),
+    onEvent: (callback: (event: AiStreamEventPayload) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiStreamEventPayload): void =>
+        callback(payload)
+      ipcRenderer.on('ai-lookup:event', listener)
+      return () => ipcRenderer.removeListener('ai-lookup:event', listener)
     }
   }),
   searchPopover: Object.freeze({
@@ -189,6 +317,8 @@ const api = Object.freeze({
     getStatus: (): Promise<WordCaptureStatus | null> => ipcRenderer.invoke('word-capture:status'),
     requestAccess: (): Promise<WordCaptureStatus | null> =>
       ipcRenderer.invoke('word-capture:request-access'),
+    openInputMonitoringSettings: (): Promise<OpenInputMonitoringSettingsResult | null> =>
+      ipcRenderer.invoke('word-capture:open-input-monitoring-settings'),
     setShortcut: (shortcut: string): Promise<WordCaptureShortcutResult | null> =>
       ipcRenderer.invoke('word-capture:set-shortcut', shortcut),
     setSelectionEnabled: (enabled: boolean): Promise<WordCaptureShortcutResult | null> =>
@@ -208,12 +338,41 @@ const api = Object.freeze({
   dictionaryView: Object.freeze({
     show: (entryId: string): Promise<void> => ipcRenderer.invoke('dictionary-view:show', entryId),
     hide: (): void => ipcRenderer.send('dictionary-view:hide'),
+    toggleFindBar: (): void => ipcRenderer.send('dictionary-view:toggle-find-bar'),
     setBounds: (bounds: { x: number; y: number; width: number; height: number }): void =>
       ipcRenderer.send('dictionary-view:set-bounds', bounds),
+    onLoadingChanged: (callback: (isLoading: boolean) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, isLoading: boolean): void =>
+        callback(isLoading)
+      ipcRenderer.on('dictionary-view:loading-changed', listener)
+      return () => ipcRenderer.removeListener('dictionary-view:loading-changed', listener)
+    },
     onLookupWord: (callback: (word: string) => void): (() => void) => {
       const listener = (_event: Electron.IpcRendererEvent, word: string): void => callback(word)
       ipcRenderer.on('dictionary-view:lookup-word', listener)
       return () => ipcRenderer.removeListener('dictionary-view:lookup-word', listener)
+    },
+    onExplainWithAi: (callback: (text: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, text: string): void => callback(text)
+      ipcRenderer.on('dictionary-view:explain-with-ai', listener)
+      return () => ipcRenderer.removeListener('dictionary-view:explain-with-ai', listener)
+    }
+  }),
+  embedBrowser: Object.freeze({
+    load: (url: string): Promise<void> => ipcRenderer.invoke('embed-browser:load', url),
+    setBounds: (bounds: { x: number; y: number; width: number; height: number }): void =>
+      ipcRenderer.send('embed-browser:set-bounds', bounds),
+    hide: (): void => ipcRenderer.send('embed-browser:hide'),
+    onUrlChanged: (callback: (url: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, url: string): void => callback(url)
+      ipcRenderer.on('embed-browser:url-changed', listener)
+      return () => ipcRenderer.removeListener('embed-browser:url-changed', listener)
+    },
+    onLoadingChanged: (callback: (isLoading: boolean) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, isLoading: boolean): void =>
+        callback(isLoading)
+      ipcRenderer.on('embed-browser:loading-changed', listener)
+      return () => ipcRenderer.removeListener('embed-browser:loading-changed', listener)
     }
   })
 })

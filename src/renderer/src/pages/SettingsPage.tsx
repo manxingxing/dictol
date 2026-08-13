@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CircleAlert, CheckCircle2, Keyboard, Settings, ShieldAlert, Trash2 } from 'lucide-react'
+import {
+  CircleAlert,
+  CheckCircle2,
+  Keyboard,
+  Settings,
+  ShieldAlert,
+  Sparkles,
+  Trash2
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +15,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger
@@ -18,9 +27,17 @@ import {
   FieldError,
   FieldLabel
 } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAiLookupConfig, useSaveAiLookupConfig } from '@/hooks/use-ai-lookup'
 
 type WordCaptureStatus = Awaited<ReturnType<typeof window.dictol.wordCapture.getStatus>>
+type AiLookupConfig = NonNullable<Awaited<ReturnType<typeof window.dictol.aiLookup.getConfig>>>
+
+type AiLookupForm = Omit<AiLookupConfig, 'hasApiKey'> & {
+  apiKey: string
+}
 
 export function SettingsPage(): React.JSX.Element {
   const [captureStatus, setCaptureStatus] = useState<WordCaptureStatus>(null)
@@ -31,6 +48,15 @@ export function SettingsPage(): React.JSX.Element {
   const [shortcutError, setShortcutError] = useState<string | null>(null)
   const [selectionLookupError, setSelectionLookupError] = useState<string | null>(null)
   const [excludedProgramsError, setExcludedProgramsError] = useState<string | null>(null)
+  const [openingInputMonitoringSettings, setOpeningInputMonitoringSettings] = useState(false)
+  const [inputMonitoringSettingsError, setInputMonitoringSettingsError] = useState<string | null>(
+    null
+  )
+  const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const aiConfig = useAiLookupConfig()
+  const saveAiConfig = useSaveAiLookupConfig()
+  const [aiForm, setAiForm] = useState<AiLookupForm>(createAiForm)
   const refreshCaptureStatus = useCallback(() => {
     void window.dictol.wordCapture.getStatus().then(setCaptureStatus)
   }, [])
@@ -41,6 +67,42 @@ export function SettingsPage(): React.JSX.Element {
     return () => window.removeEventListener('focus', refreshCaptureStatus)
   }, [refreshCaptureStatus])
 
+  useEffect(() => {
+    const config = aiConfig.data
+    if (!config) return
+    // Hydrate the editable form from the main-process source of truth.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAiForm((current) => ({
+      enabled: config.enabled,
+      provider: config.provider,
+      baseUrl: config.baseUrl,
+      model: config.model,
+      sidebarSystemPrompt: config.sidebarSystemPrompt,
+      selectionToolbarSystemPrompt: config.selectionToolbarSystemPrompt,
+      apiKey: current.apiKey
+    }))
+  }, [aiConfig.data])
+
+  const updateAiConfig = (enabled: boolean): void => {
+    const nextForm = { ...aiForm, enabled }
+    setAiForm(nextForm)
+    setAiError(null)
+    saveAiConfig.mutate(nextForm, {
+      onError: (error: Error) => setAiError(error.message)
+    })
+  }
+
+  const saveAiForm = (): void => {
+    setAiError(null)
+    saveAiConfig.mutate(aiForm, {
+      onSuccess: () => {
+        setAiDialogOpen(false)
+        setAiForm((current) => ({ ...current, apiKey: '' }))
+      },
+      onError: (error: Error) => setAiError(error.message)
+    })
+  }
+
   return (
     <section className="mx-auto flex max-w-3xl flex-col px-8 py-16">
       <p className="mb-2 text-sm font-medium text-primary">设置</p>
@@ -50,9 +112,9 @@ export function SettingsPage(): React.JSX.Element {
           <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
             <Keyboard className="size-5" />
           </div>
-          <CardTitle>快捷键取词</CardTitle>
+          <CardTitle>取词</CardTitle>
           <CardDescription>
-            在其他软件中选择文字，然后按下快捷键，Dictol 会打开对应词条。
+            在其他软件中选择文字，在弹窗中获取词条解释。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -139,13 +201,13 @@ export function SettingsPage(): React.JSX.Element {
                 <Field className="items-start gap-4" orientation="horizontal">
                   <FieldContent>
                     <FieldLabel className="cursor-pointer" htmlFor="lookup-word-on-selection">
-                      实时划选取词
+                      划词工具栏
                     </FieldLabel>
                     <FieldDescription
                       className="text-xs leading-5"
                       id="lookup-word-on-selection-description"
                     >
-                      在其他软件中选中文字后立即查询，无需再按全局快捷键。
+                      在其他软件中选中文字后弹出工具栏，使用查词等多项功能
                     </FieldDescription>
                   </FieldContent>
                   <Switch
@@ -206,7 +268,7 @@ export function SettingsPage(): React.JSX.Element {
                         <DialogHeader>
                           <DialogTitle>已排除的程序</DialogTitle>
                           <DialogDescription>
-                            在这些程序中选择文字时，不会显示划词操作条。
+                            在这些程序中选择文字时，不会显示划词工具栏。
                           </DialogDescription>
                         </DialogHeader>
 
@@ -273,40 +335,329 @@ export function SettingsPage(): React.JSX.Element {
                 )}
               </div>
 
-              <div className="flex items-start justify-between gap-6 rounded-lg border border-border px-4 py-3">
-                <div className="flex gap-3">
-                  {captureStatus.trusted ? (
-                    <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
-                  ) : (
-                    <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">辅助功能权限</p>
+              {window.dictol.platform === 'darwin' && (
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <div className="border-b border-border bg-muted/30 px-4 py-3">
+                    <p className="text-sm font-medium">macOS 权限</p>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      {captureStatus.trusted
-                        ? '权限已开启，可以读取其他软件当前选中的文字。'
-                        : 'macOS 要求授权后才能读取其他软件中的选区。'}
+                      Dictol 需要以下权限读取选区，并响应跨应用的划词和弹窗操作。
                     </p>
                   </div>
+
+                  <div className="flex items-start justify-between gap-6 px-4 py-4">
+                    <div className="flex min-w-0 gap-3">
+                      {captureStatus.trusted ? (
+                        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
+                      ) : (
+                        <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                      )}
+                      <div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="text-sm font-medium">辅助功能</p>
+                          <span className="text-xs text-muted-foreground">
+                            {captureStatus.trusted ? '已开启' : '尚未开启'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          用于获取其他应用中当前所选的文本。
+                        </p>
+                        {!captureStatus.trusted && (
+                          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                            点击“开启辅助功能”，然后在系统设置中允许 Dictol。
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {!captureStatus.trusted && (
+                      <Button
+                        className="shrink-0"
+                        onClick={() => {
+                          void window.dictol.wordCapture.requestAccess().then(setCaptureStatus)
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        开启辅助功能
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-start justify-between gap-6 border-t border-border px-4 py-4">
+                    <div className="flex min-w-0 gap-3">
+                      <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">输入监控</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          用于感知划词结束和弹窗外点击，改善划词工具栏与解释弹窗体验。
+                          <span className="mt-1 block">Dictol 不保存或上传键盘输入。</span>
+                        </p>
+                        <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-xs leading-5 text-muted-foreground">
+                          <li>打开“输入监控”设置。</li>
+                          <li>在应用列表中开启 Dictol。</li>
+                          <li>退出并重新打开 Dictol。</li>
+                        </ol>
+                        {inputMonitoringSettingsError && (
+                          <FieldError className="mt-2 text-xs leading-5">
+                            {inputMonitoringSettingsError}
+                          </FieldError>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      className="shrink-0"
+                      disabled={openingInputMonitoringSettings}
+                      onClick={() => {
+                        setInputMonitoringSettingsError(null)
+                        setOpeningInputMonitoringSettings(true)
+                        void window.dictol.wordCapture
+                          .openInputMonitoringSettings()
+                          .then((result) => {
+                            if (!result?.ok) {
+                              setInputMonitoringSettingsError(
+                                result?.error ?? '无法打开输入监控设置。'
+                              )
+                            }
+                          })
+                          .finally(() => setOpeningInputMonitoringSettings(false))
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {openingInputMonitoringSettings ? '正在打开…' : '打开输入监控设置'}
+                    </Button>
+                  </div>
                 </div>
-                {!captureStatus.trusted && (
-                  <Button
-                    className="shrink-0"
-                    onClick={() => {
-                      void window.dictol.wordCapture.requestAccess().then(setCaptureStatus)
-                    }}
-                    size="sm"
-                  >
-                    开启权限
-                  </Button>
-                )}
-              </div>
+              )}
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Sparkles className="size-5" />
+          </div>
+          <CardTitle>AI 增强</CardTitle>
+          <CardDescription>
+            在词条解释区和划词工具栏中使用 AI 生成词语解释。你的 API Key 会使用系统安全存储保存。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
+            <FieldContent>
+              <FieldLabel className="cursor-pointer" htmlFor="ai-lookup-enabled">
+                启用 AI 增强
+              </FieldLabel>
+              <FieldDescription className="text-xs leading-5" id="ai-lookup-enabled-description">
+                开启后可在词条解释区打开聊天侧栏，也可从划词工具栏获取单次解释。
+              </FieldDescription>
+            </FieldContent>
+            <div className="flex shrink-0 items-center gap-2">
+              {aiConfig.data?.enabled && (
+                <Dialog
+                  onOpenChange={(open) => {
+                    setAiDialogOpen(open)
+                    if (open) setAiError(null)
+                  }}
+                  open={aiDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button size="sm" type="button" variant="outline">
+                      配置
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-3xl">
+                    <DialogHeader className="border-b border-border px-6 pb-5 pt-6 pr-14">
+                      <DialogTitle>配置 AI 查词</DialogTitle>
+                      <DialogDescription>
+                        连接 OpenAI-compatible 服务，并分别设置两种查词场景使用的 Prompt
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="min-h-0 overflow-y-auto px-6 py-4">
+                      <Tabs defaultValue="connection">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger
+                            className="focus-visible:ring-2 focus-visible:ring-ring"
+                            value="connection"
+                          >
+                            连接配置
+                          </TabsTrigger>
+                          <TabsTrigger
+                            className="focus-visible:ring-2 focus-visible:ring-ring"
+                            value="prompt"
+                          >
+                            Prompt
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent className="min-h-[19rem] pt-2" value="connection">
+                          <div className="mb-5 flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium">模型服务</p>
+                              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                使用兼容 OpenAI Chat Completions 的接口。
+                              </p>
+                            </div>
+                            <span className="shrink-0 rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-xs font-medium text-primary">
+                              OpenAI-compatible
+                            </span>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-[minmax(0,1.45fr)_minmax(11rem,0.75fr)]">
+                            <label className="block space-y-1.5 text-sm">
+                              <span className="font-medium">服务地址</span>
+                              <Input
+                                onChange={(event) =>
+                                  setAiForm((current) => ({
+                                    ...current,
+                                    baseUrl: event.target.value
+                                  }))
+                                }
+                                placeholder="https://api.openai.com/v1"
+                                type="url"
+                                value={aiForm.baseUrl}
+                              />
+                            </label>
+                            <label className="block space-y-1.5 text-sm">
+                              <span className="font-medium">模型</span>
+                              <Input
+                                onChange={(event) =>
+                                  setAiForm((current) => ({
+                                    ...current,
+                                    model: event.target.value
+                                  }))
+                                }
+                                placeholder="例如 gpt-4o-mini"
+                                value={aiForm.model}
+                              />
+                            </label>
+                            <label className="block space-y-1.5 text-sm sm:col-span-2">
+                              <span className="font-medium">API Key</span>
+                              <Input
+                                autoComplete="off"
+                                onChange={(event) =>
+                                  setAiForm((current) => ({
+                                    ...current,
+                                    apiKey: event.target.value
+                                  }))
+                                }
+                                placeholder={
+                                  aiConfig.data?.hasApiKey ? '已配置，留空以保留' : '输入 API Key'
+                                }
+                                type="password"
+                                value={aiForm.apiKey}
+                              />
+                              <span className="block text-xs leading-5 text-muted-foreground">
+                                API Key 仅保存在主进程，并使用系统安全存储加密。
+                              </span>
+                            </label>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent className="min-h-[19rem] pt-2" value="prompt">
+                          <div className="mb-4 flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium">场景 Prompt</p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <label className="block min-w-0 space-y-1.5 text-sm">
+                              <span className="font-medium">AI 查词侧边栏</span>
+                              <textarea
+                                className="h-48 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                                onChange={(event) =>
+                                  setAiForm((current) => ({
+                                    ...current,
+                                    sidebarSystemPrompt: event.target.value
+                                  }))
+                                }
+                                value={aiForm.sidebarSystemPrompt}
+                              />
+                              <span className="block text-xs leading-5 text-muted-foreground">
+                                用于连续对话和后续追问。
+                              </span>
+                            </label>
+                            <label className="block min-w-0 space-y-1.5 text-sm">
+                              <span className="font-medium">划词工具栏</span>
+                              <textarea
+                                className="h-48 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                                onChange={(event) =>
+                                  setAiForm((current) => ({
+                                    ...current,
+                                    selectionToolbarSystemPrompt: event.target.value
+                                  }))
+                                }
+                                value={aiForm.selectionToolbarSystemPrompt}
+                              />
+                              <span className="block text-xs leading-5 text-muted-foreground">
+                                用于一次性生成独立、完整的解释。
+                              </span>
+                            </label>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+
+                      {aiError && (
+                        <FieldError className="mt-4 flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5">
+                          <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+                          <span>{aiError}</span>
+                        </FieldError>
+                      )}
+                    </div>
+                    <DialogFooter className="border-t border-border bg-muted/20 px-6 py-4 sm:items-center sm:justify-between">
+                      <p className="text-xs text-muted-foreground">两个页签的修改会一起保存。</p>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          onClick={() => setAiDialogOpen(false)}
+                          type="button"
+                          variant="outline"
+                        >
+                          取消
+                        </Button>
+                        <Button
+                          disabled={saveAiConfig.isPending}
+                          onClick={saveAiForm}
+                          type="button"
+                        >
+                          {saveAiConfig.isPending ? '保存中…' : '保存配置'}
+                        </Button>
+                      </div>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+              <Switch
+                aria-describedby="ai-lookup-enabled-description"
+                checked={aiConfig.data?.enabled ?? aiForm.enabled}
+                disabled={aiConfig.isLoading || saveAiConfig.isPending}
+                id="ai-lookup-enabled"
+                onCheckedChange={updateAiConfig}
+              />
+            </div>
+          </div>
+          {aiError && !aiDialogOpen && (
+            <p className="mt-3 text-xs text-destructive" role="alert">
+              {aiError}
+            </p>
           )}
         </CardContent>
       </Card>
     </section>
   )
+}
+
+function createAiForm(): AiLookupForm {
+  return {
+    enabled: false,
+    provider: 'openai-compatible',
+    baseUrl: 'https://api.openai.com/v1',
+    model: '',
+    sidebarSystemPrompt: '',
+    selectionToolbarSystemPrompt: '',
+    apiKey: ''
+  }
 }
 
 function shortcutFromKeyboardEvent(event: React.KeyboardEvent): string | null {

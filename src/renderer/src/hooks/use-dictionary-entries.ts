@@ -27,6 +27,7 @@ export function useDictionaryLookup(
     queryKey: ['dictionary-entries', 'lookup', normalizedTerm.toLowerCase()],
     queryFn: () => window.dictol.entries.lookup(normalizedTerm),
     enabled: normalizedTerm.length > 0,
+    placeholderData: keepPreviousData,
     staleTime: 5 * 60_000
   })
 }

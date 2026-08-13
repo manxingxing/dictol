@@ -121,6 +121,7 @@ export const HistoryPage = (): React.JSX.Element => {
         </div>
         {history.length > 0 && (
           <Button
+            className="hover:bg-destructive/10 hover:text-destructive"
             disabled={clearHistory.isPending}
             onClick={() => {
               if (window.confirm('确定清空全部查询历史吗？')) clearHistory.mutate()

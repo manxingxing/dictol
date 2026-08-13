@@ -6,10 +6,17 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   main: {
     build: {
+      // Drizzle is only used by the Electron main process. Bundle the used
+      // SQLite implementation so electron-builder does not ship its unused
+      // database drivers.
+      externalizeDeps: {
+        exclude: ['drizzle-orm']
+      },
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          'dictionary-import-worker': resolve('src/main/dictionary-import-worker.ts')
+          'dictionary-import-worker': resolve('src/main/dictionary-import-worker.ts'),
+          'wordbook-export-worker': resolve('src/main/wordbook-export-worker.ts')
         }
       }
     }
@@ -23,7 +30,8 @@ export default defineConfig({
           'search-popover': resolve('src/preload/search-popover.ts'),
           'selection-toolbar': resolve('src/preload/selection-toolbar.ts'),
           'selection-explanation': resolve('src/preload/selection-explanation.ts'),
-          'selection-entry': resolve('src/preload/selection-entry.ts')
+          'selection-entry': resolve('src/preload/selection-entry.ts'),
+          'find-bar': resolve('src/preload/find-bar.ts')
         }
       }
     }
@@ -35,7 +43,8 @@ export default defineConfig({
           index: resolve('src/renderer/index.html'),
           'search-popover': resolve('src/renderer/search-popover.html'),
           'selection-toolbar': resolve('src/renderer/selection-toolbar.html'),
-          'selection-explanation': resolve('src/renderer/selection-explanation.html')
+          'selection-explanation': resolve('src/renderer/selection-explanation.html'),
+          'find-bar': resolve('src/renderer/find-bar.html')
         }
       }
     },

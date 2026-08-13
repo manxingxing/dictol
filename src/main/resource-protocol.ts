@@ -1,26 +1,33 @@
-import { MdictDictionary } from '@dictol/mdict-native'
+import { MddList } from '@dictol/mdict-native'
 import { app, protocol } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, resolve, sep } from 'node:path'
 
 import { getAppRunTime, type AppRuntime } from './app-runtime'
 import type { DBService } from './db-service'
+import { DICTIONARY_RESOURCE_SCHEME, parseDictionaryResourceUrl } from './dictionary-resource-url'
+import { readDictionaryEntryText } from './dictionary-entry-content'
 import { createEntryDocument } from './entry-document'
-import { decodeMdxRecord } from './mdict-runtime'
+import { ENTRY_BRIDGE_URL, ENTRY_GLOBAL_STYLE_URL, ENTRY_SCHEME } from './entry-assets'
 
-const RESOURCE_SCHEME = 'dictol-resource'
-const ENTRY_SCHEME = 'dictol-entry'
-const ENTRY_BRIDGE_URL = `${ENTRY_SCHEME}://app/entry-bridge.js`
 const MAX_PREPARED_ENTRY_DOCUMENTS = 32
 const STATIC_RESOURCE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const dictionaryFiles = new Map<number, Promise<DictionaryResourceFiles | null>>()
 const preparedEntryDocuments = new Map<string, string>()
 let registered = false
-let entryBridgeSource: Promise<Buffer> | undefined
+const entryAssetSources = new Map<string, Promise<Buffer>>()
+
+const ENTRY_ASSETS = new Map([
+  [ENTRY_BRIDGE_URL, { fileName: 'entry-bridge.js', mimeType: 'text/javascript; charset=utf-8' }],
+  [
+    ENTRY_GLOBAL_STYLE_URL,
+    { fileName: 'dictionary-entry.css', mimeType: 'text/css; charset=utf-8' }
+  ]
+])
 
 type DictionaryResourceFiles = {
   directory: string
-  mdds: MdictDictionary[]
+  mddList: MddList | null
 }
 
 export type LoadedDictionaryResource = {
@@ -32,7 +39,7 @@ export type LoadedDictionaryResource = {
 export function registerResourceScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
-      scheme: RESOURCE_SCHEME,
+      scheme: DICTIONARY_RESOURCE_SCHEME,
       privileges: {
         standard: true,
         secure: true,
@@ -54,7 +61,7 @@ export function registerResourceScheme(): void {
 export function registerResourceProtocol(runtime = getAppRunTime()): void {
   if (registered) return
   registered = true
-  protocol.handle(RESOURCE_SCHEME, (request) => handleResourceRequest(runtime, request))
+  protocol.handle(DICTIONARY_RESOURCE_SCHEME, (request) => handleResourceRequest(runtime, request))
   protocol.handle(ENTRY_SCHEME, (request) => handleEntryRequest(runtime, request))
 }
 
@@ -88,10 +95,11 @@ export function hasPreparedEntryDocument(dictionaryId: string, entryId: string):
 
 async function handleEntryRequest(runtime: AppRuntime, request: Request): Promise<Response> {
   try {
-    if (request.url === ENTRY_BRIDGE_URL) {
+    const entryAsset = ENTRY_ASSETS.get(request.url)
+    if (entryAsset) {
       return response(
-        await loadEntryBridgeSource(),
-        'text/javascript; charset=utf-8',
+        await loadEntryAssetSource(entryAsset.fileName),
+        entryAsset.mimeType,
         200,
         'no-cache'
       )
@@ -109,22 +117,15 @@ async function handleEntryRequest(runtime: AppRuntime, request: Request): Promis
       return response(preparedDocument, 'text/html; charset=utf-8')
     }
 
-    const record = await requireDBService(runtime).getDictionaryEntryRecord(entryId)
+    const records = await requireDBService(runtime).getDictionaryEntryRecords(entryId)
+    const record = records[0]
     if (!record) return response('Entry not found', 'text/plain; charset=utf-8', 404)
     if (record.dictionaryId !== dictionaryId) {
       return response('Dictionary mismatch', 'text/plain; charset=utf-8', 404)
     }
-    const mdx = runtime.mdFileCache.fetch(record.filePath)
-    const bytes = await mdx.readRecord(
-      BigInt(record.recordStartOffset),
-      BigInt(record.recordEndOffset)
-    )
+    const html = await readDictionaryEntryText(runtime, records)
     return response(
-      createEntryDocument(
-        decodeMdxRecord(bytes, mdx.metadata.encoding),
-        record.dictionaryId,
-        record.customCss
-      ),
+      createEntryDocument(html, record.dictionaryId, record.customCss),
       'text/html; charset=utf-8'
     )
   } catch (error) {
@@ -133,15 +134,19 @@ async function handleEntryRequest(runtime: AppRuntime, request: Request): Promis
   }
 }
 
-async function loadEntryBridgeSource(): Promise<Buffer> {
-  entryBridgeSource ??= readFirstAvailableFile([
-    join(app.getAppPath(), 'resources', 'entry-bridge.js'),
-    join(app.getAppPath(), '..', 'resources', 'entry-bridge.js')
-  ])
+async function loadEntryAssetSource(fileName: string): Promise<Buffer> {
+  let source = entryAssetSources.get(fileName)
+  if (!source) {
+    source = readFirstAvailableFile([
+      join(app.getAppPath(), 'resources', fileName),
+      join(app.getAppPath(), '..', 'resources', fileName)
+    ])
+    entryAssetSources.set(fileName, source)
+  }
   try {
-    return await entryBridgeSource
+    return await source
   } catch (error) {
-    entryBridgeSource = undefined
+    entryAssetSources.delete(fileName)
     throw error
   }
 }
@@ -154,7 +159,7 @@ async function readFirstAvailableFile(paths: string[]): Promise<Buffer> {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
   }
-  throw new Error(`Entry bridge script not found in: ${paths.join(', ')}`)
+  throw new Error(`Entry asset not found in: ${paths.join(', ')}`)
 }
 
 async function handleResourceRequest(runtime: AppRuntime, request: Request): Promise<Response> {
@@ -172,18 +177,7 @@ async function handleResourceRequest(runtime: AppRuntime, request: Request): Pro
   }
 }
 
-export function parseDictionaryResourceUrl(
-  value: string
-): { dictionaryId: number; resourcePath: string } | null {
-  const url = new URL(value)
-  if (url.protocol !== `${RESOURCE_SCHEME}:` || url.hostname !== 'dictionary') return null
-
-  const pathSegments = decodeURIComponent(url.pathname).split('/').filter(Boolean)
-  const dictionaryId = Number(pathSegments.shift())
-  const resourcePath = pathSegments.join('/')
-  if (!Number.isSafeInteger(dictionaryId) || dictionaryId <= 0 || !resourcePath) return null
-  return { dictionaryId, resourcePath }
-}
+export { parseDictionaryResourceUrl }
 
 export async function loadDictionaryResource(
   dictionaryId: number,
@@ -200,7 +194,7 @@ export async function loadDictionaryResource(
   const local = await readLocalCompanion(files.directory, resourcePath)
   if (local) return { bytes: local, mimeType, source: 'local' }
 
-  const extracted = await readMddResource(files.mdds, resourcePath)
+  const extracted = files.mddList ? await readMddResource(files.mddList, resourcePath) : null
   if (!extracted) return null
 
   try {
@@ -231,12 +225,13 @@ async function loadDictionaryResourceFiles(
 
   const firstFile = rows[0]
   if (!firstFile) return null
+  const mddPaths = rows
+    .filter((row) => row.fileType === 'mdd')
+    .sort((left, right) => mddOrder(left.fileName) - mddOrder(right.fileName))
+    .map((row) => row.filePath)
   return {
     directory: firstFile.dictPath ?? dirname(firstFile.filePath),
-    mdds: rows
-      .filter((row) => row.fileType === 'mdd')
-      .sort((left, right) => mddOrder(left.fileName) - mddOrder(right.fileName))
-      .map((row) => runtime.mdFileCache.fetch(row.filePath))
+    mddList: mddPaths.length > 0 ? runtime.mdFileCache.fetchMddList(mddPaths) : null
   }
 }
 
@@ -258,10 +253,7 @@ async function readLocalCompanion(directory: string, resourcePath: string): Prom
   }
 }
 
-async function readMddResource(
-  mdds: MdictDictionary[],
-  resourcePath: string
-): Promise<Buffer | null> {
+async function readMddResource(mdd: MddList, resourcePath: string): Promise<Buffer | null> {
   const pathWithBackslashes = resourcePath.replaceAll('/', '\\')
   const candidates = Array.from(
     new Set([
@@ -272,13 +264,9 @@ async function readMddResource(
   )
 
   for (const candidate of candidates) {
-    const entries = await Promise.all(
-      mdds.map((dictionary) => dictionary.lookupKeyBlockByWord(candidate))
-    )
-    const index = entries.findIndex((entry) => entry !== null)
-    const entry = entries[index]
-    if (index >= 0 && entry) {
-      return mdds[index].readRecord(entry.recordStart, entry.recordEnd)
+    const entry = await mdd.findKey(candidate)
+    if (entry) {
+      return mdd.readRecord(entry.volume, entry.recordStart, entry.recordEnd)
     }
   }
   return null

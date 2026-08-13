@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LoaderCircle, Search } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import useDebounce from 'react-use/lib/useDebounce'
 
 import { useDictionarySearch } from '@/hooks/use-dictionary-entries'
@@ -24,6 +24,7 @@ const POPOVER_SURFACE_HEIGHT = 10
 
 export const CompactTitleBarSearch = (): React.JSX.Element => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const query = useAppStore((state) => state.searchQuery)
   const setQuery = useAppStore((state) => state.setSearchQuery)
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -94,9 +95,13 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
       if (!normalizedWord) return
       setQuery(normalizedWord)
       hidePopover()
-      void navigate(`/search/${encodeURIComponent(normalizedWord)}`)
+      const dictionaryId = searchParams.get('dictionary')
+      const dictionaryQuery = dictionaryId
+        ? `?${new URLSearchParams({ dictionary: dictionaryId })}`
+        : ''
+      void navigate(`/search/${encodeURIComponent(normalizedWord)}${dictionaryQuery}`)
     },
-    [hidePopover, navigate, setQuery]
+    [hidePopover, navigate, searchParams, setQuery]
   )
 
   const openFirstResult = useCallback(

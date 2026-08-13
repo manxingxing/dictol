@@ -1,0 +1,42 @@
+[package]
+name = "dictol-mdict"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Memory-mapped MDict v1/v2/v3 MDX and MDD reader"
+repository = "https://github.com/manxingxing/Dictol"
+
+[lib]
+name = "mdict"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mdict"
+path = "src/main.rs"
+
+[dependencies]
+adler2 = "2"
+bzip2 = "0.6"
+clap = { version = "4", features = ["derive"] }
+encoding_rs = "0.8"
+flate2 = "1"
+icu_collator = "2"
+icu_locale = "2"
+lz4 = "1.28"
+lzma-rs = "0.3"
+lzo1x = "0.2"
+memmap2 = "0.9"
+quick-xml = { version = "0.41", features = ["escape-html"] }
+ripemd = "0.1"
+thiserror = "2"
+xxhash-rust = { version = "0.8", features = ["xxh64"] }
+zeroize = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+sha2 = "0.10"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+strip = "symbols"

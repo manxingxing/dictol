@@ -4,7 +4,7 @@ import type {
   DictionaryEntryGroup,
   DictionarySearchResult
 } from '../db-service'
-import { decodeMdxRecord } from '../mdict-runtime'
+import { readDictionaryEntryText } from '../dictionary-entry-content'
 import { BaseController } from './base-controller'
 
 export class DictionaryEntryController extends BaseController {
@@ -33,20 +33,17 @@ export class DictionaryEntryController extends BaseController {
     _event: IpcMainInvokeEvent,
     entryId: string
   ): Promise<DictionaryEntryContent | null> => {
-    const record = await this.db.getDictionaryEntryRecord(entryId)
+    const records = await this.db.getDictionaryEntryRecords(entryId)
+    const record = records[0]
     if (!record) return null
 
-    const mdx = this.runtime.mdFileCache.fetch(record.filePath)
-    const bytes = await mdx.readRecord(
-      BigInt(record.recordStartOffset),
-      BigInt(record.recordEndOffset)
-    )
+    const html = await readDictionaryEntryText(this.runtime, records)
     return {
       id: record.id,
       dictionaryId: record.dictionaryId,
       dictionaryName: record.dictionaryName,
       word: record.word,
-      html: decodeMdxRecord(bytes, mdx.metadata.encoding),
+      html,
       customCss: record.customCss
     }
   }

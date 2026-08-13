@@ -49,11 +49,17 @@ export class SelectionHookService implements ShortcutHandler {
 
   start(config: SelectionHookConfig): SelectionHookStatus {
     const nextConfig = validateConfig(config)
+    // passive mode 只供快捷键主动读取选区，不能保留实时取词的程序过滤，
+    // 否则被排除程序中的快捷键取词也会被原生 hook 拦截。
+    const appliedConfig: SelectionHookConfig = {
+      ...nextConfig,
+      excludedPrograms: nextConfig.passiveMode ? [] : nextConfig.excludedPrograms
+    }
 
     try {
       const hook = this.getHook()
-      const filterMode = nextConfig.excludedPrograms.length > 0 ? 2 : 0
-      if (!hook.setGlobalFilterMode(filterMode, nextConfig.excludedPrograms)) {
+      const filterMode = appliedConfig.excludedPrograms.length > 0 ? 2 : 0
+      if (!hook.setGlobalFilterMode(filterMode, appliedConfig.excludedPrograms)) {
         console.error('Failed to update selection hook global filter')
         this.stop()
         return this.getStatus()
@@ -64,7 +70,7 @@ export class SelectionHookService implements ShortcutHandler {
         return this.getStatus()
       }
 
-      this.config = nextConfig
+      this.config = appliedConfig
       if (!hook.isRunning() && !hook.start()) {
         console.error('Failed to start selection hook')
       }

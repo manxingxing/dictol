@@ -1,6 +1,8 @@
 import type { BrowserWindow } from 'electron'
 
 import { AppConfigStore, type AppConfig } from './app-config'
+import { AiLookupService } from './ai-service'
+import { BuiltInLexiconService } from './built-in-lexicon-service'
 import { initDrizzleDB, type DictolDatabase, type SqliteDatabase } from './db/drizzle'
 import { getDatabasePath, getMigrationsPath } from './db/paths'
 import { DBService } from './db-service'
@@ -25,7 +27,9 @@ export class AppRuntime {
   windowManager: WindowManager = new WindowManager()
   mdFileCache: MDFileCache = new MDFileCache()
   resourceCache: ResourceCache = new ResourceCache()
+  builtInLexicon: BuiltInLexiconService | undefined
   appConfig: AppConfigStore = new AppConfigStore()
+  aiLookupService: AiLookupService = new AiLookupService(this.appConfig)
   selectionHookService: SelectionHookService = new SelectionHookService()
   shortcutRegister: ShortcutRegister = new ShortcutRegister()
   trayManager: TrayManager = new TrayManager()
@@ -46,7 +50,17 @@ export class AppRuntime {
   initDB(): void {
     const { orm, db: conn } = initDrizzleDB(getDatabasePath(), getMigrationsPath())
     this.db = orm
-    this.dbService = new DBService(orm)
+    try {
+      this.builtInLexicon = new BuiltInLexiconService()
+    } catch (error) {
+      // Keep development and recovery builds usable when the generated asset
+      // is absent. Packaged releases must include resources/ecdict/ecdict.sqlite.
+      console.error(
+        'Built-in ECDICT lexicon is unavailable; wordbook entries will not be enriched',
+        error
+      )
+    }
+    this.dbService = new DBService(orm, this.builtInLexicon)
     this.dbConnection = conn
   }
 
@@ -157,7 +171,10 @@ export class AppRuntime {
     this.selectionHookService.dispose()
     this.trayManager.dispose()
     this.windowManager.dispose()
+    this.aiLookupService.dispose()
     this.mdFileCache.dispose()
+    this.builtInLexicon?.dispose()
+    this.builtInLexicon = undefined
     this.closeDB()
     this.db = undefined
     this.dbService = undefined

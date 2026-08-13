@@ -1,46 +1,35 @@
 import { NavLink } from 'react-router-dom'
-import { History, Library, Search, Settings } from 'lucide-react'
+import { BookMarked, History, Languages, Library, Search, Settings } from 'lucide-react'
 
 import appIcon from '@/assets/icon_320x320.png'
 import { Button } from '@/components/ui/button'
-import { selectSidebarCollapsed, useAppStore } from '@/stores/app-store'
+import { useAiLookupConfig } from '@/hooks/use-ai-lookup'
+import { useAppStore } from '@/stores/app-store'
 
 const navigation = [
   { label: '查词', path: '/search', icon: Search },
   { label: '词典库', path: '/dictionaries', icon: Library },
+  { label: '生词本', path: '/wordbooks', icon: BookMarked },
   { label: '查询历史', path: '/history', icon: History }
 ]
 
 export function Sidebar(): React.JSX.Element {
-  const collapsed = useAppStore(selectSidebarCollapsed)
   const lastQueryPath = useAppStore((state) => state.lastQueryPath)
+  const aiConfig = useAiLookupConfig()
+  const items = aiConfig.data?.enabled
+    ? [...navigation, { label: 'AI 翻译', path: '/translation', icon: Languages }]
+    : navigation
 
   return (
-    <aside
-      className={`relative flex shrink-0 flex-col border-r border-border bg-sidebar pb-4 pt-4 transition-[width] duration-200 ${
-        collapsed ? 'w-[4.5rem] px-2' : 'w-56 px-3'
-      }`}
-    >
-      <div className="relative mb-7 h-9 px-2">
-        <div
-          className={`absolute top-0 size-9 overflow-hidden rounded-xl shadow-sm transition-[left,transform] duration-200 ${
-            collapsed ? 'left-1/2 -translate-x-1/2' : 'left-0 translate-x-0'
-          }`}
-        >
+    <aside className="flex w-[4rem] shrink-0 flex-col border-r border-border bg-sidebar px-2 pb-4 pt-4">
+      <div className="mb-7 flex h-9 justify-center">
+        <div className="size-9 overflow-hidden rounded-xl shadow-sm" title="Dictol">
           <img alt="" className="size-full object-cover" src={appIcon} />
-        </div>
-        <div
-          className={`absolute left-11 top-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ${
-            collapsed ? 'pointer-events-none max-w-0 opacity-0' : 'max-w-40 opacity-100'
-          }`}
-        >
-          <div className="text-base font-semibold tracking-tight">Dictol</div>
-          <div className="text-[11px] text-muted-foreground">桌面词典</div>
         </div>
       </div>
 
       <nav className="space-y-1" aria-label="主导航">
-        {navigation.map(({ label, path, icon: Icon }) => (
+        {items.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}
             to={path === '/search' ? (lastQueryPath ?? path) : path}
@@ -49,16 +38,15 @@ export function Sidebar(): React.JSX.Element {
             {({ isActive }) => (
               <Button
                 aria-label={label}
-                className={`w-full ${collapsed ? 'justify-center px-0' : 'justify-start'} ${
+                className={`w-full justify-center px-0 ${
                   isActive
                     ? 'bg-primary/8 font-medium text-primary ring-1 ring-inset ring-primary/20 hover:bg-primary/12'
                     : 'text-muted-foreground'
                 }`}
-                title={collapsed ? label : undefined}
+                title={label}
                 variant="ghost"
               >
                 <Icon />
-                {!collapsed && label}
               </Button>
             )}
           </NavLink>
@@ -70,16 +58,15 @@ export function Sidebar(): React.JSX.Element {
           {({ isActive }) => (
             <Button
               aria-label="设置"
-              className={`w-full ${collapsed ? 'justify-center px-0' : 'justify-start'} ${
+              className={`w-full justify-center px-0 ${
                 isActive
                   ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
                   : 'text-muted-foreground'
               }`}
-              title={collapsed ? '设置' : undefined}
+              title="设置"
               variant="ghost"
             >
               <Settings />
-              {!collapsed && '设置'}
             </Button>
           )}
         </NavLink>

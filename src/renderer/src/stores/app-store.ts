@@ -1,15 +1,37 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export const COMPACT_MODE_WIDTH_THRESHOLD = 760
+export const COMPACT_MODE_WIDTH_THRESHOLD = 768
+export const RIGHT_SIDEBAR_DEFAULT_SIZE = '25'
+export const RIGHT_SIDEBAR_MAX_SIZE = '50'
 const appPreferencesStorageKey = 'dictol:app-preferences'
+
+export type RightSidebarType = 'ai-search' | 'embed-browser'
+type ResizablePanelSize = number | string | undefined
 
 interface AppState {
   compactModeEnabled: boolean
   toggleCompactMode: () => void
   setCompactMode: (compactMode: boolean) => void
-  sidebarCollapsed: boolean
-  toggleSidebar: () => void
+  rightSidebarOpen: boolean
+  toggleRightSidebar: () => void
+  setRightSidebarOpen: (open: boolean) => void
+  rightSidebarType: RightSidebarType
+  setRightSidebarType: (type: RightSidebarType) => void
+  searchPanelSize: number | undefined
+  setSearchPanelSize: (size: number | undefined) => void
+  rightSidebarSize: ResizablePanelSize
+  setRightSidebarSize: (size: ResizablePanelSize) => void
+  rightSidebarMaximized: boolean
+  setRightSidebarMaximized: (maximized: boolean) => void
+  rightSidebarResizeRequest: number
+  toggleRightSidebarSize: () => void
+  embedBrowserUrl: string
+  setEmbedBrowserUrl: (url: string) => void
+  embedBrowserSearchTerm: string
+  setEmbedBrowserSearchTerm: (term: string) => void
+  aiSearchTerm: string
+  setAiSearchTerm: (term: string) => void
   windowBelowCompactThreshold: boolean
   setWindowBelowCompactThreshold: (belowThreshold: boolean) => void
   searchQuery: string
@@ -21,31 +43,61 @@ interface AppState {
 export const selectCompactMode = (state: AppState): boolean =>
   state.compactModeEnabled || state.windowBelowCompactThreshold
 
-export const selectSidebarCollapsed = (state: AppState): boolean =>
-  state.sidebarCollapsed || selectCompactMode(state)
-
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       compactModeEnabled: false,
       toggleCompactMode: () => set((state) => ({ compactModeEnabled: !state.compactModeEnabled })),
       setCompactMode: (compactModeEnabled) => set({ compactModeEnabled }),
-      sidebarCollapsed: false,
-      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      rightSidebarOpen: false,
+      toggleRightSidebar: () => set((state) => ({ rightSidebarOpen: !state.rightSidebarOpen })),
+      setRightSidebarOpen: (rightSidebarOpen) => set({ rightSidebarOpen }),
+      rightSidebarType: 'ai-search',
+      setRightSidebarType: (rightSidebarType) => set({ rightSidebarType }),
+      searchPanelSize: undefined,
+      setSearchPanelSize: (searchPanelSize) => set({ searchPanelSize }),
+      rightSidebarSize: undefined,
+      setRightSidebarSize: (rightSidebarSize) =>
+        set((state) => ({
+          rightSidebarSize,
+          rightSidebarMaximized:
+            rightSidebarSize !== undefined &&
+            Number(rightSidebarSize) >= Number(RIGHT_SIDEBAR_MAX_SIZE) - 0.5,
+          rightSidebarResizeRequest:
+            typeof rightSidebarSize === 'string'
+              ? state.rightSidebarResizeRequest + 1
+              : state.rightSidebarResizeRequest
+        })),
+      rightSidebarMaximized: false,
+      setRightSidebarMaximized: (rightSidebarMaximized) => set({ rightSidebarMaximized }),
+      rightSidebarResizeRequest: 0,
+      toggleRightSidebarSize: () =>
+        set((state) => ({
+          rightSidebarMaximized: !state.rightSidebarMaximized,
+          rightSidebarSize: state.rightSidebarMaximized
+            ? RIGHT_SIDEBAR_DEFAULT_SIZE
+            : RIGHT_SIDEBAR_MAX_SIZE,
+          rightSidebarResizeRequest: state.rightSidebarResizeRequest + 1
+        })),
+      embedBrowserUrl: '',
+      setEmbedBrowserUrl: (embedBrowserUrl) => set({ embedBrowserUrl }),
+      embedBrowserSearchTerm: '',
+      setEmbedBrowserSearchTerm: (embedBrowserSearchTerm) => set({ embedBrowserSearchTerm }),
       windowBelowCompactThreshold:
         typeof window !== 'undefined' && window.innerWidth < COMPACT_MODE_WIDTH_THRESHOLD,
       setWindowBelowCompactThreshold: (windowBelowCompactThreshold) =>
         set({ windowBelowCompactThreshold }),
       searchQuery: '',
       setSearchQuery: (searchQuery) => set({ searchQuery }),
+      aiSearchTerm: '',
+      setAiSearchTerm: (aiSearchTerm) => set({ aiSearchTerm }),
       lastQueryPath: '',
       setLastQueryPath: (lastQueryPath) => set({ lastQueryPath })
     }),
     {
       name: appPreferencesStorageKey,
       partialize: (state) => ({
-        compactModeEnabled: state.compactModeEnabled,
-        sidebarCollapsed: state.sidebarCollapsed
+        compactModeEnabled: state.compactModeEnabled
       })
     }
   )

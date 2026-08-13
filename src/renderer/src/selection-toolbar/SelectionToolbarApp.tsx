@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BookOpen, Copy, MoreHorizontal, Search } from 'lucide-react'
+import { BookOpen, Copy, MoreHorizontal, Search, Sparkles } from 'lucide-react'
 
 import appIcon from '@/assets/icon_32x32.png'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ type SelectionToolbarPayload = {
   word: string
   programName: string
   canExclude: boolean
+  aiEnabled: boolean
 }
 
 declare global {
@@ -17,6 +18,7 @@ declare global {
       onUpdate: (callback: (payload: SelectionToolbarPayload) => void) => () => void
       lookupInMain: () => void
       explain: () => void
+      aiExplain: () => void
       copy: () => void
       google: () => void
       openMenu: () => void
@@ -29,7 +31,8 @@ declare global {
 const initialPayload: SelectionToolbarPayload = {
   word: '',
   programName: '',
-  canExclude: false
+  canExclude: false,
+  aiEnabled: false
 }
 
 export function SelectionToolbarApp(): React.JSX.Element {
@@ -81,8 +84,21 @@ export function SelectionToolbarApp(): React.JSX.Element {
           variant="ghost"
         >
           <BookOpen />
-          解释
+          查词
         </Button>
+        {payload.aiEnabled && (
+          <Button
+            className="selection-action selection-action-primary"
+            onClick={() => window.dictolSelectionToolbar.aiExplain()}
+            size="sm"
+            title={payload.word ? `使用 AI 解释“${payload.word}”` : 'AI 解释'}
+            type="button"
+            variant="ghost"
+          >
+            <Sparkles />
+            AI 解释
+          </Button>
+        )}
         <Button
           className="selection-action"
           onClick={() => window.dictolSelectionToolbar.copy()}

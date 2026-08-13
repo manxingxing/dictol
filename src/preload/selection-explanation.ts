@@ -1,12 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-export type SelectionExplanationPayload = {
-  requestId: number
-  word: string
-  dictionaryName?: string
-  state: 'loading' | 'empty' | 'content' | 'error'
-  message?: string
-}
+import type { SelectionExplanationPayload } from '../shared/selection-explanation'
+
+export type { SelectionExplanationPayload } from '../shared/selection-explanation'
 
 type Subscriber = (payload: SelectionExplanationPayload) => void
 
@@ -28,7 +24,13 @@ contextBridge.exposeInMainWorld(
     },
     loadingReady: (requestId: number): void =>
       ipcRenderer.send('selection-explanation:loading-ready', requestId),
+    selectDictionary: (dictionaryId: string): void =>
+      ipcRenderer.send('selection-explanation:select-dictionary', dictionaryId),
     close: (): void => ipcRenderer.send('selection-explanation:close'),
-    openInMain: (): void => ipcRenderer.send('selection-explanation:open-in-main')
+    openInMain: (): void => ipcRenderer.send('selection-explanation:open-in-main'),
+    isStarred: (word: string): Promise<boolean> =>
+      ipcRenderer.invoke('selection-explanation:is-starred', word),
+    toggleStar: (word: string): Promise<void> =>
+      ipcRenderer.invoke('selection-explanation:toggle-star', word)
   })
 )

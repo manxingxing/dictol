@@ -12,6 +12,18 @@ contextBridge.exposeInMainWorld(
   'dictolEntry',
   Object.freeze({
     lookupWord: (word: string): void => ipcRenderer.send('dictionary-view:lookup-word', word),
-    copyText: (text: string): void => ipcRenderer.send('dictionary-view:copy-text', text)
+    canExplainWithAi: (): Promise<boolean> =>
+      ipcRenderer.invoke('dictionary-view:can-explain-with-ai'),
+    explainWithAi: (text: string): void =>
+      ipcRenderer.send('dictionary-view:explain-with-ai', text),
+    copyText: (text: string): void => ipcRenderer.send('dictionary-view:copy-text', text),
+    onAiExplanationAvailabilityChanged: (callback: (enabled: boolean) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
+        callback(enabled)
+      ipcRenderer.on('dictionary-view:ai-explanation-availability-changed', listener)
+      return () =>
+        ipcRenderer.removeListener('dictionary-view:ai-explanation-availability-changed', listener)
+    },
+    toggleFindBar: (): void => ipcRenderer.send('dictionary-view:toggle-find-bar')
   })
 )
