@@ -6,7 +6,7 @@
 ## 0. 当前实现状态
 
 - Electron、React、Tailwind CSS、shadcn/ui、React Router、TanStack Query、Zustand 已接入。
-- 正式解析层已由 `js-mdict` 切换为项目内的 Rust `mdict-core`，通过 Node-API 供 Electron 主进程直接调用。
+- 正式解析层已切换为项目内的 Rust `native/mdict`，通过 Node-API 供 Electron 主进程直接调用。
 - 上传 MDX 后由按需创建的导入 Worker 复制同目录的 MDD/CSS/JS/PNG 文件，并以 2,000 条为一批流式遍历 MDX，将词条、规范化词条和 record offset 写入 SQLite；每批使用一个独立小事务。
 - 搜索使用 SQLite 前缀范围查询；词条正文不入库，打开结果时由 Rust 按 offset 从 MDX 读取。
 - `dictol-resource://` 协议负责外置文件及多 MDD 资源读取；同一资源会并行查询多个 MDD，图片和音频按需缓存到 `app.userData/resource-cache`。
@@ -32,7 +32,7 @@
 - 桌面框架：Electron。
 - 应用前端：React。
 - 主进程/后端协调层：Node.js。
-- MDX/MDD 解析：项目内 Rust `mdict-core`。
+- MDX/MDD 解析：项目内 Rust `native/mdict`。
 - Node 集成：NAPI-RS 生成的 `@dictol/mdict-native` 原生模块。
 - 本地索引数据库：SQLite（WAL 模式），数据库文件为 Electron `app.userData/dictol.sqlite`。
 
@@ -75,7 +75,7 @@ Electron Main / Node Backend
   ├── 自定义协议处理
   └── 按需导入 Worker
         ├── SQLite 独立写连接（每批 2,000 条事务）
-        └── Rust mdict-core / NAPI-RS
+        └── Rust native/mdict / NAPI-RS
         ├── MDX/MDD 头部与版本解析
         ├── Encrypted=2 索引解密
         ├── key list 与 record block 解析
@@ -99,9 +99,9 @@ Electron Main / Node Backend
 
 ```text
 dictol-entry://dictionary-<id>/<entry-id>
-dictol-resource://dictionary/<id>/oaldpe.css
-dictol-resource://dictionary/<id>/LM5style.css
-dictol-resource://dictionary/<id>/media/english/ameProns/apple1.mp3
+dictol-resource://dictionary-<id>/oaldpe.css
+dictol-resource://dictionary-<id>/LM5style.css
+dictol-resource://dictionary-<id>/media/english/ameProns/apple1.mp3
 ```
 
 协议处理器只接受已注册词典和规范化后的相对资源键，必须阻止路径穿越。响应应设置准确 MIME 类型、缓存策略和词典级 CSP。
@@ -360,7 +360,7 @@ Mozilla/5.0 (Macintosh) Dictol/1.0
 
 ## 9. Rust 解析器实现
 
-正式解析器为项目内的 `native/mdict-core`，Node 绑定位于 `native/mdict-node`。`js-mdict` 和 Python 工具仅作为行为对照与探索工具，不进入应用运行链路。
+正式解析器为项目内的 `native/mdict`，Node 绑定位于 `native/mdict-node`。`js-mdict` 和 Python 工具仅作为行为对照与探索工具，不进入应用运行链路。
 
 当前能力：
 

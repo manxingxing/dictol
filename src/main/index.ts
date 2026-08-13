@@ -6,65 +6,96 @@ import { getAppRunTime } from './app-runtime'
 import { registerIPCHandlers } from './controller/ipc-register'
 import { registerResourceProtocol, registerResourceScheme } from './resource-protocol'
 
-registerResourceScheme()
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
-const runtime = getAppRunTime()
-let runtimeDisposed = false
+if (!hasSingleInstanceLock) {
+  // Do not initialize the database, tray, global shortcuts, or native selection
+  // hook in a secondary process. The primary process receives `second-instance`.
+  app.quit()
+} else {
+  registerResourceScheme()
+  startPrimaryInstance()
+}
 
-process.on('unhandledRejection', (reason: unknown) => {
-  console.error('Unhandled promise rejection in Electron main process', reason)
-})
+function startPrimaryInstance(): void {
+  const runtime = getAppRunTime()
+  let runtimeDisposed = false
+  let pendingWindowActivation = false
 
-void app
-  .whenReady()
-  .then(() => {
-    electronApp.setAppUserModelId('com.dictol.app')
-    app.on('browser-window-created', (_, window) => {
-      optimizer.watchWindowShortcuts(window)
-    })
+  process.on('unhandledRejection', (reason: unknown) => {
+    console.error('Unhandled promise rejection in Electron main process', reason)
+  })
 
-    try {
-      runtime.initialize()
-      registerResourceProtocol(runtime)
-      registerIPCHandlers(runtime)
-      runtime.setMainWindowInitializer(configureMainWindow)
-      configureMainWindow(requireMainWindow())
-      runtime.trayManager.setMainWindowFactory(() => runtime.getOrCreateMainWindow())
-    } catch (error: unknown) {
-      console.error('Failed to initialize application', error)
-      disposeRuntime()
-      app.quit()
+  const showAndFocusMainWindow = (): void => {
+    if (!runtime.isInitialized) {
+      pendingWindowActivation = true
+      return
     }
 
-    app.on('activate', (_event, hasVisibleWindows) => {
-      if (hasVisibleWindows) return
-      const mainWindow = runtime.mainWindow
-      if (!mainWindow || mainWindow.isDestroyed()) {
-        runtime.getOrCreateMainWindow()
+    pendingWindowActivation = false
+    const mainWindow = runtime.getOrCreateMainWindow()
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    if (!mainWindow.isVisible()) mainWindow.show()
+    mainWindow.focus()
+  }
+
+  app.on('second-instance', showAndFocusMainWindow)
+
+  void app
+    .whenReady()
+    .then(() => {
+      electronApp.setAppUserModelId('com.dictol.app')
+      app.on('browser-window-created', (_, window) => {
+        optimizer.watchWindowShortcuts(window)
+      })
+
+      try {
+        runtime.initialize()
+        registerResourceProtocol(runtime)
+        registerIPCHandlers(runtime)
+        runtime.setMainWindowInitializer((mainWindow) => configureMainWindow(runtime, mainWindow))
+        configureMainWindow(runtime, requireMainWindow(runtime))
+        runtime.trayManager.setMainWindowFactory(() => runtime.getOrCreateMainWindow())
+        if (pendingWindowActivation) showAndFocusMainWindow()
+      } catch (error: unknown) {
+        console.error('Failed to initialize application', error)
+        disposeRuntime()
+        app.quit()
         return
       }
-      mainWindow.show()
-      mainWindow.focus()
+
+      app.on('activate', (_event, hasVisibleWindows) => {
+        if (!hasVisibleWindows) showAndFocusMainWindow()
+      })
+
+      app.on('window-all-closed', () => {
+        // Registering this handler prevents Electron's default non-macOS quit,
+        // keeping the app available through its tray after its last window closes.
+        // The explicit tray Quit action still calls app.quit().
+        return undefined
+      })
+    })
+    .catch((error: unknown) => {
+      console.error('Failed while preparing the application', error)
+      disposeRuntime()
+      app.quit()
     })
 
-    app.on('window-all-closed', () => {
-      // Registering this handler prevents Electron's default non-macOS quit,
-      // keeping the app available through its tray after its last window closes.
-      // The explicit tray Quit action still calls app.quit().
-      return undefined
-    })
-  })
-  .catch((error: unknown) => {
-    console.error('Failed while preparing the application', error)
+  app.on('before-quit', () => {
     disposeRuntime()
-    app.quit()
   })
 
-app.on('before-quit', () => {
-  disposeRuntime()
-})
+  function disposeRuntime(): void {
+    if (runtimeDisposed) return
+    runtimeDisposed = true
+    runtime.dispose()
+  }
+}
 
-function configureMainWindow(mainWindow: BrowserWindow): void {
+function configureMainWindow(
+  runtime: ReturnType<typeof getAppRunTime>,
+  mainWindow: BrowserWindow
+): void {
   const dictionaryView = runtime.windowManager.dictionaryView
   if (!dictionaryView) throw new Error('DictionaryView 尚未初始化')
 
@@ -114,14 +145,8 @@ function registerFindShortcut(webContents: WebContents, hostWindow: BrowserWindo
   })
 }
 
-function requireMainWindow(): BrowserWindow {
+function requireMainWindow(runtime: ReturnType<typeof getAppRunTime>): BrowserWindow {
   const mainWindow = runtime.mainWindow
   if (!mainWindow || mainWindow.isDestroyed()) throw new Error('主窗口尚未初始化')
   return mainWindow
-}
-
-function disposeRuntime(): void {
-  if (runtimeDisposed) return
-  runtimeDisposed = true
-  runtime.dispose()
 }
