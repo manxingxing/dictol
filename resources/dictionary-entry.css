@@ -1,0 +1,9 @@
+/*
+ * Dictol-wide styles for MDX entry documents.
+ * Keep dictionary-specific fixes in each dictionary's custom CSS instead.
+ */
+
+.dictol-entry-separator {
+  margin-top: 1.5em !important;
+  margin-bottom: 1.5em;
+}

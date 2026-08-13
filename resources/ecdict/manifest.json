@@ -1,0 +1,10 @@
+{
+  "name": "ECDICT",
+  "version": "bc015ed2e24a7abef49fc6dbbb7fe32c1dadaf8b",
+  "profile": "balanced",
+  "profileDescription": "Oxford, exam-tagged, or top-50k contemporary-frequency entries",
+  "source": "https://github.com/skywind3000/ECDICT",
+  "entryCount": 43475,
+  "exchangeFormCount": 46423,
+  "lemmaFormCount": 8188
+}

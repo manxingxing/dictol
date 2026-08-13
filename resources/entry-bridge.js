@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 ;(() => {
+  const maxAiExplanationTextLength = 10_000
   const lookup = (word) => {
     const value = word?.trim()
     if (value && value.length <= 200) window.dictolEntry?.lookupWord(value)
@@ -87,16 +88,35 @@
     () => window.dictolEntry?.copyText(contextMenuText)
   )
   const lookupButton = createMenuButton(
-    '查找',
+    '查词',
     '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>',
     () => lookup(contextMenuText)
   )
-  contextMenu.append(copyButton, lookupButton)
+  const explainWithAiButton = createMenuButton(
+    'AI 解释',
+    '<svg viewBox="0 0 24 24"><path d="m12 3-1.9 5.1L5 10l5.1 1.9L12 17l1.9-5.1L19 10l-5.1-1.9L12 3Z"></path><path d="m19 15 .7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15Z"></path></svg>',
+    () => window.dictolEntry?.explainWithAi?.(contextMenuText)
+  )
+  const setAiExplanationEnabled = (enabled) => {
+    explainWithAiButton.style.display = enabled === true ? 'flex' : 'none'
+  }
+  setAiExplanationEnabled(false)
+  const refreshAiExplanationAvailability = () => {
+    const availability = window.dictolEntry?.canExplainWithAi?.()
+    if (!availability) return
+    availability.then(setAiExplanationEnabled).catch(() => setAiExplanationEnabled(false))
+  }
+  contextMenu.append(copyButton, lookupButton, explainWithAiButton)
   contextMenuRoot.append(contextMenuStyle, contextMenu)
+
+  refreshAiExplanationAvailability()
+  window.dictolEntry?.onAiExplanationAvailabilityChanged?.(setAiExplanationEnabled)
 
   const showContextMenu = (x, y, text, centered = false, aboveY = y) => {
     contextMenuText = text
     lookupButton.disabled = text.length > 200
+    explainWithAiButton.disabled = text.length > maxAiExplanationTextLength
+    refreshAiExplanationAvailability()
     if (!contextMenuHost.isConnected) document.documentElement.append(contextMenuHost)
     contextMenuHost.style.left = `${x}px`
     contextMenuHost.style.top = `${y}px`
@@ -204,4 +224,19 @@
     localAudio.src = href
     localAudio.play().catch((error) => console.error('Failed to play dictionary audio', error))
   })
+
+  // Cmd+Shift+F → notify main process to toggle find bar overlay
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      const mod = navigator.platform.includes('Mac') ? event.metaKey : event.ctrlKey
+      if (mod && event.shiftKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        window.dictolEntry?.toggleFindBar()
+      }
+    },
+    true
+  )
+  // -------------------------------------------------------------------------
 })()
