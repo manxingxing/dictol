@@ -38,6 +38,7 @@ body {
 
 .selection-action {
   display: flex;
+  flex: 1 1 auto;
   height: 30px;
   align-items: center;
   justify-content: center;
@@ -67,7 +68,6 @@ body {
 
 .selection-action-primary {
   min-width: 0;
-  flex: 1;
 }
 
 .selection-action-more {
