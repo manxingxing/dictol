@@ -113,11 +113,11 @@ export const HistoryPage = (): React.JSX.Element => {
   })
 
   return (
-    <section className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-8 py-16">
+    <section className="mx-auto flex md:h-full min-h-0 w-full max-w-3xl flex-col p-6 sm:p-8">
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-sm font-medium text-primary">查询历史</p>
-          <h1 className="text-3xl font-semibold tracking-tight">最近查询</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">最近查询</h1>
         </div>
         {history.length > 0 && (
           <Button

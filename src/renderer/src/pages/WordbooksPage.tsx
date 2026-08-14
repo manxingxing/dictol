@@ -81,10 +81,10 @@ export function WordbooksPage(): React.JSX.Element {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col bg-background md:flex-row">
-      <aside className="flex max-h-[42%] min-h-0 w-full shrink-0 flex-col border-b border-border bg-sidebar/35 p-2 md:p-3 md:h-full md:max-h-none md:w-56 md:border-b-0 md:border-r">
-        <div className="hidden md:flex mb-2 items-center justify-between px-1 md:mb-3">
-          <h1 className="text-sm font-semibold md:block">生词本</h1>
+    <section className="flex lg:h-full min-h-0 flex-1 flex-col bg-background lg:flex-row">
+      <aside className="flex min-h-0 w-full shrink-0 flex-col border-b border-border bg-sidebar/35 p-2 lg:p-3 lg:h-full lg:w-56 lg:border-b-0 lg:border-r">
+        <div className="hidden lg:flex mb-2 items-center justify-between px-1 lg:mb-3">
+          <h1 className="text-sm font-semibold lg:block">生词本</h1>
           <Dialog onOpenChange={setCreateDialogOpen} open={createDialogOpen}>
             <DialogTrigger asChild>
               <Button
@@ -134,7 +134,7 @@ export function WordbooksPage(): React.JSX.Element {
           </Dialog>
         </div>
 
-        <div className="hidden min-h-0 flex-1 flex-col md:flex">
+        <div className="hidden min-h-0 flex-1 flex-col lg:flex">
           <WordbookNavigation
             compact={false}
             onDelete={openDeleteDialog}
@@ -144,7 +144,7 @@ export function WordbooksPage(): React.JSX.Element {
           />
           <WordbookStatus isError={isWordbooksError} isLoading={isWordbooksLoading} />
         </div>
-        <ScrollArea className="min-h-0 flex-1 md:hidden" viewportClassName="px-0.5 [&>div]:!block">
+        <ScrollArea className="min-h-0 flex-1 lg:hidden" viewportClassName="px-0.5 [&>div]:!block">
           <WordbookNavigation
             compact
             onCreate={() => setCreateDialogOpen(true)}
@@ -262,7 +262,7 @@ export function WordbooksPage(): React.JSX.Element {
         </Dialog>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-8 md:p-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-6 sm:p-8">
         <Outlet />
       </div>
     </section>

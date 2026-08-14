@@ -658,7 +658,7 @@ export const WordbookWords = (): React.JSX.Element => {
       <div className="flex flex-wrap items-end justify-between gap-4 pb-6">
         <div>
           <p className="mb-2 text-sm font-medium text-primary">生词管理</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{activeWordbookName}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{activeWordbookName}</h1>
         </div>
         <div className="flex justify-between">
           <div className="flex items-center gap-2">
@@ -726,7 +726,12 @@ export const WordbookWords = (): React.JSX.Element => {
               open={importDialogOpen}
             >
               <DialogTrigger asChild>
-                <Button disabled={importWordbookWords.isPending} type="button" variant="outline">
+                <Button
+                  disabled={importWordbookWords.isPending}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                >
                   <Upload />
                   导入
                 </Button>
@@ -781,7 +786,7 @@ export const WordbookWords = (): React.JSX.Element => {
               open={exportDialogOpen}
             >
               <DialogTrigger asChild>
-                <Button disabled={isExporting} type="button" variant="outline">
+                <Button disabled={isExporting} type="button" variant="outline" size="sm">
                   {isExporting ? <LoaderCircle className="animate-spin" /> : <Download />}
                   {isExporting ? '正在导出' : '导出'}
                 </Button>
@@ -888,7 +893,7 @@ export const WordbookWords = (): React.JSX.Element => {
       </div>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardHeader className="shrink-0">
+        <CardHeader className="shrink-0 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <CardTitle>生词列表</CardTitle>

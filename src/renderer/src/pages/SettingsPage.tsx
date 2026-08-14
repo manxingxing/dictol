@@ -109,9 +109,9 @@ export function SettingsPage(): React.JSX.Element {
   }
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col px-8 py-16">
+    <section className="mx-auto flex max-w-3xl flex-col p-6 sm:p-8">
       <p className="mb-2 text-sm font-medium text-primary">设置</p>
-      <h1 className="text-3xl font-semibold tracking-tight">应用设置</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">应用设置</h1>
       <Card className="mt-8">
         <CardHeader>
           <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -654,13 +654,12 @@ export function SettingsPage(): React.JSX.Element {
                         </FieldError>
                       )}
                     </div>
-                    <DialogFooter className="border-t border-border bg-muted/20 px-6 py-4 sm:items-center sm:justify-between">
-                      <p className="text-xs text-muted-foreground">两个页签的修改会一起保存。</p>
-                      <div className="flex justify-end gap-2">
+                    <DialogFooter className="border-t border-border bg-muted/20 px-6 py-4 sm:items-center justify-end">
                         <Button
                           onClick={() => setAiDialogOpen(false)}
                           type="button"
                           variant="outline"
+                          size="sm"
                         >
                           取消
                         </Button>
@@ -668,10 +667,10 @@ export function SettingsPage(): React.JSX.Element {
                           disabled={saveAiConfig.isPending}
                           onClick={saveAiForm}
                           type="button"
+                          size="sm"
                         >
                           {saveAiConfig.isPending ? '保存中…' : '保存配置'}
                         </Button>
-                      </div>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>

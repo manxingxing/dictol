@@ -127,10 +127,10 @@ export function TranslationPage(): React.JSX.Element {
   }
 
   return (
-    <section className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col px-8 py-10">
+    <section className="mx-auto flex lg:h-full min-h-0 w-full flex-col p-6 sm:p-8">
       <div className="shrink-0">
         <p className="mb-2 text-sm font-medium text-primary">AI 翻译</p>
-        <h1 className="text-3xl font-semibold tracking-tight">翻译文本</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">翻译文本</h1>
       </div>
 
       <div className="mt-8 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
@@ -147,7 +147,7 @@ export function TranslationPage(): React.JSX.Element {
               </div>
               <Button
                 aria-label="互换源语言和目标语言"
-                className="self-center sm:mb-0.5 sm:self-end sm:shrink-0"
+                className="hidden sm:flex self-center sm:mb-0.5 sm:self-end sm:shrink-0"
                 disabled={isRunning}
                 onClick={() => {
                   setSourceLanguage(targetLanguage)
@@ -171,9 +171,6 @@ export function TranslationPage(): React.JSX.Element {
             </div>
           </div>
           <div className="flex min-h-0 flex-1 flex-col p-5">
-            <label className="mb-2 text-sm font-medium" htmlFor="translation-input">
-              输入
-            </label>
             <textarea
               aria-label="待翻译文本"
               className="min-h-0 flex-1 resize-none rounded-lg border border-input bg-background px-3 py-3 text-sm leading-6 outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60"

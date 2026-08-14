@@ -168,9 +168,9 @@ export function DictionariesPage(): React.JSX.Element {
     optionalImportFiles.length > 0 && selectedOptionalImportFileCount === optionalImportFiles.length
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col px-8 py-16">
+    <section className="mx-auto flex max-w-3xl flex-col p-6 sm:p-8">
       <p className="mb-2 text-sm font-medium text-primary">词典库</p>
-      <h1 className="text-3xl font-semibold tracking-tight">管理你的词典</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">管理你的词典</h1>
 
       <Card className="mb-4 mt-4">
         <CardHeader className="flex-row items-start justify-between gap-4">
@@ -647,7 +647,7 @@ export function DictionariesPage(): React.JSX.Element {
                 </label>
                 <div className="flex items-center gap-2">
                   <Input
-                    className="min-w-0 flex-1"
+                    className="min-w-0 flex-1 h-9"
                     id="dictionary-import-file"
                     placeholder="尚未选择文件"
                     readOnly
