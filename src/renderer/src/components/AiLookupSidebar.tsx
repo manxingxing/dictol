@@ -214,7 +214,7 @@ function AiLookupThread({ word }: AiLookupThreadProps): React.JSX.Element {
               className={
                 isUser
                   ? 'rounded-2xl rounded-br-md border border-[var(--ai-user-message-border)] bg-[var(--ai-user-message-background)] px-3 py-2 text-sm text-foreground'
-                  : 'rounded-2xl rounded-bl-md bg-[var(--ai-assistant-message-background)] px-3 py-2.5 text-sm leading-6'
+                  : 'rounded-2xl rounded-bl-md border border-[var(--ai-assistant-message-border)] bg-[var(--ai-assistant-message-background)] px-3 py-2.5 text-sm leading-6'
               }
             >
               <MessagePrimitive.Parts components={{ Text: MarkdownMessagePart }} />

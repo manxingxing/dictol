@@ -230,12 +230,14 @@
     localAudio.play().catch((error) => console.error('Failed to play dictionary audio', error))
   })
 
-  // Cmd+Shift+F → notify main process to toggle find bar overlay
+  // Cmd/Ctrl+F → notify main process to toggle find bar overlay
   document.addEventListener(
     'keydown',
     (event) => {
-      const mod = navigator.platform.includes('Mac') ? event.metaKey : event.ctrlKey
-      if (mod && event.shiftKey && event.key.toLowerCase() === 'f') {
+      const mod = navigator.platform.includes('Mac')
+        ? event.metaKey && !event.ctrlKey
+        : event.ctrlKey
+      if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
         event.preventDefault()
         event.stopImmediatePropagation()
         window.dictolEntry?.toggleFindBar()

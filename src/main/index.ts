@@ -99,7 +99,7 @@ function configureMainWindow(
   const dictionaryView = runtime.windowManager.dictionaryView
   if (!dictionaryView) throw new Error('DictionaryView 尚未初始化')
 
-  registerFindShortcut(dictionaryView.webContents, mainWindow)
+  registerSearchShortcut(dictionaryView.webContents, mainWindow)
   const showMainWindow = (): void => {
     if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show()
   }
@@ -123,7 +123,7 @@ function configureMainWindow(
   })
 }
 
-function registerFindShortcut(webContents: WebContents, hostWindow: BrowserWindow): void {
+function registerSearchShortcut(webContents: WebContents, hostWindow: BrowserWindow): void {
   webContents.on('before-input-event', (event, input) => {
     const usesPlatformModifier =
       process.platform === 'darwin' ? input.meta && !input.control : input.control
@@ -132,7 +132,7 @@ function registerFindShortcut(webContents: WebContents, hostWindow: BrowserWindo
       !usesPlatformModifier ||
       input.alt ||
       input.shift ||
-      input.key.toLowerCase() !== 'f'
+      input.key.toLowerCase() !== 'k'
     ) {
       return
     }

@@ -10,7 +10,7 @@ import { useAppStore } from '@/stores/app-store'
 function isFindInPageShortcut(event: KeyboardEvent): boolean {
   const usesPlatformModifier =
     window.dictol.platform === 'darwin' ? event.metaKey && !event.ctrlKey : event.ctrlKey
-  return usesPlatformModifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f'
+  return usesPlatformModifier && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f'
 }
 
 export function SearchPage(): React.JSX.Element {

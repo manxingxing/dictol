@@ -33,6 +33,7 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
   const [popoverVisible, setPopoverVisible] = useState(false)
   const [debouncedQuery, setDebouncedQuery] = useState(query)
   const [delayedLoadingQuery, setDelayedLoadingQuery] = useState<string | null>(null)
+  const searchShortcutLabel = window.dictol.platform === 'darwin' ? '⌘ K' : 'Ctrl K'
 
   useDebounce(() => setDebouncedQuery(query.trim()), 120, [query])
 
@@ -236,6 +237,7 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
         aria-expanded={popoverOpen}
         aria-haspopup="listbox"
         aria-label="搜索单词"
+        aria-keyshortcuts={window.dictol.platform === 'darwin' ? 'Meta+K' : 'Control+K'}
         className={cn(
           'titlebar-search-trigger relative flex h-full w-full cursor-text items-center rounded-lg border pl-9 pr-3 text-left text-sm shadow-none outline-none',
           popoverOpen && popoverVisible && 'invisible'
@@ -255,6 +257,7 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
         >
           {query || '搜索单词…'}
         </span>
+        <kbd className="titlebar-search-shortcut">{searchShortcutLabel}</kbd>
       </button>
     </div>
   )

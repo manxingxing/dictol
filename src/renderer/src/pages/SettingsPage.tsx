@@ -139,10 +139,16 @@ export function SettingsPage(): React.JSX.Element {
                 >
                   <span
                     aria-hidden="true"
-                    className="grid size-10 shrink-0 grid-cols-[14px_1fr] overflow-hidden rounded-lg border border-border"
+                    className="appearance-tone-preview size-10 shrink-0"
+                    data-tone={option.value}
                   >
-                    <span style={{ background: option.railColor }} />
-                    <span style={{ background: option.contentColor }} />
+                    <span className="appearance-tone-preview__titlebar" />
+                    <span className="appearance-tone-preview__rail" />
+                    <span className="appearance-tone-preview__content">
+                      <span className="appearance-tone-preview__toolbar" />
+                      <span className="appearance-tone-preview__pill" />
+                      <span className="appearance-tone-preview__message" />
+                    </span>
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-medium">{option.label}</span>
@@ -655,22 +661,22 @@ export function SettingsPage(): React.JSX.Element {
                       )}
                     </div>
                     <DialogFooter className="border-t border-border bg-muted/20 px-6 py-4 sm:items-center justify-end">
-                        <Button
-                          onClick={() => setAiDialogOpen(false)}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                        >
-                          取消
-                        </Button>
-                        <Button
-                          disabled={saveAiConfig.isPending}
-                          onClick={saveAiForm}
-                          type="button"
-                          size="sm"
-                        >
-                          {saveAiConfig.isPending ? '保存中…' : '保存配置'}
-                        </Button>
+                      <Button
+                        onClick={() => setAiDialogOpen(false)}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                      >
+                        取消
+                      </Button>
+                      <Button
+                        disabled={saveAiConfig.isPending}
+                        onClick={saveAiForm}
+                        type="button"
+                        size="sm"
+                      >
+                        {saveAiConfig.isPending ? '保存中…' : '保存配置'}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -699,22 +705,16 @@ const chromeToneOptions: Array<{
   value: ChromeTone
   label: string
   description: string
-  railColor: string
-  contentColor: string
 }> = [
   {
     value: 'neutral',
     label: '中性',
-    description: '接近白色，适合多数环境',
-    railColor: '#f5f5f2',
-    contentColor: '#fffef9'
+    description: '浅色为灰白，深色为纯黑框架'
   },
   {
     value: 'moss',
     label: '苔绿',
-    description: '采用暖绿色框架',
-    railColor: '#e8ebdf',
-    contentColor: '#f8f5ec'
+    description: '浅色淡绿，深色透出墨绿'
   }
 ]
 

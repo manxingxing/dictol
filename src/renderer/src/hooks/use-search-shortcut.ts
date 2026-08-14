@@ -9,7 +9,7 @@ export function useSearchShortCut(handleShortcut: () => boolean): void {
         !usesPlatformModifier ||
         event.altKey ||
         event.shiftKey ||
-        event.key.toLowerCase() !== 'f'
+        event.key.toLowerCase() !== 'k'
       ) {
         return
       }

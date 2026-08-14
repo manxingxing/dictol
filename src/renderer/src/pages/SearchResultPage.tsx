@@ -288,7 +288,7 @@ export function SearchResultPage(): React.JSX.Element {
     return (
       <div className="flex h-full min-h-0 flex-col">
         {hasSearchActions && (
-          <div className="relative flex h-14 shrink-0 items-center border-b border-border bg-background px-3">
+          <div className="relative flex h-14 shrink-0 items-center border-b border-border bg-[var(--dictionary-toolbar-background)] px-3">
             <div className="min-w-0 flex-1" />
             {searchActions}
             {isDictionaryContentLoading && <DictionaryViewLoadingIndicator />}
@@ -314,8 +314,8 @@ export function SearchResultPage(): React.JSX.Element {
       }}
       value={activeDictionary?.dictionaryId}
     >
-      <div className="relative flex h-14 shrink-0 items-center overflow-hidden border-b border-border bg-background px-3">
-        <ScrollArea className="min-w-0 flex-1 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-3 after:bg-linear-to-r after:from-transparent after:to-background/85 after:content-['']">
+      <div className="relative flex h-14 shrink-0 items-center overflow-hidden border-b border-border bg-[var(--dictionary-toolbar-background)] px-3">
+        <ScrollArea className="min-w-0 flex-1 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-3 after:bg-linear-to-r after:from-transparent after:to-[var(--dictionary-toolbar-background)] after:content-['']">
           <TabsList className="h-9 shrink-0 gap-1.5 rounded-none bg-transparent p-0 pr-3">
             {group.dictionaries.map((item) => (
               <TabsTrigger
