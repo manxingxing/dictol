@@ -24,7 +24,7 @@
 
 ### AI 查词与翻译
 
-- 连接自带 Token 的 OpenAI-compatible 服务，可分别配置服务地址、模型和场景 Prompt
+- 连接 OpenAI-compatible 服务，可分别配置服务地址、模型和场景 Prompt
 - 在词条右侧进行 AI 查词和连续追问，也可以让侧边栏跟随当前查询
 - 对其他应用中选中的文本生成一次性 AI 解释
 - 独立的 AI 翻译工作区，支持选择、互换源语言和目标语言
@@ -86,7 +86,7 @@ Dictol 会按功能引导用户开启必要的系统权限：
   <img src="build/screenshots/ai-translation.png" width="80%" alt="AI 文本翻译工作区" />
 </p>
 
-### 自带 AI 服务
+### 配置 AI 服务
 
 <p align="center">
   <img src="build/screenshots/bring-your-own-token.png" width="75%" alt="配置 OpenAI-compatible 服务" />
