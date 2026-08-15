@@ -8,16 +8,15 @@ import { useAppStore } from '@/stores/app-store'
 
 const navigation = [
   { label: '查词', path: '/search', icon: Search },
-  { label: '词典库', path: '/dictionaries', icon: Library },
+  { label: '历史', path: '/history', icon: History },
   { label: '生词本', path: '/wordbooks', icon: BookMarked },
-  { label: '查询历史', path: '/history', icon: History }
 ]
 
 export function Sidebar(): React.JSX.Element {
   const lastQueryPath = useAppStore((state) => state.lastQueryPath)
   const aiConfig = useAiLookupConfig()
   const items = aiConfig.data?.enabled
-    ? [...navigation, { label: 'AI 翻译', path: '/translation', icon: Languages }]
+    ? [...navigation, { label: '翻译', path: '/translation', icon: Languages }]
     : navigation
 
   return (
@@ -28,7 +27,7 @@ export function Sidebar(): React.JSX.Element {
         </div>
       </div>
 
-      <nav className="space-y-1" aria-label="主导航">
+      <nav className="space-y-2.5" aria-label="主导航">
         {items.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}
@@ -38,7 +37,7 @@ export function Sidebar(): React.JSX.Element {
             {({ isActive }) => (
               <Button
                 aria-label={label}
-                className={`w-full justify-center px-0 ${
+                className={`h-auto w-full flex-col gap-1 px-0 py-1.5 ${
                   isActive
                     ? 'bg-primary/8 font-medium text-primary ring-1 ring-inset ring-primary/20 hover:bg-primary/12'
                     : 'text-muted-foreground'
@@ -47,18 +46,36 @@ export function Sidebar(): React.JSX.Element {
                 variant="ghost"
               >
                 <Icon />
+                <span className="text-[11px]">{label}</span>
               </Button>
             )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="mt-auto">
+      <div className="mt-auto space-y-2.5">
+        <NavLink to="/dictionaries" className="block">
+          {({ isActive }) => (
+            <Button
+              aria-label="词典库"
+              className={`h-auto w-full flex-col gap-1 px-0 py-1.5 ${
+                isActive
+                  ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
+                  : 'text-muted-foreground'
+              }`}
+              title="词典库"
+              variant="ghost"
+            >
+              <Library />
+              <span className="text-[11px]">词典库</span>
+            </Button>
+          )}
+        </NavLink>
         <NavLink to="/settings" className="block">
           {({ isActive }) => (
             <Button
               aria-label="设置"
-              className={`w-full justify-center px-0 ${
+              className={`h-auto w-full flex-col gap-1 px-0 py-1.5 ${
                 isActive
                   ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
                   : 'text-muted-foreground'
@@ -66,7 +83,8 @@ export function Sidebar(): React.JSX.Element {
               title="设置"
               variant="ghost"
             >
-              <Settings />
+              <Settings className="size-5" />
+              <span className="text-[11px] leading-none">设置</span>
             </Button>
           )}
         </NavLink>

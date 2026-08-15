@@ -4,6 +4,8 @@ import { QueryHistory, queryHistory } from '../schema'
 
 export type { QueryHistory } from '../schema'
 
+type QueryHistoryListItem = Pick<QueryHistory, 'id' | 'term' | 'queryCount' | 'lastQueriedAt'>
+
 export class QueryHistoryRepository {
   private db: DictolDatabase
 
@@ -28,10 +30,15 @@ export class QueryHistoryRepository {
   }
 
   /** 列出查询历史，最多 200 条 */
-  async listRecent(limit = 200): Promise<QueryHistory[]> {
+  async listRecent(limit = 200): Promise<QueryHistoryListItem[]> {
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 500)
     return this.db
-      .select()
+      .select({
+        id: queryHistory.id,
+        term: queryHistory.term,
+        queryCount: queryHistory.queryCount,
+        lastQueriedAt: queryHistory.lastQueriedAt
+      })
       .from(queryHistory)
       .orderBy(desc(queryHistory.lastQueriedAt), desc(queryHistory.id))
       .limit(safeLimit)

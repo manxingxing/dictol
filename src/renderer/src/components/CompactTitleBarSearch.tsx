@@ -52,13 +52,13 @@ export const CompactTitleBarSearch = (): React.JSX.Element => {
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!query) {
-      return history.slice(0, 8).map((item) => ({
+      return history.slice(0, 10).map((item) => ({
         word: item.term,
         description: '最近查询',
         recent: true
       }))
     }
-    return results.slice(0, 8).map((result) => ({
+    return results.slice(0, 10).map((result) => ({
       word: result.word,
       description: `${result.dictionaryCount} 部词典`,
       recent: false

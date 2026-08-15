@@ -658,7 +658,7 @@ export const WordbookWords = (): React.JSX.Element => {
       <div className="flex flex-wrap items-end justify-between gap-4 pb-6">
         <div>
           <p className="mb-2 text-sm font-medium text-primary">生词管理</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{activeWordbookName}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{activeWordbookName}</h1>
         </div>
         <div className="flex justify-between">
           <div className="flex items-center gap-2">

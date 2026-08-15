@@ -1,6 +1,17 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+const sameDayTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  hour: '2-digit',
+  minute: '2-digit'
+})
+const otherDayTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})
+
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
 }
@@ -31,10 +42,9 @@ export function formatTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   const today = new Date()
-  const sameDay = date.toDateString() === today.toDateString()
-  return new Intl.DateTimeFormat('zh-CN', {
-    ...(sameDay ? {} : { month: 'numeric', day: 'numeric' }),
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  return (sameDay ? sameDayTimeFormatter : otherDayTimeFormatter).format(date)
 }

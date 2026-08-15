@@ -130,7 +130,7 @@ export function TranslationPage(): React.JSX.Element {
     <section className="mx-auto flex lg:h-full min-h-0 w-full flex-col p-6 sm:p-8">
       <div className="shrink-0">
         <p className="mb-2 text-sm font-medium text-primary">AI 翻译</p>
-        <h1 className="text-2xl font-semibold tracking-tight">翻译文本</h1>
+        <h1 className="text-xl font-semibold tracking-tight">翻译文本</h1>
       </div>
 
       <div className="mt-8 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">

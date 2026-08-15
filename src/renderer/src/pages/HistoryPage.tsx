@@ -26,9 +26,9 @@ function getColumnClassName(columnId: string, header: boolean): string | undefin
     case 'term':
       return header ? undefined : 'max-w-0'
     case 'queryCount':
-      return 'w-28 text-right'
+      return 'w-24 text-right'
     case 'lastQueriedAt':
-      return 'w-36'
+      return 'w-26'
     case 'actions':
       return 'w-20 text-right'
     default:
@@ -117,7 +117,7 @@ export const HistoryPage = (): React.JSX.Element => {
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-sm font-medium text-primary">查询历史</p>
-          <h1 className="text-2xl font-semibold tracking-tight">最近查询</h1>
+          <h1 className="text-xl font-semibold tracking-tight">最近查询</h1>
         </div>
         {history.length > 0 && (
           <Button

@@ -111,7 +111,7 @@ export function SettingsPage(): React.JSX.Element {
   return (
     <section className="mx-auto flex max-w-3xl flex-col p-6 sm:p-8">
       <p className="mb-2 text-sm font-medium text-primary">设置</p>
-      <h1 className="text-2xl font-semibold tracking-tight">应用设置</h1>
+      <h1 className="text-xl font-semibold tracking-tight">应用设置</h1>
       <Card className="mt-8">
         <CardHeader>
           <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
