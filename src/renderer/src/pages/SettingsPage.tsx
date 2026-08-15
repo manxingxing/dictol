@@ -189,7 +189,7 @@ export function SettingsPage(): React.JSX.Element {
               <div className="rounded-lg border border-border px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium">全局快捷键</p>
+                    <p className="text-sm font-medium">查词快捷键</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {recordingShortcut
                         ? '请直接按下新的组合键，按 Esc 取消'
