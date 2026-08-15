@@ -52,7 +52,10 @@ export class SearchPopoverController extends BaseController {
 
   hide = (event: IpcMainEvent): void => {
     if (!this.acceptsHostSender(event.sender.id)) return
-    this.currentPopover?.hide()
+    const popover = this.currentPopover
+    if (!popover?.isVisible) return
+    popover.hide()
+    this.runtime.windowManager.focusMainWindowRenderer()
   }
 
   setBounds = (event: IpcMainEvent, bounds: Rectangle): void => {
@@ -88,6 +91,7 @@ export class SearchPopoverController extends BaseController {
     const popover = this.currentPopover
     if (!popover?.acceptsSender(event.sender.id)) return
     popover.hide()
+    this.runtime.windowManager.focusMainWindowRenderer()
     popover.sendToMainWindow('search-popover:dismissed')
   }
 

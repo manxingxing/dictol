@@ -289,6 +289,14 @@ export class WindowManager {
     this.updateSelectionExplanationViewBounds?.()
   }
 
+  focusMainWindowRenderer(): void {
+    const mainWindow = this.mainWindow
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+
+    if (!mainWindow.isFocused()) mainWindow.focus()
+    mainWindow.webContents.focus()
+  }
+
   dispose(): void {
     if (this.observingNativeAppearance) {
       nativeTheme.off('updated', this.updateNativeAppearance)

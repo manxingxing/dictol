@@ -85,7 +85,6 @@ export function FindBarApp(): React.JSX.Element {
       }
       if (e.key === 'Escape') {
         window.dictolFindBar.stopFind()
-        window.close()
       }
     },
     [query, doFind, doFindNext]
@@ -128,7 +127,6 @@ export function FindBarApp(): React.JSX.Element {
         onPointerDown={(e) => {
           e.preventDefault()
           window.dictolFindBar.stopFind()
-          window.close()
         }}
       >
         <X size={14} strokeWidth={2} />

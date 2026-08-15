@@ -93,8 +93,9 @@ export class DictionaryViewController extends BaseController {
   pointerDown = (event: IpcMainEvent): void => {
     if (!this.acceptsViewSender(event.sender.id)) return
     const popover = this.runtime.windowManager.searchPopoverView
-    if (!popover) return
+    if (!popover?.isVisible) return
     popover.hide()
+    this.runtime.windowManager.focusMainWindowRenderer()
     popover.sendToMainWindow('search-popover:dismissed')
   }
 
@@ -116,14 +117,14 @@ export class DictionaryViewController extends BaseController {
   stopFind = (event: IpcMainEvent): void => {
     if (!this.acceptsFindBarSender(event.sender.id)) return
     this.view.webContents.stopFindInPage('clearSelection')
-    this.hideFindBarView()
+    this.hideFindBarView(true)
   }
 
   toggleFindBar = (event: IpcMainEvent): void => {
     if (!this.acceptsViewSender(event.sender.id) && !this.acceptsHostSender(event.sender.id)) return
     if (this.findBarView?.isVisible) {
       this.view.webContents.stopFindInPage('clearSelection')
-      this.hideFindBarView()
+      this.hideFindBarView(true)
     } else {
       this.showFindBarView()
     }
@@ -267,8 +268,9 @@ export class DictionaryViewController extends BaseController {
     findBar.webContents.focus()
   }
 
-  private hideFindBarView(): void {
+  private hideFindBarView(restoreFocus = false): void {
     this.findBarView?.hide()
+    if (restoreFocus) this.runtime.windowManager.focusMainWindowRenderer()
   }
 
   private syncFindBarBounds(): void {
