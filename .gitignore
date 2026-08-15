@@ -5,13 +5,18 @@ out
 .eslintcache
 *.log*
 
-opendesign
+test/
+tests/
+
+
+opendesign/
 
 # Local dictionary samples
 /Dictionaries/
+
+# build artifact
 /benchmarks/opendict-rs/target/
 /native/mdict/target/
-/native/mdict-core/target/
 /native/mdict-node/target/
 /native/mdict-node/node_modules/
 /native/mdict-node/*.node

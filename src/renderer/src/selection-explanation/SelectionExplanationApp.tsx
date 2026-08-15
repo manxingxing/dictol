@@ -4,6 +4,7 @@ import { ExternalLink, LoaderCircle, Star, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { AiRichText } from '@/components/AiRichText'
+import { useChromeTone } from '@/hooks/use-chrome-tone'
 import { cn } from '@/lib/utils'
 import {
   SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT,
@@ -33,6 +34,8 @@ const initialPayload: SelectionExplanationPayload = {
 }
 
 export function SelectionExplanationApp(): React.JSX.Element {
+  useChromeTone()
+
   const [payload, setPayload] = useState(initialPayload)
   const [starStatus, setStarStatus] = useState<{ key: string; starred: boolean } | undefined>()
   const [togglingStar, setTogglingStar] = useState(false)
@@ -96,7 +99,7 @@ export function SelectionExplanationApp(): React.JSX.Element {
   return (
     <div className="flex h-screen flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-xl">
       <header
-        className="drag-region flex shrink-0 items-center gap-3 border-b border-border px-3"
+        className="drag-region flex shrink-0 items-center gap-3 border-b border-border bg-sidebar px-3"
         style={{ height: SELECTION_EXPLANATION_HEADER_HEIGHT }}
       >
         <div className="min-w-0 flex-1">

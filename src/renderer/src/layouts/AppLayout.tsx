@@ -1,22 +1,19 @@
-import { useEffect, useLayoutEffect } from 'react'
+import { useEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { WindowTitleBar } from '@/components/WindowTitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { useWindowWidthThreshold } from '@/hooks/use-window-width-threshold'
+import { useChromeTone } from '@/hooks/use-chrome-tone'
 import { useAppStore } from '@/stores/app-store'
 
 export function AppLayout(): React.JSX.Element {
   const navigate = useNavigate()
   const setSearchQuery = useAppStore((state) => state.setSearchQuery)
-  const chromeTone = useAppStore((state) => state.chromeTone)
 
   useWindowWidthThreshold()
-
-  useLayoutEffect(() => {
-    document.documentElement.dataset.chromeTone = chromeTone
-  }, [chromeTone])
+  useChromeTone()
 
   useEffect(() => {
     return window.dictol.wordCapture.onEvent((event) => {

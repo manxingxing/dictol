@@ -32,7 +32,7 @@ export class DictionaryViewController extends BaseController {
     ipcMain.on('dictionary-view:explain-with-ai', this.explainWithAi)
     ipcMain.on('dictionary-view:copy-text', this.copyText)
     ipcMain.on('dictionary-view:pointer-down', this.pointerDown)
-    ipcMain.on('dictionary-view:toggle-find-bar', this.toggleFindBar)
+    ipcMain.on('dictionary-view:show-find-bar', this.showFindBar)
     ipcMain.on('find-bar:find-in-page', this.findInPage)
     ipcMain.on('find-bar:find-next', this.findNext)
     ipcMain.on('find-bar:clear-find', this.clearFind)
@@ -120,14 +120,9 @@ export class DictionaryViewController extends BaseController {
     this.hideFindBarView(true)
   }
 
-  toggleFindBar = (event: IpcMainEvent): void => {
+  showFindBar = (event: IpcMainEvent): void => {
     if (!this.acceptsViewSender(event.sender.id) && !this.acceptsHostSender(event.sender.id)) return
-    if (this.findBarView?.isVisible) {
-      this.view.webContents.stopFindInPage('clearSelection')
-      this.hideFindBarView(true)
-    } else {
-      this.showFindBarView()
-    }
+    this.showFindBarView()
   }
 
   private async showEntry(entryId: string): Promise<boolean> {
@@ -144,6 +139,7 @@ export class DictionaryViewController extends BaseController {
     }
 
     const version = ++this.loadVersion
+    this.loadedEntryId = undefined
     this.notifyLoadingState(true)
     const load = this.loadEntry(entryId, version)
     this.pendingEntryId = entryId
@@ -248,7 +244,18 @@ export class DictionaryViewController extends BaseController {
   }
 
   private showFindBarView(): void {
+    const dictionaryView = this.runtime.windowManager.dictionaryView
+    if (
+      !dictionaryView?.isVisible ||
+      this.loadedEntryId === undefined ||
+      this.pendingEntryId !== undefined ||
+      !hasUsableBounds(this.lastDictBounds)
+    ) {
+      return
+    }
+
     const findBar = this.runtime.windowManager.createFindBarView()
+    this.runtime.mainWindowShortcutRouter?.register(findBar.webContents, 'find-bar')
     const { x, y, width } = this.lastDictBounds
     findBar.setBounds({
       x: Math.max(0, x + width - 300),
@@ -256,16 +263,20 @@ export class DictionaryViewController extends BaseController {
       width: 300,
       height: 44
     })
-    const rendererUrl = process.env['ELECTRON_RENDERER_URL']
-    const loadPromise =
-      is.dev && rendererUrl
-        ? findBar.loadURL(`${rendererUrl}/find-bar.html`)
-        : findBar.loadFile(resolveRendererPath('find-bar.html'))
-    void loadPromise.catch((error: unknown) => {
-      console.error('Failed to load find bar', error)
-    })
+    const hasLoadedFindBar = findBar.getURL() !== ''
+    if (!hasLoadedFindBar && !findBar.webContents.isLoading()) {
+      const rendererUrl = process.env['ELECTRON_RENDERER_URL']
+      const loadPromise =
+        is.dev && rendererUrl
+          ? findBar.loadURL(`${rendererUrl}/find-bar.html`)
+          : findBar.loadFile(resolveRendererPath('find-bar.html'))
+      void loadPromise.catch((error: unknown) => {
+        console.error('Failed to load find bar', error)
+      })
+    }
     findBar.show()
     findBar.webContents.focus()
+    if (hasLoadedFindBar) findBar.send('find-bar:activate')
   }
 
   private hideFindBarView(restoreFocus = false): void {
@@ -275,7 +286,7 @@ export class DictionaryViewController extends BaseController {
 
   private syncFindBarBounds(): void {
     const findBar = this.findBarView
-    if (!findBar?.isVisible) return
+    if (!findBar?.isVisible || !hasUsableBounds(this.lastDictBounds)) return
     const { x, y, width } = this.lastDictBounds
     findBar.setBounds({
       x: Math.max(0, x + width - 300),
@@ -301,6 +312,10 @@ export class DictionaryViewController extends BaseController {
     }
     return view
   }
+}
+
+function hasUsableBounds(bounds: Rectangle): boolean {
+  return bounds.width > 0 && bounds.height > 0
 }
 
 function isRectangle(value: unknown): value is Rectangle {

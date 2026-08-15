@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware'
 export const COMPACT_MODE_WIDTH_THRESHOLD = 768
 export const RIGHT_SIDEBAR_DEFAULT_SIZE = '25'
 export const RIGHT_SIDEBAR_MAX_SIZE = '50'
-const appPreferencesStorageKey = 'dictol:app-preferences'
+export const APP_PREFERENCES_STORAGE_KEY = 'dictol:app-preferences'
 
 export type ChromeTone = 'neutral' | 'moss'
 export type RightSidebarType = 'ai-search' | 'embed-browser'
@@ -100,7 +100,7 @@ export const useAppStore = create<AppState>()(
       setLastQueryPath: (lastQueryPath) => set({ lastQueryPath })
     }),
     {
-      name: appPreferencesStorageKey,
+      name: APP_PREFERENCES_STORAGE_KEY,
       partialize: (state) => ({
         chromeTone: state.chromeTone,
         compactModeEnabled: state.compactModeEnabled

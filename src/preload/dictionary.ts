@@ -23,7 +23,6 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.on('dictionary-view:ai-explanation-availability-changed', listener)
       return () =>
         ipcRenderer.removeListener('dictionary-view:ai-explanation-availability-changed', listener)
-    },
-    toggleFindBar: (): void => ipcRenderer.send('dictionary-view:toggle-find-bar')
+    }
   })
 )

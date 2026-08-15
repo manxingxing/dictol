@@ -1,9 +1,10 @@
-import { app, shell, type BrowserWindow, type WebContents } from 'electron'
+import { app, shell, type BrowserWindow } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { join } from 'node:path'
 
 import { getAppRunTime } from './app-runtime'
 import { registerIPCHandlers } from './controller/ipc-register'
+import { MainWindowShortcutRouter } from './main-window-shortcut-router'
 import { registerResourceProtocol, registerResourceScheme } from './resource-protocol'
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
@@ -99,7 +100,11 @@ function configureMainWindow(
   const dictionaryView = runtime.windowManager.dictionaryView
   if (!dictionaryView) throw new Error('DictionaryView 尚未初始化')
 
-  registerSearchShortcut(dictionaryView.webContents, mainWindow)
+  runtime.mainWindowShortcutRouter?.dispose()
+  const shortcutRouter = new MainWindowShortcutRouter(runtime.windowManager, mainWindow)
+  runtime.mainWindowShortcutRouter = shortcutRouter
+  shortcutRouter.register(mainWindow.webContents, 'main')
+  shortcutRouter.register(dictionaryView.webContents, 'dictionary')
   const showMainWindow = (): void => {
     if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show()
   }
@@ -120,28 +125,6 @@ function configureMainWindow(
   showMainWindow()
   void loadPromise.then(showMainWindow).catch((error: unknown) => {
     console.error('Failed to load renderer', error)
-  })
-}
-
-function registerSearchShortcut(webContents: WebContents, hostWindow: BrowserWindow): void {
-  webContents.on('before-input-event', (event, input) => {
-    const usesPlatformModifier =
-      process.platform === 'darwin' ? input.meta && !input.control : input.control
-    if (
-      input.type !== 'keyDown' ||
-      !usesPlatformModifier ||
-      input.alt ||
-      input.shift ||
-      input.key.toLowerCase() !== 'k'
-    ) {
-      return
-    }
-
-    event.preventDefault()
-    if (!hostWindow.isDestroyed() && !hostWindow.webContents.isDestroyed()) {
-      hostWindow.webContents.focus()
-      hostWindow.webContents.send('app:focus-search')
-    }
   })
 }
 

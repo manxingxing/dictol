@@ -12,6 +12,7 @@ import { SelectionHookService } from './selection-hook-service'
 import { ShortcutRegister } from './shortcut-register'
 import { TrayManager } from './tray-manager'
 import { WindowManager } from './window-manager'
+import { MainWindowShortcutRouter } from './main-window-shortcut-router'
 
 export const LOOKUP_WORD_ON_SHORTCUT = 'lookupWordOnShortcut'
 
@@ -33,6 +34,7 @@ export class AppRuntime {
   selectionHookService: SelectionHookService = new SelectionHookService()
   shortcutRegister: ShortcutRegister = new ShortcutRegister()
   trayManager: TrayManager = new TrayManager()
+  mainWindowShortcutRouter: MainWindowShortcutRouter | undefined
 
   get isInitialized(): boolean {
     return this.initialized
@@ -168,6 +170,8 @@ export class AppRuntime {
     if (this.disposed) return
     this.disposed = true
     this.shortcutRegister.unregisterAll()
+    this.mainWindowShortcutRouter?.dispose()
+    this.mainWindowShortcutRouter = undefined
     this.selectionHookService.dispose()
     this.trayManager.dispose()
     this.windowManager.dispose()

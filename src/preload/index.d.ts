@@ -230,6 +230,7 @@ declare global {
       }
       app: {
         onFocusSearch: (callback: () => void) => () => void
+        onShowFindBar: (callback: () => void) => () => void
       }
       aiLookup: {
         getConfig: () => Promise<{
@@ -368,7 +369,7 @@ declare global {
       dictionaryView: {
         show: (entryId: string) => Promise<void>
         hide: () => void
-        toggleFindBar: () => void
+        showFindBar: () => void
         setBounds: (bounds: { x: number; y: number; width: number; height: number }) => void
         onLoadingChanged: (callback: (isLoading: boolean) => void) => () => void
         onLookupWord: (callback: (word: string) => void) => () => void

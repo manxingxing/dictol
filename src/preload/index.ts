@@ -254,6 +254,11 @@ const api = Object.freeze({
       const listener = (): void => callback()
       ipcRenderer.on('app:focus-search', listener)
       return () => ipcRenderer.removeListener('app:focus-search', listener)
+    },
+    onShowFindBar: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('app:show-find-bar', listener)
+      return () => ipcRenderer.removeListener('app:show-find-bar', listener)
     }
   }),
   aiLookup: Object.freeze({
@@ -338,7 +343,7 @@ const api = Object.freeze({
   dictionaryView: Object.freeze({
     show: (entryId: string): Promise<void> => ipcRenderer.invoke('dictionary-view:show', entryId),
     hide: (): void => ipcRenderer.send('dictionary-view:hide'),
-    toggleFindBar: (): void => ipcRenderer.send('dictionary-view:toggle-find-bar'),
+    showFindBar: (): void => ipcRenderer.send('dictionary-view:show-find-bar'),
     setBounds: (bounds: { x: number; y: number; width: number; height: number }): void =>
       ipcRenderer.send('dictionary-view:set-bounds', bounds),
     onLoadingChanged: (callback: (isLoading: boolean) => void): (() => void) => {

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { Globe2, LoaderCircle, Search, X } from 'lucide-react'
 import useDebounce from 'react-use/lib/useDebounce'
@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 
 import { useDictionarySearch } from '@/hooks/use-dictionary-entries'
 import { useOnlineDictionaries } from '@/hooks/use-online-dictionaries'
+import { useQueryHistory } from '@/hooks/use-query-history'
 import { useSearchShortCut } from '@/hooks/use-search-shortcut'
 import { RIGHT_SIDEBAR_MAX_SIZE, selectCompactMode, useAppStore } from '@/stores/app-store'
 import { SearchHistory } from '@/components/SearchHistory'
@@ -40,6 +41,7 @@ export const SearchPanel = (): React.JSX.Element => {
 
   const { data: results = [], isFetching } = useDictionarySearch(debouncedQuery)
   const { data: onlineDictionaries = [] } = useOnlineDictionaries()
+  const { data: history = [] } = useQueryHistory()
   const createSearchResultPath = useCallback(
     (word: string): string => {
       const dictionaryId = searchParams.get('dictionary')
@@ -49,8 +51,42 @@ export const SearchPanel = (): React.JSX.Element => {
     [searchParams]
   )
 
-  const openFirstResult = async (): Promise<void> => {
-    const normalizedQuery = searchQuery.trim()
+  const normalizedQuery = searchQuery.trim()
+  const hasQuery = normalizedQuery.length > 0
+  const recentHistory = history.slice(0, 50)
+  const candidateCount = hasQuery ? results.length : recentHistory.length
+  const selectionKey = `${hasQuery ? 'results' : 'history'}:${normalizedQuery}:${debouncedQuery}:${candidateCount}`
+  const [selectionState, setSelectionState] = useState({ key: '', index: -1 })
+  const selectedCandidateIndex = selectionState.key === selectionKey ? selectionState.index : -1
+  const resultItemRefs = useRef<Array<HTMLLIElement | null>>([])
+
+  useLayoutEffect(() => {
+    if (!hasQuery || selectedCandidateIndex < 0) return
+    resultItemRefs.current[selectedCandidateIndex]?.scrollIntoView({
+      behavior: 'auto',
+      block: 'nearest',
+      inline: 'nearest'
+    })
+  }, [hasQuery, selectedCandidateIndex])
+
+  const updateSelectedCandidateIndex = useCallback(
+    (update: (current: number) => number): void => {
+      setSelectionState((currentState) => {
+        const currentIndex = currentState.key === selectionKey ? currentState.index : -1
+        return { key: selectionKey, index: update(currentIndex) }
+      })
+    },
+    [selectionKey]
+  )
+
+  const setSelectedCandidateIndex = useCallback(
+    (index: number): void => {
+      updateSelectedCandidateIndex(() => index)
+    },
+    [updateSelectedCandidateIndex]
+  )
+
+  const openFirstResult = useCallback(async (): Promise<void> => {
     if (!normalizedQuery) return
     const first =
       debouncedQuery.toLowerCase() === normalizedQuery.toLowerCase() && !isFetching
@@ -59,10 +95,42 @@ export const SearchPanel = (): React.JSX.Element => {
     const currentFirst =
       first ?? (await window.dictol.entries.search(normalizedQuery, 1).then((items) => items[0]))
     await navigate(createSearchResultPath(currentFirst?.word ?? normalizedQuery))
-  }
+  }, [createSearchResultPath, debouncedQuery, isFetching, navigate, normalizedQuery, results])
 
-  const normalizedQuery = searchQuery.trim()
-  const hasQuery = normalizedQuery.length > 0
+  const openSelectedCandidate = useCallback(async (): Promise<void> => {
+    if (!hasQuery) {
+      const historyItem = recentHistory[selectedCandidateIndex]
+      if (!historyItem) return
+      setSearchQuery(historyItem.term)
+      await navigate(createSearchResultPath(historyItem.term))
+      return
+    }
+
+    const selectedResult = results[selectedCandidateIndex]
+    if (
+      selectedResult &&
+      !isFetching &&
+      debouncedQuery.toLowerCase() === normalizedQuery.toLowerCase()
+    ) {
+      await navigate(createSearchResultPath(selectedResult.word))
+      return
+    }
+
+    await openFirstResult()
+  }, [
+    createSearchResultPath,
+    debouncedQuery,
+    hasQuery,
+    isFetching,
+    navigate,
+    normalizedQuery,
+    openFirstResult,
+    recentHistory,
+    results,
+    selectedCandidateIndex,
+    setSearchQuery
+  ])
+
   const hasCandidates = results.length > 0
 
   return (
@@ -82,10 +150,23 @@ export const SearchPanel = (): React.JSX.Element => {
             className="h-9 border-[var(--border-strong)] bg-card px-9 shadow-none"
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                if (candidateCount === 0) return
+                event.preventDefault()
+                const direction = event.key === 'ArrowDown' ? 1 : -1
+                updateSelectedCandidateIndex((current) =>
+                  current < 0
+                    ? direction === 1
+                      ? 0
+                      : candidateCount - 1
+                    : (current + direction + candidateCount) % candidateCount
+                )
+                return
+              }
               if (event.key === 'Enter') {
                 event.preventDefault()
-                void openFirstResult().catch((error: unknown) => {
-                  console.error('Failed to open the first dictionary result', error)
+                void openSelectedCandidate().catch((error: unknown) => {
+                  console.error('Failed to open the selected dictionary result', error)
                 })
               }
             }}
@@ -113,7 +194,11 @@ export const SearchPanel = (): React.JSX.Element => {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">
         {!hasQuery ? (
-          <SearchHistory />
+          <SearchHistory
+            history={history}
+            onPointerMove={setSelectedCandidateIndex}
+            selectedIndex={selectedCandidateIndex}
+          />
         ) : !hasCandidates && !isFetching ? (
           onlineDictionaries.length > 0 ? (
             <ScrollArea className="min-h-0 flex-1" viewportClassName="[&>div]:!block">
@@ -171,16 +256,24 @@ export const SearchPanel = (): React.JSX.Element => {
         ) : (
           <ScrollArea className="min-h-0 flex-1" viewportClassName="[&>div]:!block">
             <ul className="space-y-1">
-              {results.map((result) => (
-                <li key={result.normalizedWord}>
+              {results.map((result, index) => (
+                <li
+                  key={result.normalizedWord}
+                  ref={(element) => {
+                    resultItemRefs.current[index] = element
+                  }}
+                >
                   <NavLink className="block" to={createSearchResultPath(result.word)}>
                     {({ isActive }) => (
                       <Button
                         className={`h-auto w-full justify-start px-3 py-2 text-left ${
-                          isActive
-                            ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
-                            : 'text-foreground'
+                          selectedCandidateIndex === index
+                            ? 'bg-primary/10 font-medium text-primary ring-1 ring-inset ring-primary/20'
+                            : selectedCandidateIndex < 0 && isActive
+                              ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
+                              : 'text-foreground'
                         }`}
+                        onPointerMove={() => setSelectedCandidateIndex(index)}
                         variant="ghost"
                       >
                         <span className="flex min-w-0 flex-col items-start gap-0.5">

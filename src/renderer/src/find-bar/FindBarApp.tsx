@@ -15,6 +15,7 @@ declare global {
       findNext: (text: string, forward: boolean) => void
       clearFind: () => void
       stopFind: () => void
+      onActivate: (callback: () => void) => () => void
       onFindResult: (callback: (result: FindResult) => void) => () => void
     }
   }
@@ -24,7 +25,12 @@ export function FindBarApp(): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [countText, setCountText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const queryRef = useRef(query)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    queryRef.current = query
+  }, [query])
 
   // Focus input on mount
   useEffect(() => {
@@ -66,6 +72,15 @@ export function FindBarApp(): React.JSX.Element {
     [query]
   )
 
+  const activateFindBar = useCallback((): void => {
+    const input = inputRef.current
+    input?.focus()
+    input?.select()
+    doFind(queryRef.current.trim())
+  }, [doFind])
+
+  useEffect(() => window.dictolFindBar.onActivate(activateFindBar), [activateFindBar])
+
   const handleInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
@@ -87,7 +102,7 @@ export function FindBarApp(): React.JSX.Element {
         window.dictolFindBar.stopFind()
       }
     },
-    [query, doFind, doFindNext]
+    [doFindNext]
   )
 
   return (
