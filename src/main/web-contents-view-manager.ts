@@ -53,6 +53,13 @@ export class WebContentsViewManager {
     return true
   }
 
+  bringToFront(): void {
+    if (this.isDestroyed || this.mainWindow.isDestroyed()) return
+    // Re-adding an existing child view moves it to the top of its parent's
+    // view stack without changing its bounds or visibility.
+    this.mainWindow.contentView.addChildView(this.view)
+  }
+
   hide(): boolean {
     this.eventBus.emit('hide-requested')
     if (this.isDestroyed || !this.visible) return false

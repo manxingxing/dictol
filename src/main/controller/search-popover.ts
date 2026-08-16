@@ -40,6 +40,7 @@ export class SearchPopoverController extends BaseController {
   show = (event: IpcMainEvent): void => {
     if (!this.acceptsHostSender(event.sender.id)) return
     const popover = this.initializeView()
+    popover.bringToFront()
     if (this.showRequested) {
       if (popover.isVisible) this.handleVisibilityChanged(true)
       return
@@ -140,6 +141,7 @@ export class SearchPopoverController extends BaseController {
     if (!shouldShow) return
 
     popover.show()
+    popover.bringToFront()
     if (!this.focusRequested) return
     this.focusRequested = false
     popover.focus()

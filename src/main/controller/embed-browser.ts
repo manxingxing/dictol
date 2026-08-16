@@ -26,6 +26,8 @@ export class EmbedBrowserController extends BaseController {
     const view = this.getView()
     this.configureView(view)
     view.show()
+    const searchPopover = this.runtime.windowManager.searchPopoverView
+    if (searchPopover?.isVisible) searchPopover.bringToFront()
     try {
       await view.loadURL(url)
     } catch (error) {
