@@ -22,6 +22,7 @@
     "native:test": "npm --prefix native/mdict-node test",
     "db:generate": "drizzle-kit generate",
     "ecdict:build": "node scripts/build-ecdict.mjs",
+    "adblock:prepare": "node scripts/prepare-adblock-network-lists.mjs",
     "mdict:inspect": "node scripts/inspect-mdict.mjs",
     "mdict:benchmark": "node scripts/compare-mdict-parsers.mjs",
     "postinstall": "electron-builder install-app-deps",
@@ -34,6 +35,7 @@
   "dependencies": {
     "@dictol/mdict-native": "file:native/mdict-node",
     "@electron-toolkit/utils": "^4.0.0",
+    "adblock-rs": "^0.13.2",
     "better-sqlite3": "^13.0.1",
     "drizzle-orm": "^0.45.2",
     "exceljs": "4.4.0",
@@ -96,8 +98,8 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.1.18",
     "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
     "zustand": "^5.0.14"
@@ -108,6 +110,7 @@
     "electron-winstaller@5.4.0": true,
     "better-sqlite3@13.0.2": true,
     "selection-hook@2.0.3": true,
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "adblock-rs@0.13.2": true
   }
 }

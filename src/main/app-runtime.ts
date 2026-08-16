@@ -13,6 +13,7 @@ import { ShortcutRegister } from './shortcut-register'
 import { TrayManager } from './tray-manager'
 import { WindowManager } from './window-manager'
 import { MainWindowShortcutRouter } from './main-window-shortcut-router'
+import { AdBlockService } from './ad-block-service'
 
 export const LOOKUP_WORD_ON_SHORTCUT = 'lookupWordOnShortcut'
 
@@ -35,6 +36,7 @@ export class AppRuntime {
   shortcutRegister: ShortcutRegister = new ShortcutRegister()
   trayManager: TrayManager = new TrayManager()
   mainWindowShortcutRouter: MainWindowShortcutRouter | undefined
+  adBlockService: AdBlockService = new AdBlockService()
 
   get isInitialized(): boolean {
     return this.initialized
@@ -106,6 +108,7 @@ export class AppRuntime {
     if (this.disposed) throw new Error('AppRuntime 已销毁，不能重新初始化')
 
     this.initDB()
+    this.adBlockService.initialize()
     this.initWindowManager()
     const config = this.appConfig.load()
     this.initSelectionHook(config)
@@ -174,6 +177,7 @@ export class AppRuntime {
     this.mainWindowShortcutRouter = undefined
     this.selectionHookService.dispose()
     this.trayManager.dispose()
+    this.adBlockService.dispose()
     this.windowManager.dispose()
     this.aiLookupService.dispose()
     this.mdFileCache.dispose()

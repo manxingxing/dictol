@@ -1,0 +1,35 @@
+[Adblock Plus 2.0]
+! Title: Dictol Mainstream Ad Servers
+! Homepage: https://easylist.to/
+! Dictol keeps only a curated set of mainstream third-party ad servers.
+! The full upstream lists are not bundled in this compact variant.
+
+||doubleclick.net^$third-party
+||googlesyndication.com^$third-party
+||googleadservices.com^$third-party
+||adservice.google.com^$third-party
+||amazon-adsystem.com^$third-party
+||an.facebook.com^$third-party
+||adnxs.com^$third-party
+||adsrvr.org^$third-party
+||pubmatic.com^$third-party
+||rubiconproject.com^$third-party
+||openx.net^$third-party
+||criteo.com^$third-party
+||criteo.net^$third-party
+||casalemedia.com^$third-party
+||smartadserver.com^$third-party
+||indexww.com^$third-party
+||media.net^$third-party
+||adform.net^$third-party
+||advertising.com^$third-party
+||outbrain.com^$third-party
+||taboola.com^$third-party
+||mgid.com^$third-party
+||revcontent.com^$third-party
+||teads.tv^$third-party
+||sharethrough.com^$third-party
+||gumgum.com^$third-party
+||33across.com^$third-party
+||yieldmo.com^$third-party
+||googletagmanager.com/gtag/js$script,third-party

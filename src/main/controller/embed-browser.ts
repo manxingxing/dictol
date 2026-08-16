@@ -48,7 +48,9 @@ export class EmbedBrowserController extends BaseController {
   }
 
   private getView(): WebContentsViewManager {
-    return this.runtime.windowManager.createEmbedBrowserView()
+    const view = this.runtime.windowManager.createEmbedBrowserView()
+    this.runtime.adBlockService.attach(view.webContents.session)
+    return view
   }
 
   private configureView(view: WebContentsViewManager): void {

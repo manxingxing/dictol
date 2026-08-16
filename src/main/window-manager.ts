@@ -133,6 +133,7 @@ export class WindowManager {
     const embedBrowserView = new WebContentsViewManager(mainWindow, {
       view: {
         webPreferences: {
+          partition: 'persist:dictol-embed-browser',
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,

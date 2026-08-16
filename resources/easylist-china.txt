@@ -1,0 +1,22 @@
+[Adblock Plus 2.0]
+! Title: Dictol Mainstream China Ad Servers
+! Homepage: https://github.com/easylist/easylistchina/
+! Dictol keeps only a curated set of mainstream third-party ad servers.
+! The full upstream lists are not bundled in this compact variant.
+
+||cpro.baidu.com^$third-party
+||cpro.baidustatic.com^$third-party
+||pos.baidu.com^$third-party
+||mobads.baidu.com^$third-party
+||eduad.baidu.com^$third-party
+||atanx.alicdn.com^$third-party
+||tanx.com^$third-party
+||alimama.com^$third-party
+||alimama.cn^$third-party
+||ads-union.jd.com^$third-party
+||jzt.jd.com^$third-party
+||gdt.qq.com^$third-party
+||adsmind.gdtimg.com^$third-party
+||pgdt.gtimg.cn^$third-party
+||adsame.com^$third-party
+||adx.sogou.com^$third-party

@@ -1,0 +1,14 @@
+Dictol bundles curated third-party ad-server domain rules for the embedded
+browser:
+
+- Global source reference: https://easylist-downloads.adblockplus.org/easylist.txt
+- China source reference: https://easylist-downloads.adblockplus.org/easylistchina.txt
+
+The bundled files are a deliberately small, manually curated subset of common
+advertising platforms rather than the complete upstream lists. The upstream
+lists are maintained by the EasyList project; see the project licence and
+attribution requirements at https://easylist.to/pages/licence.html.
+
+All bundled rules are network-only and third-party scoped. Cosmetic,
+extended-CSS, style, and scriptlet rules are not included because Dictol blocks
+requests before page elements are available.
