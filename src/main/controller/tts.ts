@@ -1,0 +1,123 @@
+import { ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { EdgeTTS } from 'edge-tts-universal'
+import { randomUUID } from 'node:crypto'
+
+import { BaseController } from './base-controller'
+
+const MAX_TTS_TEXT_LENGTH = 200
+const TTS_REQUEST_TIMEOUT_MS = 6_000
+
+export class TtsController extends BaseController {
+  override mount(): void {
+    ipcMain.handle('dictionary-view:read-aloud', this.readAloud)
+  }
+
+  private readonly readAloud = async (
+    event: IpcMainInvokeEvent,
+    text: unknown,
+    voice: unknown
+  ): Promise<Uint8Array | null> => {
+    const requestId = randomUUID()
+    const startedAt = Date.now()
+    const rawText = typeof text === 'string' ? text : `<${typeof text}>`
+    const normalizedVoice = normalizeTtsVoice(voice)
+    const textLength = typeof text === 'string' ? text.trim().length : 0
+    const context = {
+      requestId,
+      senderId: event.sender.id,
+      textLength,
+      voice: normalizedVoice ?? 'default',
+      timeoutMs: TTS_REQUEST_TIMEOUT_MS
+    }
+
+    console.debug('[TTS] request received', { ...context, text: rawText })
+    if (!this.acceptsDictionaryViewSender(event.sender.id)) {
+      console.warn('[TTS] request rejected: unknown sender', context)
+      return null
+    }
+
+    const normalizedText = normalizeTtsText(text)
+    if (!normalizedText) {
+      console.warn('[TTS] request rejected: invalid text', {
+        ...context,
+        text: rawText,
+        reason: getInvalidTextReason(text)
+      })
+      return null
+    }
+
+    try {
+      const tts = normalizedVoice
+        ? new EdgeTTS(normalizedText, normalizedVoice)
+        : new EdgeTTS(normalizedText)
+      const synthesis = await withTimeout(tts.synthesize(), TTS_REQUEST_TIMEOUT_MS)
+      const audio = Buffer.from(await synthesis.audio.arrayBuffer())
+      if (audio.length === 0) {
+        throw new Error('朗读服务未返回音频。')
+      }
+
+      console.debug('[TTS] request completed', {
+        ...context,
+        audioBytes: audio.length,
+        audioMimeType: synthesis.audio.type,
+        subtitleCount: synthesis.subtitle.length,
+        durationMs: Date.now() - startedAt
+      })
+      return Uint8Array.from(audio)
+    } catch (error) {
+      console.error(
+        '[TTS] request failed',
+        { ...context, text: rawText, durationMs: Date.now() - startedAt },
+        error
+      )
+      throw error
+    }
+  }
+
+  private acceptsDictionaryViewSender(senderId: number): boolean {
+    const dictionaryView = this.runtime.windowManager.dictionaryView
+    return dictionaryView?.acceptsSender(senderId) === true
+  }
+}
+
+function normalizeTtsText(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+
+  const text = value.trim()
+  return text.length > 0 && text.length <= MAX_TTS_TEXT_LENGTH ? text : null
+}
+
+function normalizeTtsVoice(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+
+  const voice = value.trim()
+  return voice || undefined
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`朗读请求超过 ${timeoutMs / 1_000} 秒未响应。`))
+    }, timeoutMs)
+
+    void promise.then(
+      (value) => {
+        clearTimeout(timeout)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timeout)
+        reject(error)
+      }
+    )
+  })
+}
+
+function getInvalidTextReason(value: unknown): string {
+  if (typeof value !== 'string') return `text is not a string: ${typeof value}`
+  if (!value.trim()) return 'text is empty after trim'
+  if (value.trim().length > MAX_TTS_TEXT_LENGTH) {
+    return `text length ${value.trim().length} exceeds ${MAX_TTS_TEXT_LENGTH}`
+  }
+  return 'unknown validation failure'
+}

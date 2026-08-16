@@ -7,6 +7,7 @@ import type {
   AiStreamEvent
 } from '../shared/ai-ipc'
 import type { DictionaryImportPreview, DictionaryImportRequest } from '../shared/dictionary-import'
+import type { ToastPayload } from '../shared/notification'
 
 type ReadyDictionary = {
   id: string
@@ -259,6 +260,14 @@ const api = Object.freeze({
       const listener = (): void => callback()
       ipcRenderer.on('app:show-find-bar', listener)
       return () => ipcRenderer.removeListener('app:show-find-bar', listener)
+    }
+  }),
+  notifications: Object.freeze({
+    onToast: (callback: (payload: ToastPayload) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: ToastPayload): void =>
+        callback(payload)
+      ipcRenderer.on('notification:toast', listener)
+      return () => ipcRenderer.removeListener('notification:toast', listener)
     }
   }),
   aiLookup: Object.freeze({

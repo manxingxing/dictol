@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 ;(() => {
   const maxAiExplanationTextLength = 10_000
+  const maxReadAloudTextLength = 200
   const lookup = (word) => {
     const value = word?.trim()
     if (value && value.length <= 200) window.dictolEntry?.lookupWord(value)
   }
 
   const localAudio = new Audio()
+  let generatedAudioUrl = ''
   const contextMenuHost = document.createElement('div')
   contextMenuHost.id = 'dictol-context-menu'
   contextMenuHost.style.cssText = 'position:fixed;display:none;z-index:2147483647;'
@@ -45,7 +47,7 @@
     }
     button:hover { background: rgba(255, 255, 255, .52); }
     button:active { background: rgba(218, 224, 217, .62); }
-    button:disabled { opacity: .38; }
+    button:disabled { opacity: .38; cursor: not-allowed; }
     svg {
       width: 14px;
       height: 14px;
@@ -74,6 +76,51 @@
   const hideContextMenu = () => {
     contextMenuHost.style.display = 'none'
   }
+
+  const releaseGeneratedAudioUrl = () => {
+    if (!generatedAudioUrl) return
+    URL.revokeObjectURL(generatedAudioUrl)
+    generatedAudioUrl = ''
+  }
+
+  // 监听器只挂一次，避免连续播放时累积；releaseGeneratedAudioUrl 幂等，重复触发无副作用
+  localAudio.addEventListener('ended', releaseGeneratedAudioUrl)
+  localAudio.addEventListener('error', releaseGeneratedAudioUrl)
+
+  const playAudioData = async (audioData) => {
+    const audioBytes = audioData instanceof ArrayBuffer ? new Uint8Array(audioData) : audioData
+    if (!audioBytes || audioBytes.byteLength === 0) return
+    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' })
+    releaseGeneratedAudioUrl()
+    generatedAudioUrl = URL.createObjectURL(audioBlob)
+
+    if (!localAudio.paused) localAudio.pause()
+    localAudio.src = generatedAudioUrl
+    try {
+      await localAudio.play()
+    } catch (error) {
+      // 快速连续点击时，上一次播放会被 pause() 以 AbortError 中断，属正常现象，不视为失败
+      if (error?.name !== 'AbortError') throw error
+    }
+  }
+
+  const readAloud = async (text, voice) => {
+    const normalizedText = text?.trim?.() ?? ''
+    if (!normalizedText || normalizedText.length > maxReadAloudTextLength) return
+
+    try {
+      const audioData = await window.dictolEntry?.readAloud?.(normalizedText, voice)
+      await playAudioData(audioData)
+    } catch (error) {
+      releaseGeneratedAudioUrl()
+      window.dictolEntry?.showToast?.({
+        type: 'error',
+        message: '朗读失败，请检查网络连接后重试。'
+      })
+    }
+  }
+  window.playText = readAloud
+
   const createMenuButton = (label, icon, action) => {
     const button = document.createElement('button')
     button.type = 'button'
@@ -97,6 +144,11 @@
     '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>',
     () => lookup(contextMenuText)
   )
+  const readAloudButton = createMenuButton(
+    '朗读',
+    '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>',
+    () => readAloud(contextMenuText)
+  )
   const explainWithAiButton = createMenuButton(
     'AI 解释',
     '<svg viewBox="0 0 24 24"><path d="m12 3-1.9 5.1L5 10l5.1 1.9L12 17l1.9-5.1L19 10l-5.1-1.9L12 3Z"></path><path d="m19 15 .7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15Z"></path></svg>',
@@ -111,7 +163,7 @@
     if (!availability) return
     availability.then(setAiExplanationEnabled).catch(() => setAiExplanationEnabled(false))
   }
-  contextMenu.append(copyButton, lookupButton, explainWithAiButton)
+  contextMenu.append(copyButton, lookupButton, readAloudButton, explainWithAiButton)
   contextMenuRoot.append(contextMenuStyle, contextMenu)
 
   refreshAiExplanationAvailability()
@@ -120,6 +172,7 @@
   const showContextMenu = (x, y, text, centered = false, aboveY = y) => {
     contextMenuText = text
     lookupButton.disabled = text.length > 200
+    readAloudButton.disabled = text.length > maxReadAloudTextLength
     explainWithAiButton.disabled = text.length > maxAiExplanationTextLength
     refreshAiExplanationAvailability()
     if (!contextMenuHost.isConnected) document.documentElement.append(contextMenuHost)
@@ -196,6 +249,7 @@
   addEventListener('blur', hideContextMenu)
   addEventListener('scroll', hideContextMenu, true)
 
+  // 词条跳转
   document.addEventListener(
     'click',
     (event) => {
@@ -213,6 +267,7 @@
     },
     true
   )
+  // 播放内置音频
   document.addEventListener('click', (event) => {
     if (event.defaultPrevented) return
     const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null
@@ -225,10 +280,15 @@
       return
     }
     event.preventDefault()
+    releaseGeneratedAudioUrl()
     localAudio.pause()
     localAudio.src = href
-    localAudio.play().catch((error) => console.error('Failed to play dictionary audio', error))
+    localAudio.play().catch((error) =>
+      window.dictolEntry?.showToast?.({
+        type: 'error',
+        message: `Failed to play dictionary audio: ${error.message}`
+      })
+    )
   })
-
   // -------------------------------------------------------------------------
 })()

@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+import type { ToastPayload } from '../shared/notification'
+
 window.addEventListener(
   'pointerdown',
   () => {
@@ -17,6 +19,19 @@ contextBridge.exposeInMainWorld(
     explainWithAi: (text: string): void =>
       ipcRenderer.send('dictionary-view:explain-with-ai', text),
     copyText: (text: string): void => ipcRenderer.send('dictionary-view:copy-text', text),
+    showToast: (payload: ToastPayload): void =>
+      ipcRenderer.send('notification:show-toast', payload),
+    readAloud: (text: string, voice?: string): Promise<Uint8Array | null> => {
+      return ipcRenderer
+        .invoke('dictionary-view:read-aloud', text, voice)
+        .then((audioData: Uint8Array | null) => {
+          return audioData
+        })
+        .catch((error: unknown) => {
+          console.error('[TTS][dictionary-preload] failed', error )
+          throw error
+        })
+    },
     onAiExplanationAvailabilityChanged: (callback: (enabled: boolean) => void): (() => void) => {
       const listener = (_event: Electron.IpcRendererEvent, enabled: boolean): void =>
         callback(enabled)

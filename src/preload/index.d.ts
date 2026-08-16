@@ -1,3 +1,5 @@
+import type { ToastPayload } from '../shared/notification'
+
 declare global {
   interface Window {
     dictol: {
@@ -231,6 +233,9 @@ declare global {
       app: {
         onFocusSearch: (callback: () => void) => () => void
         onShowFindBar: (callback: () => void) => () => void
+      }
+      notifications: {
+        onToast: (callback: (payload: ToastPayload) => void) => () => void
       }
       aiLookup: {
         getConfig: () => Promise<{
