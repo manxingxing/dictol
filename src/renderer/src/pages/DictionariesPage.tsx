@@ -525,7 +525,7 @@ export function DictionariesPage(): React.JSX.Element {
                   取消选择不需要复制的资源；MDX 主文件必须保留。
                 </DialogDescription>
               </DialogHeader>
-              <div className="min-h-0 overflow-y-auto px-6 py-4">
+              <div className="min-h-0 min-w-0 overflow-y-auto px-6 py-4">
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <label className="flex items-center gap-2 text-sm font-medium">
                     <input
@@ -555,12 +555,12 @@ export function DictionariesPage(): React.JSX.Element {
                   </label>
                   <span className="text-xs text-muted-foreground">按导入规则递归发现</span>
                 </div>
-                <div className="overflow-hidden rounded-xl border border-border">
+                <div className="min-w-0 overflow-hidden rounded-xl border border-border">
                   {importPreview.files.map((file) => {
                     const extension = getFileExtension(file.relativePath)
                     return (
                       <label
-                        className="grid min-h-14 grid-cols-[1.25rem_2.25rem_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border/70 px-3 py-2 last:border-b-0 hover:bg-muted/35"
+                        className="grid min-h-14 min-w-0 grid-cols-[1.25rem_2.25rem_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border/70 px-3 py-2 last:border-b-0 hover:bg-muted/35"
                         key={file.relativePath}
                       >
                         <input
@@ -586,16 +586,22 @@ export function DictionariesPage(): React.JSX.Element {
                         >
                           {extension}
                         </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium">
+                        <span className="min-w-0 overflow-hidden">
+                          <span
+                            className="block truncate text-sm font-medium"
+                            title={getFileName(file.relativePath)}
+                          >
                             {getFileName(file.relativePath)}
                           </span>
-                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          <span
+                            className="mt-0.5 block truncate text-xs text-muted-foreground"
+                            title={file.relativePath}
+                          >
                             {file.relativePath}
                             {file.required ? ' · 必需' : ''}
                           </span>
                         </span>
-                        <span className="text-xs tabular-nums text-muted-foreground">
+                        <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                           {formatFileSize(file.fileSize)}
                         </span>
                       </label>
@@ -620,7 +626,7 @@ export function DictionariesPage(): React.JSX.Element {
             </>
           ) : (
             <form
-              className="grid gap-5"
+              className="grid min-w-0 gap-5"
               onSubmit={(event) => {
                 event.preventDefault()
                 if (!importPreview) return
@@ -641,19 +647,20 @@ export function DictionariesPage(): React.JSX.Element {
                   选择一个 MDX 文件，Dictol 会查找同目录中的相关资源。
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-2">
+              <div className="grid min-w-0 gap-2">
                 <label className="text-sm font-medium" htmlFor="dictionary-import-file">
                   MDX 文件
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <Input
-                    className="min-w-0 flex-1 h-9"
+                    className="h-9 w-0 min-w-0 flex-1"
                     id="dictionary-import-file"
                     placeholder="尚未选择文件"
                     readOnly
                     value={importPreview?.mdxPath ?? ''}
                   />
                   <Button
+                    className="shrink-0"
                     disabled={importDictionary.isPending || selectingImportFile}
                     onClick={() => void selectImportFile()}
                     type="button"
@@ -664,7 +671,7 @@ export function DictionariesPage(): React.JSX.Element {
                 </div>
               </div>
               {importPreview && (
-                <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.035] p-3">
+                <div className="flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-primary/20 bg-primary/[0.035] p-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Files className="size-4" />
                   </span>
@@ -672,7 +679,10 @@ export function DictionariesPage(): React.JSX.Element {
                     <p className="text-sm font-medium">
                       共 {selectedImportFileItems.length} 个文件将被复制
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    <p
+                      className="mt-0.5 truncate text-xs text-muted-foreground"
+                      title={getFileName(importPreview.mdxPath)}
+                    >
                       {getFileName(importPreview.mdxPath)} · {formatFileSize(selectedImportSize)}
                     </p>
                   </div>
