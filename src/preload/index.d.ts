@@ -1,4 +1,5 @@
 import type { ToastPayload } from '../shared/notification'
+import type { TtsConfig, TtsSaveConfigRequest } from '../shared/tts'
 
 declare global {
   interface Window {
@@ -236,6 +237,10 @@ declare global {
       }
       notifications: {
         onToast: (callback: (payload: ToastPayload) => void) => () => void
+      }
+      tts: {
+        getConfig: () => Promise<TtsConfig | null>
+        saveConfig: (request: TtsSaveConfigRequest) => Promise<TtsConfig | null>
       }
       aiLookup: {
         getConfig: () => Promise<{

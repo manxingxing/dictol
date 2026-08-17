@@ -2,6 +2,8 @@ import { app } from 'electron'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
+import { DEFAULT_TTS_VOICE } from '../shared/tts'
+
 export type AppConfig = {
   featureFlags: {
     lookupWordOnShortcut: boolean
@@ -12,6 +14,9 @@ export type AppConfig = {
   }
   selection: {
     excludedPrograms: string[]
+  }
+  tts: {
+    voice: string
   }
   aiLookup: {
     enabled: boolean
@@ -41,6 +46,9 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   selection: {
     excludedPrograms: []
+  },
+  tts: {
+    voice: DEFAULT_TTS_VOICE
   },
   aiLookup: {
     enabled: false,
@@ -126,6 +134,7 @@ function parseConfig(value: unknown): AppConfig {
     }
     shortcuts?: { lookupWordOnShortcut?: unknown }
     selection?: { excludedPrograms?: unknown }
+    tts?: { voice?: unknown }
     aiLookup?: {
       enabled?: unknown
       provider?: unknown
@@ -168,6 +177,9 @@ function parseConfig(value: unknown): AppConfig {
     selection: {
       excludedPrograms: normalizeExcludedPrograms(candidate.selection?.excludedPrograms)
     },
+    tts: {
+      voice: normalizeConfigString(candidate.tts?.voice, DEFAULT_CONFIG.tts.voice, 200)
+    },
     aiLookup: {
       enabled:
         typeof candidate.aiLookup?.enabled === 'boolean'
@@ -192,6 +204,9 @@ function cloneConfig(config: AppConfig): AppConfig {
     shortcuts: { ...config.shortcuts },
     selection: {
       excludedPrograms: [...config.selection.excludedPrograms]
+    },
+    tts: {
+      ...config.tts
     },
     aiLookup: {
       ...config.aiLookup

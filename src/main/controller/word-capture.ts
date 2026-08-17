@@ -94,13 +94,11 @@ export class WordCaptureController extends BaseController {
 
     const previousConfig = this.runtime.appConfig.load()
     const nextConfig: AppConfig = {
-      featureFlags: { ...previousConfig.featureFlags },
+      ...previousConfig,
       shortcuts: {
         ...previousConfig.shortcuts,
         lookupWordOnShortcut: shortcut.trim()
-      },
-      selection: { ...previousConfig.selection },
-      aiLookup: { ...previousConfig.aiLookup }
+      }
     }
 
     try {
@@ -137,13 +135,11 @@ export class WordCaptureController extends BaseController {
 
     const previousConfig = this.runtime.appConfig.load()
     const nextConfig: AppConfig = {
+      ...previousConfig,
       featureFlags: {
         ...previousConfig.featureFlags,
         lookupWordOnSelection: enabled
-      },
-      shortcuts: { ...previousConfig.shortcuts },
-      selection: { ...previousConfig.selection },
-      aiLookup: { ...previousConfig.aiLookup }
+      }
     }
 
     try {

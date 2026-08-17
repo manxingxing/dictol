@@ -1,7 +1,8 @@
-import { ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { EdgeTTS } from 'edge-tts-universal'
 import { randomUUID } from 'node:crypto'
 
+import type { TtsConfig, TtsSaveConfigRequest } from '../../shared/tts'
 import { BaseController } from './base-controller'
 
 const MAX_TTS_TEXT_LENGTH = 200
@@ -9,7 +10,29 @@ const TTS_REQUEST_TIMEOUT_MS = 6_000
 
 export class TtsController extends BaseController {
   override mount(): void {
+    ipcMain.handle('tts:get-config', this.getConfig)
+    ipcMain.handle('tts:save-config', this.saveConfig)
     ipcMain.handle('dictionary-view:read-aloud', this.readAloud)
+  }
+
+  private readonly getConfig = (event: IpcMainInvokeEvent): TtsConfig | null => {
+    if (!this.acceptsMainSender(event.sender)) return null
+    return this.runtime.appConfig.load().tts
+  }
+
+  private readonly saveConfig = (event: IpcMainInvokeEvent, request: unknown): TtsConfig | null => {
+    if (!this.acceptsMainSender(event.sender)) return null
+    if (!isTtsSaveConfigRequest(request)) throw new Error('朗读设置格式无效。')
+
+    const voice = normalizeConfiguredVoice(request.voice)
+    if (!voice) throw new Error('请填写默认 voice。')
+
+    const current = this.runtime.appConfig.load()
+    this.runtime.appConfig.save({
+      ...current,
+      tts: { voice }
+    })
+    return this.runtime.appConfig.load().tts
   }
 
   private readonly readAloud = async (
@@ -21,12 +44,15 @@ export class TtsController extends BaseController {
     const startedAt = Date.now()
     const rawText = typeof text === 'string' ? text : `<${typeof text}>`
     const normalizedVoice = normalizeTtsVoice(voice)
+    const configuredVoice = this.runtime.appConfig.load().tts.voice
+    const effectiveVoice = normalizedVoice ?? configuredVoice
     const textLength = typeof text === 'string' ? text.trim().length : 0
     const context = {
       requestId,
       senderId: event.sender.id,
       textLength,
-      voice: normalizedVoice ?? 'default',
+      voice: effectiveVoice,
+      voiceSource: normalizedVoice ? 'request' : 'settings',
       timeoutMs: TTS_REQUEST_TIMEOUT_MS
     }
 
@@ -47,9 +73,7 @@ export class TtsController extends BaseController {
     }
 
     try {
-      const tts = normalizedVoice
-        ? new EdgeTTS(normalizedText, normalizedVoice)
-        : new EdgeTTS(normalizedText)
+      const tts = new EdgeTTS(normalizedText, effectiveVoice)
       const synthesis = await withTimeout(tts.synthesize(), TTS_REQUEST_TIMEOUT_MS)
       const audio = Buffer.from(await synthesis.audio.arrayBuffer())
       if (audio.length === 0) {
@@ -78,6 +102,13 @@ export class TtsController extends BaseController {
     const dictionaryView = this.runtime.windowManager.dictionaryView
     return dictionaryView?.acceptsSender(senderId) === true
   }
+
+  private acceptsMainSender(sender: WebContents): boolean {
+    const mainWindow = this.runtime.mainWindow
+    return Boolean(
+      mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.id === sender.id
+    )
+  }
 }
 
 function normalizeTtsText(value: unknown): string | null {
@@ -92,6 +123,16 @@ function normalizeTtsVoice(value: unknown): string | undefined {
 
   const voice = value.trim()
   return voice || undefined
+}
+
+function normalizeConfiguredVoice(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const voice = value.trim()
+  return voice && voice.length <= 200 ? voice : null
+}
+
+function isTtsSaveConfigRequest(value: unknown): value is TtsSaveConfigRequest {
+  return Boolean(value && typeof value === 'object' && 'voice' in value)
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {

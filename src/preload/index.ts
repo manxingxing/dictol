@@ -8,6 +8,7 @@ import type {
 } from '../shared/ai-ipc'
 import type { DictionaryImportPreview, DictionaryImportRequest } from '../shared/dictionary-import'
 import type { ToastPayload } from '../shared/notification'
+import type { TtsConfig, TtsSaveConfigRequest } from '../shared/tts'
 
 type ReadyDictionary = {
   id: string
@@ -269,6 +270,11 @@ const api = Object.freeze({
       ipcRenderer.on('notification:toast', listener)
       return () => ipcRenderer.removeListener('notification:toast', listener)
     }
+  }),
+  tts: Object.freeze({
+    getConfig: (): Promise<TtsConfig | null> => ipcRenderer.invoke('tts:get-config'),
+    saveConfig: (request: TtsSaveConfigRequest): Promise<TtsConfig | null> =>
+      ipcRenderer.invoke('tts:save-config', request)
   }),
   aiLookup: Object.freeze({
     getConfig: (): Promise<AiLookupPublicConfig | null> =>
