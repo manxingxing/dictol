@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LoaderCircle, Search, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -40,15 +40,17 @@ const initialPayload: SearchPopoverPayload = {
 
 export function SearchPopoverApp(): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
+  const latestPayloadRef = useRef<SearchPopoverPayload>(initialPayload)
   const [payload, setPayload] = useState<SearchPopoverPayload>(initialPayload)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [focusRequest, setFocusRequest] = useState(0)
 
   useEffect(
     () =>
       window.dictolSearchPopover.onUpdate((nextPayload) => {
+        latestPayloadRef.current = nextPayload
         setPayload(nextPayload)
-        setQuery(nextPayload.query)
         setSelectedIndex(nextPayload.selectedIndex)
       }),
     []
@@ -57,11 +59,19 @@ export function SearchPopoverApp(): React.JSX.Element {
   useEffect(
     () =>
       window.dictolSearchPopover.onFocus(() => {
-        inputRef.current?.focus({ preventScroll: true })
-        inputRef.current?.select()
+        const nextPayload = latestPayloadRef.current
+        setQuery(nextPayload.query)
+        setSelectedIndex(nextPayload.selectedIndex)
+        setFocusRequest((request) => request + 1)
       }),
     []
   )
+
+  useLayoutEffect(() => {
+    if (focusRequest === 0) return
+    inputRef.current?.focus({ preventScroll: true })
+    inputRef.current?.select()
+  }, [focusRequest])
 
   const updateQuery = (nextQuery: string): void => {
     setQuery(nextQuery)
