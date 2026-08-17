@@ -1,9 +1,7 @@
 export const DEFAULT_TTS_VOICE = 'en-US-AndrewNeural'
 
 export type TtsConfig = {
-  voice: string
+  edgeVoice: string
 }
 
-export type TtsSaveConfigRequest = {
-  voice: string
-}
+export type TtsSaveConfigRequest = TtsConfig

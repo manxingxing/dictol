@@ -16,7 +16,7 @@ export type AppConfig = {
     excludedPrograms: string[]
   }
   tts: {
-    voice: string
+    edgeVoice: string
   }
   aiLookup: {
     enabled: boolean
@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: AppConfig = {
     excludedPrograms: []
   },
   tts: {
-    voice: DEFAULT_TTS_VOICE
+    edgeVoice: DEFAULT_TTS_VOICE
   },
   aiLookup: {
     enabled: false,
@@ -134,7 +134,7 @@ function parseConfig(value: unknown): AppConfig {
     }
     shortcuts?: { lookupWordOnShortcut?: unknown }
     selection?: { excludedPrograms?: unknown }
-    tts?: { voice?: unknown }
+    tts?: { edgeVoice?: unknown }
     aiLookup?: {
       enabled?: unknown
       provider?: unknown
@@ -178,7 +178,7 @@ function parseConfig(value: unknown): AppConfig {
       excludedPrograms: normalizeExcludedPrograms(candidate.selection?.excludedPrograms)
     },
     tts: {
-      voice: normalizeConfigString(candidate.tts?.voice, DEFAULT_CONFIG.tts.voice, 200)
+      edgeVoice: normalizeConfigString(candidate.tts?.edgeVoice, DEFAULT_CONFIG.tts.edgeVoice, 200)
     },
     aiLookup: {
       enabled:

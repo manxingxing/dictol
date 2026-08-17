@@ -24,13 +24,13 @@ export class TtsController extends BaseController {
     if (!this.acceptsMainSender(event.sender)) return null
     if (!isTtsSaveConfigRequest(request)) throw new Error('朗读设置格式无效。')
 
-    const voice = normalizeConfiguredVoice(request.voice)
-    if (!voice) throw new Error('请填写默认 voice。')
+    const edgeVoice = normalizeConfiguredVoice(request.edgeVoice)
+    if (!edgeVoice) throw new Error('请填写默认 Edge voice。')
 
     const current = this.runtime.appConfig.load()
     this.runtime.appConfig.save({
       ...current,
-      tts: { voice }
+      tts: { edgeVoice }
     })
     return this.runtime.appConfig.load().tts
   }
@@ -44,7 +44,7 @@ export class TtsController extends BaseController {
     const startedAt = Date.now()
     const rawText = typeof text === 'string' ? text : `<${typeof text}>`
     const normalizedVoice = normalizeTtsVoice(voice)
-    const configuredVoice = this.runtime.appConfig.load().tts.voice
+    const configuredVoice = this.runtime.appConfig.load().tts.edgeVoice
     const effectiveVoice = normalizedVoice ?? configuredVoice
     const textLength = typeof text === 'string' ? text.trim().length : 0
     const context = {
@@ -132,7 +132,7 @@ function normalizeConfiguredVoice(value: unknown): string | null {
 }
 
 function isTtsSaveConfigRequest(value: unknown): value is TtsSaveConfigRequest {
-  return Boolean(value && typeof value === 'object' && 'voice' in value)
+  return Boolean(value && typeof value === 'object' && 'edgeVoice' in value)
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {

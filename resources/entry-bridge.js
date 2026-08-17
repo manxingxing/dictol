@@ -109,7 +109,7 @@
     if (!normalizedText || normalizedText.length > maxReadAloudTextLength) return
 
     try {
-      const audioData = await window.dictolEntry?.readAloud?.(normalizedText, voice)
+      const audioData = await window.dictolEntry.readAloud(normalizedText, voice)
       await playAudioData(audioData)
     } catch (error) {
       releaseGeneratedAudioUrl()

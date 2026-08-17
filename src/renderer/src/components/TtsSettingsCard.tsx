@@ -10,32 +10,49 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { useSaveTtsConfig, useTtsConfig } from '@/hooks/use-tts'
+import { type TtsConfig } from '../../../shared/tts'
 
-const ttsVoiceOptions = [
-  { value: 'en-US-AndrewNeural', name: 'Andrew', description: '美式男声' },
-  { value: 'en-US-BrianNeural', name: 'Brian', description: '美式男声' },
-  { value: 'en-US-ChristopherNeural', name: 'Christopher', description: '美式男声' },
-  { value: 'en-US-EricNeural', name: 'Eric', description: '美式男声' },
-  { value: 'en-US-GuyNeural', name: 'Guy', description: '美式男声' },
-  { value: 'en-US-RogerNeural', name: 'Roger', description: '美式男声' },
-  { value: 'en-US-SteffanNeural', name: 'Steffan', description: '美式男声' },
-  { value: 'en-US-AvaNeural', name: 'Ava', description: '美式女声' },
-  { value: 'en-US-EmmaNeural', name: 'Emma', description: '美式女声' },
-  { value: 'en-US-JennyNeural', name: 'Jenny', description: '美式女声' },
-  { value: 'en-US-MichelleNeural', name: 'Michelle', description: '美式女声' },
-  { value: 'en-US-AriaNeural', name: 'Aria', description: '美式女声' },
-  { value: 'en-US-AnaNeural', name: 'Ana', description: '美式女声' },
-  { value: 'en-GB-RyanNeural', name: 'Ryan', description: '英式男声' },
-  { value: 'en-GB-ThomasNeural', name: 'Thomas', description: '英式男声' },
-  { value: 'en-GB-LibbyNeural', name: 'Libby', description: '英式女声' },
-  { value: 'en-GB-MaisieNeural', name: 'Maisie', description: '英式女声' },
-  { value: 'en-GB-SoniaNeural', name: 'Sonia', description: '英式女声' }
-] as const
+type VoiceOption = {
+  value: string
+  label: string
+  description: string
+}
+
+const edgeTtsVoiceOptions: VoiceOption[] = [
+  { value: 'en-US-AndrewNeural', label: 'Andrew', description: '美式男声' },
+  { value: 'en-US-BrianNeural', label: 'Brian', description: '美式男声' },
+  { value: 'en-US-ChristopherNeural', label: 'Christopher', description: '美式男声' },
+  { value: 'en-US-EricNeural', label: 'Eric', description: '美式男声' },
+  { value: 'en-US-GuyNeural', label: 'Guy', description: '美式男声' },
+  { value: 'en-US-RogerNeural', label: 'Roger', description: '美式男声' },
+  { value: 'en-US-SteffanNeural', label: 'Steffan', description: '美式男声' },
+  { value: 'en-US-AvaNeural', label: 'Ava', description: '美式女声' },
+  { value: 'en-US-EmmaNeural', label: 'Emma', description: '美式女声' },
+  { value: 'en-US-JennyNeural', label: 'Jenny', description: '美式女声' },
+  { value: 'en-US-MichelleNeural', label: 'Michelle', description: '美式女声' },
+  { value: 'en-US-AriaNeural', label: 'Aria', description: '美式女声' },
+  { value: 'en-US-AnaNeural', label: 'Ana', description: '美式女声' },
+  { value: 'en-GB-RyanNeural', label: 'Ryan', description: '英式男声' },
+  { value: 'en-GB-ThomasNeural', label: 'Thomas', description: '英式男声' },
+  { value: 'en-GB-LibbyNeural', label: 'Libby', description: '英式女声' },
+  { value: 'en-GB-MaisieNeural', label: 'Maisie', description: '英式女声' },
+  { value: 'en-GB-SoniaNeural', label: 'Sonia', description: '英式女声' },
+  { value: 'de-DE-ConradNeural', label: 'Conrad', description: '德式男声' },
+  { value: 'de-DE-KatjaNeural', label: 'Katja', description: '德式女声' },
+  { value: 'ja-JP-KeitaNeural', label: 'Keita', description: '日式男声' },
+  { value: 'ja-JP-NanamiNeural', label: 'Nanami', description: '日式女声' },
+  { value: 'fr-FR-HenriNeural', label: 'Henri', description: '法式男声' },
+  { value: 'fr-FR-DeniseNeural', label: 'Denise', description: '法式女声' },
+  { value: 'it-IT-DiegoNeural', label: 'Diego', description: '意式男声' },
+  { value: 'it-IT-IsabellaNeural', label: 'Isabella', description: '意式女声' },
+  { value: 'ko-KR-InJoonNeural', label: 'InJoon', description: '韩式男声' },
+  { value: 'ko-KR-SunHiNeural', label: 'SunHi', description: '韩式女声' }
+]
 
 export function TtsSettingsCard(): React.JSX.Element {
   const ttsConfig = useTtsConfig()
   const saveTtsConfig = useSaveTtsConfig()
-  const [ttsVoice, setTtsVoice] = useState('')
+  const [ttsForm, setTtsForm] = useState<TtsConfig | null>(null)
   const [ttsError, setTtsError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -43,19 +60,24 @@ export function TtsSettingsCard(): React.JSX.Element {
     if (!config) return
     // Hydrate the form from the main-process source of truth.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTtsVoice(config.voice)
+    setTtsForm(config)
   }, [ttsConfig.data])
 
-  const saveTtsVoice = (voice: string): void => {
-    setTtsVoice(voice)
+  const saveTtsConfigValue = (patch: Partial<TtsConfig>): void => {
+    const current = ttsForm ?? ttsConfig.data
+    if (!current) return
+
+    const nextConfig: TtsConfig = { ...current, ...patch }
+    setTtsForm(nextConfig)
     setTtsError(null)
-    saveTtsConfig.mutate(
-      { voice },
-      {
-        onError: (error: Error) => setTtsError(error.message)
-      }
-    )
+    saveTtsConfig.mutate(nextConfig, {
+      onError: (error: Error) => setTtsError(error.message)
+    })
   }
+
+  const selectedEdgeVoice = edgeTtsVoiceOptions.find(
+    (voice) => voice.value === (ttsForm?.edgeVoice ?? ttsConfig.data?.edgeVoice ?? '')
+  )
 
   return (
     <Card className="mt-4">
@@ -64,28 +86,31 @@ export function TtsSettingsCard(): React.JSX.Element {
           <Volume2 className="size-5" />
         </div>
         <CardTitle>朗读</CardTitle>
-        <CardDescription>配置朗读默认使用的语音</CardDescription>
+        <CardDescription>选择 Edge TTS 使用的音色</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Select
-          disabled={ttsConfig.isLoading || !ttsConfig.data || saveTtsConfig.isPending}
-          onValueChange={saveTtsVoice}
-          value={ttsVoice}
-        >
-          <SelectTrigger aria-label="默认 voice">
-            <SelectValue placeholder="选择语音" />
-          </SelectTrigger>
-          <SelectContent>
-            {ttsVoiceOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                <span className="flex items-center gap-2">
-                  <span>{option.name}</span>
-                  <span className="text-xs text-muted-foreground">{option.description}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <label className="block max-w-xl space-y-1.5 text-sm">
+          <Select
+            onValueChange={(edgeVoice) => saveTtsConfigValue({ edgeVoice })}
+            value={selectedEdgeVoice?.value ?? ''}
+            disabled={ttsConfig.isLoading || !ttsConfig.data || saveTtsConfig.isPending}
+          >
+            <SelectTrigger aria-label="Edge voice">
+              <SelectValue placeholder="选择 Edge 音色" />
+            </SelectTrigger>
+            <SelectContent>
+              {edgeTtsVoiceOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <span className="flex items-center gap-2">
+                    <span>{option.label}</span>
+                    <span className="text-xs text-muted-foreground">{option.description}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+
         {ttsError && (
           <p className="text-xs text-destructive" role="alert">
             {ttsError}
