@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Volume2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Volume2 } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from '@/components/ui/command'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useSaveTtsConfig, useTtsConfig } from '@/hooks/use-tts'
 import { type TtsConfig } from '../../../shared/tts'
 
@@ -54,6 +57,7 @@ export function TtsSettingsCard(): React.JSX.Element {
   const saveTtsConfig = useSaveTtsConfig()
   const [ttsForm, setTtsForm] = useState<TtsConfig | null>(null)
   const [ttsError, setTtsError] = useState<string | null>(null)
+  const [voicePickerOpen, setVoicePickerOpen] = useState(false)
 
   useEffect(() => {
     const config = ttsConfig.data
@@ -90,25 +94,65 @@ export function TtsSettingsCard(): React.JSX.Element {
       </CardHeader>
       <CardContent className="space-y-4">
         <label className="block max-w-xl space-y-1.5 text-sm">
-          <Select
-            onValueChange={(edgeVoice) => saveTtsConfigValue({ edgeVoice })}
-            value={selectedEdgeVoice?.value ?? ''}
-            disabled={ttsConfig.isLoading || !ttsConfig.data || saveTtsConfig.isPending}
-          >
-            <SelectTrigger aria-label="Edge voice">
-              <SelectValue placeholder="选择 Edge 音色" />
-            </SelectTrigger>
-            <SelectContent>
-              {edgeTtsVoiceOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <span className="flex items-center gap-2">
-                    <span>{option.label}</span>
-                    <span className="text-xs text-muted-foreground">{option.description}</span>
+          <Popover open={voicePickerOpen} onOpenChange={setVoicePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                aria-expanded={voicePickerOpen}
+                aria-label="Edge voice"
+                className="w-full justify-between border border-input bg-background font-normal shadow-xs hover:bg-background"
+                disabled={ttsConfig.isLoading || !ttsConfig.data || saveTtsConfig.isPending}
+                role="combobox"
+                variant="outline"
+              >
+                {selectedEdgeVoice ? (
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate">{selectedEdgeVoice.label}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {selectedEdgeVoice.description}
+                    </span>
                   </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                ) : (
+                  <span className="text-muted-foreground">选择 Edge 音色</span>
+                )}
+                <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+              <Command>
+                <CommandInput placeholder="搜索音色..." />
+                <CommandList>
+                  <CommandEmpty>没有找到匹配的音色。</CommandEmpty>
+                  <CommandGroup>
+                    {edgeTtsVoiceOptions.map((option) => (
+                      <CommandItem
+                        key={option.value}
+                        keywords={[option.label, option.description]}
+                        value={option.value}
+                        onSelect={() => {
+                          saveTtsConfigValue({ edgeVoice: option.value })
+                          setVoicePickerOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={
+                            selectedEdgeVoice?.value === option.value
+                              ? 'size-4 opacity-100'
+                              : 'size-4 opacity-0'
+                          }
+                        />
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate">{option.label}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </label>
 
         {ttsError && (

@@ -37,8 +37,10 @@
   "dependencies": {
     "@dictol/mdict-native": "file:native/mdict-node",
     "@electron-toolkit/utils": "^4.0.0",
+    "@radix-ui/react-popover": "^1.1.23",
     "adblock-rs": "^0.13.2",
     "better-sqlite3": "^13.0.1",
+    "cmdk": "^1.1.1",
     "drizzle-orm": "^0.45.2",
     "edge-tts-universal": "^1.4.0",
     "exceljs": "4.4.0",
