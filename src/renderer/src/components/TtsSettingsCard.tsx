@@ -88,7 +88,7 @@ export function TtsSettingsCard(): React.JSX.Element {
       <SettingsList>
         <SettingsRow
           label="Edge 音色"
-          description="朗读词条和例句时使用。"
+          description="朗读词条和例句时使用"
           className="items-start"
           control={
             <Popover open={voicePickerOpen} onOpenChange={setVoicePickerOpen}>
@@ -96,7 +96,7 @@ export function TtsSettingsCard(): React.JSX.Element {
                 <Button
                   aria-expanded={voicePickerOpen}
                   aria-label="Edge voice"
-                  className="w-[min(26rem,42vw)] min-w-64 justify-between border border-input bg-background font-normal shadow-xs hover:bg-background"
+                  className="w-[min(20rem,40vw)] min-w-20 justify-between border border-input bg-background font-normal shadow-xs hover:bg-background"
                   disabled={ttsConfig.isLoading || !ttsConfig.data || saveTtsConfig.isPending}
                   role="combobox"
                   variant="outline"

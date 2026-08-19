@@ -50,7 +50,7 @@ export function WordCaptureSettingsCard(): React.JSX.Element {
   return (
     <SettingsSection
       title="取词"
-      description="在其他软件中选择文字，使用快捷键或划词工具栏获取词条解释。"
+      description="在其他软件中选择文字，使用快捷键或划词工具栏获取词条解释"
     >
       {!captureStatus ? (
         <SettingsList>
@@ -285,7 +285,7 @@ export function WordCaptureSettingsCard(): React.JSX.Element {
               <div className="border-b border-border bg-muted/30 px-4 py-3">
                 <p className="text-sm font-medium">macOS 权限</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Dictol 需要以下权限读取选区，并响应跨应用的划词和弹窗操作。
+                  需要以下权限读取选区，并响应跨应用的划词和弹窗操作
                 </p>
               </div>
 

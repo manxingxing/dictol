@@ -69,7 +69,7 @@ export function AiLookupSettingsCard(): React.JSX.Element {
       <SettingsList>
         <SettingsRow
           label="启用 AI 增强"
-          description="开启后可在词条解释区打开聊天侧栏，也可从划词工具栏获取单次解释。"
+          description="开启后可在词条解释区打开聊天侧栏，也可从划词工具栏获取单次解释"
           control={
             <div className="flex shrink-0 items-center gap-2">
               <Dialog
