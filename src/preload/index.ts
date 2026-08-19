@@ -252,6 +252,7 @@ const api = Object.freeze({
       ipcRenderer.invoke('wordbooks:rename', wordbookId, name)
   }),
   app: Object.freeze({
+    getVersion: (): Promise<string | null> => ipcRenderer.invoke('app:get-version'),
     onFocusSearch: (callback: () => void): (() => void) => {
       const listener = (): void => callback()
       ipcRenderer.on('app:focus-search', listener)
@@ -262,6 +263,17 @@ const api = Object.freeze({
       ipcRenderer.on('app:show-find-bar', listener)
       return () => ipcRenderer.removeListener('app:show-find-bar', listener)
     }
+  }),
+  keyboard: Object.freeze({
+    getStatus: (): Promise<{ shortcut: string; registered: boolean } | null> =>
+      ipcRenderer.invoke('keyboard:status'),
+    setMainWindowShortcut: (
+      shortcut: string
+    ): Promise<{
+      ok: boolean
+      status: { shortcut: string; registered: boolean }
+      error?: string
+    } | null> => ipcRenderer.invoke('keyboard:set-main-window-shortcut', shortcut)
   }),
   notifications: Object.freeze({
     onToast: (callback: (payload: ToastPayload) => void): (() => void) => {

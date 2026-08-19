@@ -16,6 +16,7 @@ import { MainWindowShortcutRouter } from './main-window-shortcut-router'
 import { AdBlockService } from './ad-block-service'
 
 export const LOOKUP_WORD_ON_SHORTCUT = 'lookupWordOnShortcut'
+export const SHOW_MAIN_WINDOW_SHORTCUT = 'showMainWindow'
 
 type MainWindowInitializer = (mainWindow: BrowserWindow) => void
 
@@ -87,6 +88,14 @@ export class AppRuntime {
     return mainWindow
   }
 
+  activateMainWindow(): void {
+    const mainWindow = this.getOrCreateMainWindow()
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    if (!mainWindow.isVisible()) mainWindow.show()
+    mainWindow.focus()
+    this.windowManager.focusMainWindowRenderer()
+  }
+
   setMainWindowInitializer(initializer: MainWindowInitializer): void {
     this.mainWindowInitializer = initializer
   }
@@ -141,10 +150,24 @@ export class AppRuntime {
   }
 
   private registerGlobalShortCuts(config: AppConfig): void {
+    this.registerMainWindowShortcut(config.shortcuts.showMainWindow)
+
     // 快捷键取词
     if (config.featureFlags.lookupWordOnShortcut) {
       this.registerLookupWordShortCut(config.shortcuts)
     }
+  }
+
+  restartMainWindowShortcut(): void {
+    this.shortcutRegister.unregister(SHOW_MAIN_WINDOW_SHORTCUT)
+    const config = this.appConfig.load()
+    this.registerMainWindowShortcut(config.shortcuts.showMainWindow)
+  }
+
+  private registerMainWindowShortcut(shortcut: string): void {
+    this.shortcutRegister.register(SHOW_MAIN_WINDOW_SHORTCUT, shortcut, {
+      handleShortcut: () => this.activateMainWindow()
+    })
   }
 
   private registerLookupWordShortCut({

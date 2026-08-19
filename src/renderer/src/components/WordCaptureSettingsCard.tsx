@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, CircleAlert, Keyboard, Settings, ShieldAlert, Trash2 } from 'lucide-react'
+import { CheckCircle2, CircleAlert, Settings, ShieldAlert, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SettingsList, SettingsRow, SettingsSection } from '@/components/settings/SettingsSection'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   FieldLabel
 } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
+import { formatShortcut, shortcutFromKeyboardEvent } from '@/lib/keyboard-shortcut'
 
 type WordCaptureStatus = Awaited<ReturnType<typeof window.dictol.wordCapture.getStatus>>
 
@@ -47,44 +48,44 @@ export function WordCaptureSettingsCard(): React.JSX.Element {
   }, [refreshCaptureStatus])
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-          <Keyboard className="size-5" />
-        </div>
-        <CardTitle>取词</CardTitle>
-        <CardDescription>在其他软件中选择文字，在弹窗中获取词条解释。</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!captureStatus ? (
-          <p className="text-sm text-muted-foreground">正在检查取词状态…</p>
-        ) : !captureStatus.supported ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <SettingsSection
+      title="取词"
+      description="在其他软件中选择文字，使用快捷键或划词工具栏获取词条解释。"
+    >
+      {!captureStatus ? (
+        <SettingsList>
+          <div className="px-4 py-5 text-sm text-muted-foreground">正在检查取词状态…</div>
+        </SettingsList>
+      ) : !captureStatus.supported ? (
+        <SettingsList>
+          <div className="flex items-center gap-2 bg-card px-4 py-5 text-sm text-muted-foreground">
             <Settings className="size-4" />
             {captureStatus.limitation ?? '当前平台暂不支持快捷键取词。'}
           </div>
-        ) : (
-          <>
-            {captureStatus.limitation && (
-              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
-                {captureStatus.limitation}
-              </div>
-            )}
-            <div className="rounded-lg border border-border px-4 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">查词快捷键</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {recordingShortcut
-                      ? '请直接按下新的组合键，按 Esc 取消'
-                      : captureStatus.registered
-                        ? '快捷键已启用'
-                        : '快捷键被其他应用占用，请重新设置'}
-                  </p>
-                </div>
+        </SettingsList>
+      ) : (
+        <div className="space-y-3">
+          {captureStatus.limitation && (
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
+              {captureStatus.limitation}
+            </div>
+          )}
+          <SettingsList>
+            <SettingsRow
+              label="查词快捷键"
+              description={
+                recordingShortcut
+                  ? '请直接按下新的组合键，按 Esc 取消'
+                  : captureStatus.registered
+                    ? '快捷键已启用'
+                    : '快捷键被其他应用占用，请重新设置'
+              }
+              control={
                 <div className="flex items-center gap-2">
                   <kbd className="min-w-24 rounded-md border border-border bg-muted px-3 py-1.5 text-center text-sm font-medium">
-                    {recordingShortcut ? '等待输入…' : formatShortcut(captureStatus.shortcut)}
+                    {recordingShortcut
+                      ? '等待输入…'
+                      : formatShortcut(captureStatus.shortcut, window.dictol.platform)}
                   </kbd>
                   <Button
                     disabled={savingShortcut}
@@ -124,16 +125,21 @@ export function WordCaptureSettingsCard(): React.JSX.Element {
                     {recordingShortcut ? '按下组合键' : '修改'}
                   </Button>
                 </div>
-              </div>
-              {shortcutError && (
-                <p className="mt-3 text-xs text-destructive" role="alert">
-                  {shortcutError}
-                </p>
-              )}
-            </div>
+              }
+            />
+            {shortcutError && (
+              <p
+                className="border-b border-border bg-card px-4 py-3 text-xs text-destructive"
+                role="alert"
+              >
+                {shortcutError}
+              </p>
+            )}
+          </SettingsList>
 
+          <SettingsList>
             <div
-              className="rounded-lg border border-border px-4 py-3 transition-colors data-[enabled=true]:border-primary/25 data-[enabled=true]:bg-primary/[0.025]"
+              className="bg-card px-4 py-3 transition-colors data-[enabled=true]:bg-primary/[0.025]"
               data-enabled={captureStatus.lookupWordOnSelection}
             >
               <Field className="items-start gap-4" orientation="horizontal">
@@ -272,157 +278,101 @@ export function WordCaptureSettingsCard(): React.JSX.Element {
                 </div>
               )}
             </div>
+          </SettingsList>
 
-            {window.dictol.platform === 'darwin' && (
-              <div className="overflow-hidden rounded-lg border border-border">
-                <div className="border-b border-border bg-muted/30 px-4 py-3">
-                  <p className="text-sm font-medium">macOS 权限</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Dictol 需要以下权限读取选区，并响应跨应用的划词和弹窗操作。
-                  </p>
-                </div>
+          {window.dictol.platform === 'darwin' && (
+            <div className="overflow-hidden rounded-lg border border-border">
+              <div className="border-b border-border bg-muted/30 px-4 py-3">
+                <p className="text-sm font-medium">macOS 权限</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Dictol 需要以下权限读取选区，并响应跨应用的划词和弹窗操作。
+                </p>
+              </div>
 
-                <div className="flex items-start justify-between gap-6 px-4 py-4">
-                  <div className="flex min-w-0 gap-3">
-                    {captureStatus.trusted ? (
-                      <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
-                    ) : (
-                      <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-                    )}
-                    <div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="text-sm font-medium">辅助功能</p>
-                        <span className="text-xs text-muted-foreground">
-                          {captureStatus.trusted ? '已开启' : '尚未开启'}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        用于获取其他应用中当前所选的文本。
-                      </p>
-                      {!captureStatus.trusted && (
-                        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                          点击“开启辅助功能”，然后在系统设置中允许 Dictol。
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {!captureStatus.trusted && (
-                    <Button
-                      className="shrink-0"
-                      onClick={() => {
-                        void window.dictol.wordCapture.requestAccess().then(setCaptureStatus)
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      开启辅助功能
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex items-start justify-between gap-6 border-t border-border px-4 py-4">
-                  <div className="flex min-w-0 gap-3">
+              <div className="flex items-start justify-between gap-6 px-4 py-4">
+                <div className="flex min-w-0 gap-3">
+                  {captureStatus.trusted ? (
+                    <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
+                  ) : (
                     <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">输入监控</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        用于感知划词结束和弹窗外点击，改善划词工具栏与解释弹窗体验。
-                        <span className="mt-1 block">Dictol 不保存或上传键盘输入。</span>
-                      </p>
-                      <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-xs leading-5 text-muted-foreground">
-                        <li>打开“输入监控”设置。</li>
-                        <li>在应用列表中开启 Dictol。</li>
-                        <li>退出并重新打开 Dictol。</li>
-                      </ol>
-                      {inputMonitoringSettingsError && (
-                        <FieldError className="mt-2 text-xs leading-5">
-                          {inputMonitoringSettingsError}
-                        </FieldError>
-                      )}
+                  )}
+                  <div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-sm font-medium">辅助功能</p>
+                      <span className="text-xs text-muted-foreground">
+                        {captureStatus.trusted ? '已开启' : '尚未开启'}
+                      </span>
                     </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      用于获取其他应用中当前所选的文本。
+                    </p>
+                    {!captureStatus.trusted && (
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        点击“开启辅助功能”，然后在系统设置中允许 Dictol。
+                      </p>
+                    )}
                   </div>
+                </div>
+                {!captureStatus.trusted && (
                   <Button
                     className="shrink-0"
-                    disabled={openingInputMonitoringSettings}
                     onClick={() => {
-                      setInputMonitoringSettingsError(null)
-                      setOpeningInputMonitoringSettings(true)
-                      void window.dictol.wordCapture
-                        .openInputMonitoringSettings()
-                        .then((result) => {
-                          if (!result?.ok) {
-                            setInputMonitoringSettingsError(
-                              result?.error ?? '无法打开输入监控设置。'
-                            )
-                          }
-                        })
-                        .finally(() => setOpeningInputMonitoringSettings(false))
+                      void window.dictol.wordCapture.requestAccess().then(setCaptureStatus)
                     }}
                     size="sm"
                     variant="outline"
                   >
-                    {openingInputMonitoringSettings ? '正在打开…' : '打开输入监控设置'}
+                    开启辅助功能
                   </Button>
-                </div>
+                )}
               </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+
+              <div className="flex items-start justify-between gap-6 border-t border-border px-4 py-4">
+                <div className="flex min-w-0 gap-3">
+                  <ShieldAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">输入监控</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      用于感知划词结束和弹窗外点击，改善划词工具栏与解释弹窗体验。
+                      <span className="mt-1 block">Dictol 不保存或上传键盘输入。</span>
+                    </p>
+                    <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-xs leading-5 text-muted-foreground">
+                      <li>打开“输入监控”设置。</li>
+                      <li>在应用列表中开启 Dictol。</li>
+                      <li>退出并重新打开 Dictol。</li>
+                    </ol>
+                    {inputMonitoringSettingsError && (
+                      <FieldError className="mt-2 text-xs leading-5">
+                        {inputMonitoringSettingsError}
+                      </FieldError>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  className="shrink-0"
+                  disabled={openingInputMonitoringSettings}
+                  onClick={() => {
+                    setInputMonitoringSettingsError(null)
+                    setOpeningInputMonitoringSettings(true)
+                    void window.dictol.wordCapture
+                      .openInputMonitoringSettings()
+                      .then((result) => {
+                        if (!result?.ok) {
+                          setInputMonitoringSettingsError(result?.error ?? '无法打开输入监控设置。')
+                        }
+                      })
+                      .finally(() => setOpeningInputMonitoringSettings(false))
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  {openingInputMonitoringSettings ? '正在打开…' : '打开输入监控设置'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </SettingsSection>
   )
-}
-
-function shortcutFromKeyboardEvent(event: React.KeyboardEvent): string | null {
-  const modifiers: string[] = []
-  if (event.metaKey) modifiers.push('Command')
-  if (event.ctrlKey) modifiers.push('Control')
-  if (event.altKey) modifiers.push('Alt')
-  if (event.shiftKey) modifiers.push('Shift')
-  if (!event.metaKey && !event.ctrlKey && !event.altKey) return null
-
-  let key: string | undefined
-  if (/^Key[A-Z]$/.test(event.code)) key = event.code.slice(3)
-  else if (/^Digit[0-9]$/.test(event.code)) key = event.code.slice(5)
-  else if (/^F(?:[1-9]|1\d|2[0-4])$/.test(event.key)) key = event.key
-  else {
-    key = {
-      ' ': 'Space',
-      Tab: 'Tab',
-      Enter: 'Enter',
-      Backspace: 'Backspace',
-      Delete: 'Delete',
-      Insert: 'Insert',
-      Home: 'Home',
-      End: 'End',
-      PageUp: 'PageUp',
-      PageDown: 'PageDown',
-      ArrowUp: 'Up',
-      ArrowDown: 'Down',
-      ArrowLeft: 'Left',
-      ArrowRight: 'Right'
-    }[event.key]
-  }
-
-  return key ? [...modifiers, key].join('+') : null
-}
-
-function formatShortcut(shortcut: string): string {
-  const labels: Record<string, string> = {
-    Command: '⌘',
-    CommandOrControl: '⌘',
-    Control: '⌃',
-    Alt: '⌥',
-    Option: '⌥',
-    Shift: '⇧',
-    Space: 'Space',
-    Up: '↑',
-    Down: '↓',
-    Left: '←',
-    Right: '→'
-  }
-  return shortcut
-    .split('+')
-    .map((part) => labels[part] ?? part)
-    .join(' ')
 }

@@ -7,6 +7,7 @@ import {
   type AiLookupPublicConfig,
   type AiSaveConfigRequest
 } from '../../shared/ai-ipc'
+import { LANGUAGE_TASK_KINDS } from '../../shared/language-task'
 import { AppRuntime } from '../app-runtime'
 import { AiLookupService } from '../ai-service'
 import { BaseController } from './base-controller'
@@ -62,7 +63,8 @@ export class AiController extends BaseController {
       (streamEvent) => {
         if (!sender.isDestroyed()) sender.send('ai-lookup:event', { requestId, ...streamEvent })
       },
-      request.translation
+      request.translation,
+      request.languageTask
     )
     return requestId
   }
@@ -98,10 +100,18 @@ function isChatRequest(value: unknown): value is AiChatRequest {
       request.translation !== undefined &&
       AI_TRANSLATION_LANGUAGES.includes(request.translation.sourceLanguage) &&
       AI_TRANSLATION_LANGUAGES.includes(request.translation.targetLanguage) &&
-      request.translation.sourceLanguage !== request.translation.targetLanguage
+      request.translation.sourceLanguage !== request.translation.targetLanguage &&
+      request.languageTask === undefined
     )
   }
-  return request.translation === undefined
+  if (request.translation !== undefined || !request.languageTask) return false
+  const sourceText = request.languageTask.sourceText
+  if (typeof sourceText !== 'string' || !sourceText.trim() || sourceText.length > 20_000)
+    return false
+  return (
+    request.languageTask.task === undefined ||
+    LANGUAGE_TASK_KINDS.includes(request.languageTask.task)
+  )
 }
 
 function isSaveConfigRequest(value: unknown): value is AiSaveConfigRequest {
@@ -112,8 +122,6 @@ function isSaveConfigRequest(value: unknown): value is AiSaveConfigRequest {
     request.provider === 'openai-compatible' &&
     typeof request.baseUrl === 'string' &&
     typeof request.model === 'string' &&
-    typeof request.sidebarSystemPrompt === 'string' &&
-    typeof request.selectionToolbarSystemPrompt === 'string' &&
     (request.apiKey === undefined || typeof request.apiKey === 'string')
   )
 }

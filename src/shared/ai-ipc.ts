@@ -1,3 +1,5 @@
+import type { LanguageTaskKind } from './language-task'
+
 export type AiProvider = 'openai-compatible'
 
 export type AiLookupConfig = {
@@ -5,8 +7,6 @@ export type AiLookupConfig = {
   provider: AiProvider
   baseUrl: string
   model: string
-  sidebarSystemPrompt: string
-  selectionToolbarSystemPrompt: string
 }
 
 export type AiLookupPublicConfig = AiLookupConfig & {
@@ -36,10 +36,17 @@ export type AiChatRequest = {
     sourceLanguage: AiTranslationLanguage
     targetLanguage: AiTranslationLanguage
   }
+  languageTask?: {
+    sourceText: string
+    task?: LanguageTaskKind
+  }
 }
 
 export type AiStreamEvent =
-  { type: 'delta'; text: string } | { type: 'done' } | { type: 'error'; message: string }
+  | { type: 'task'; task: LanguageTaskKind }
+  | { type: 'delta'; text: string }
+  | { type: 'done' }
+  | { type: 'error'; message: string }
 
 export type AiSaveConfigRequest = AiLookupConfig & {
   apiKey?: string

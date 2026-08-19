@@ -574,7 +574,7 @@ export class SelectionToolbarController extends BaseController {
     }
   }
 
-  private async showAiExplanation(word: string): Promise<void> {
+  private showAiExplanation(word: string): void {
     const normalizedWord = word.trim()
     if (!normalizedWord) return
 
@@ -600,11 +600,13 @@ export class SelectionToolbarController extends BaseController {
     let content = ''
     this.runtime.aiLookupService.start(
       requestId,
-      [{ role: 'user', content: `请解释“${normalizedWord}”` }],
+      [{ role: 'user', content: normalizedWord }],
       'selection-toolbar',
       (event) => {
         if (version !== this.lookupVersion) return
-        if (event.type === 'delta') {
+        if (event.type === 'task') {
+          return
+        } else if (event.type === 'delta') {
           content += event.text
           this.updateExplanation({
             mode: 'ai',
@@ -630,7 +632,9 @@ export class SelectionToolbarController extends BaseController {
             message: event.message
           })
         }
-      }
+      },
+      undefined,
+      { sourceText: normalizedWord }
     )
   }
 

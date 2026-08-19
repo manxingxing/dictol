@@ -173,6 +173,7 @@ async function readFirstAvailableFile(paths: string[]): Promise<Buffer> {
 }
 
 async function handleResourceRequest(runtime: AppRuntime, request: Request): Promise<Response> {
+  console.log('requesting resource: ', request.url)
   try {
     const parsed = parseDictionaryResourceUrl(request.url)
     if (!parsed) return response('Invalid resource URL', 'text/plain; charset=utf-8', 400)

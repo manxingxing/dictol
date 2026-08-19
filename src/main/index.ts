@@ -34,10 +34,7 @@ function startPrimaryInstance(): void {
     }
 
     pendingWindowActivation = false
-    const mainWindow = runtime.getOrCreateMainWindow()
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    if (!mainWindow.isVisible()) mainWindow.show()
-    mainWindow.focus()
+    runtime.activateMainWindow()
   }
 
   app.on('second-instance', showAndFocusMainWindow)

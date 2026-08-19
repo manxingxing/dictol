@@ -1,12 +1,23 @@
 import type {
   AiTranslationLanguage,
   AiChatMessage,
+  AiChatRequest,
   AiLookupPublicConfig,
   AiSaveConfigRequest,
   AiStreamEvent
 } from '../shared/ai-ipc'
+import type { LanguageTaskClassification } from '../shared/language-task'
 import { AppConfigStore } from './app-config'
 import { AiCredentialStore } from './ai-credentials'
+import {
+  LanguageTaskClassifier,
+  OpenAiCompatibleLanguageTaskModel
+} from './language-task-classifier'
+import {
+  getFallbackLanguageTaskSystemPrompt,
+  getLanguageTaskSystemPrompt,
+  prepareLanguageTaskMessages
+} from './language-task-prompts'
 
 const MAX_MESSAGES = 100
 const MAX_MESSAGE_LENGTH = 20_000
@@ -14,13 +25,30 @@ const REQUEST_TIMEOUT_MS = 120_000
 
 export type AiStreamHandler = (event: AiStreamEvent) => void
 export type AiPromptTarget = 'sidebar' | 'selection-toolbar' | 'translation'
+type AiLanguageTaskContext = NonNullable<AiChatRequest['languageTask']>
 
 export class AiLookupService {
   private readonly credentials: AiCredentialStore
+  private readonly languageTaskClassifier: LanguageTaskClassifier
   private readonly requests = new Map<string, AbortController>()
 
   constructor(private readonly appConfig: AppConfigStore) {
     this.credentials = new AiCredentialStore()
+    this.languageTaskClassifier = new LanguageTaskClassifier(
+      new OpenAiCompatibleLanguageTaskModel(() => {
+        const config = this.appConfig.load().aiLookup
+        if (!config.enabled) throw new Error('AI 查词尚未开启。')
+        return {
+          baseUrl: config.baseUrl,
+          model: config.model,
+          apiKey: this.credentials.getApiKey() || undefined
+        }
+      })
+    )
+  }
+
+  classifyLanguageTask(input: string): Promise<LanguageTaskClassification> {
+    return this.languageTaskClassifier.classify(input)
   }
 
   getPublicConfig(): AiLookupPublicConfig {
@@ -34,8 +62,6 @@ export class AiLookupService {
   saveConfig(input: AiSaveConfigRequest): ReturnType<AiLookupService['getPublicConfig']> {
     const baseUrl = normalizeBaseUrl(input.baseUrl)
     const model = normalizeText(input.model, 200)
-    const sidebarSystemPrompt = normalizeText(input.sidebarSystemPrompt, 4_000)
-    const selectionToolbarSystemPrompt = normalizeText(input.selectionToolbarSystemPrompt, 4_000)
     if (!baseUrl) throw new Error('请填写服务地址。')
 
     const current = this.appConfig.load()
@@ -46,9 +72,7 @@ export class AiLookupService {
           enabled: input.enabled,
           provider: 'openai-compatible',
           baseUrl,
-          model,
-          sidebarSystemPrompt,
-          selectionToolbarSystemPrompt
+          model
         }
       })
       if (input.apiKey?.trim()) this.credentials.saveApiKey(input.apiKey)
@@ -67,6 +91,7 @@ export class AiLookupService {
       sourceLanguage: AiTranslationLanguage
       targetLanguage: AiTranslationLanguage
     },
+    languageTask?: AiLanguageTaskContext,
     onEvent?: AiStreamHandler
   ): AsyncGenerator<AiStreamEvent, void> {
     const controller = new AbortController()
@@ -79,16 +104,31 @@ export class AiLookupService {
       const config = this.appConfig.load().aiLookup
       if (!config.enabled) throw new Error('AI 查词尚未开启。')
       if (!config.model) throw new Error('请先在设置中配置模型名称。')
-      const systemPrompt = getSystemPrompt(config, promptTarget, translation)
-      if (!systemPrompt) {
-        throw new Error(
-          promptTarget === 'sidebar'
-            ? '请先在设置中配置 AI 查词侧边栏 Prompt。'
-            : '请先在设置中配置划词工具栏 Prompt。'
-        )
-      }
       const apiKey = this.credentials.getApiKey()
       const bodyMessages = validateMessages(messages)
+      let systemPrompt: string
+      let requestMessages = bodyMessages
+
+      if (promptTarget === 'translation') {
+        systemPrompt = getTranslationSystemPrompt(translation)
+        if (!systemPrompt) throw new Error('翻译语言设置无效。')
+      } else {
+        if (!languageTask) throw new Error('语言任务上下文缺失。')
+        const classification = languageTask.task
+          ? ({ task: languageTask.task, source: 'local' } as const)
+          : await this.classifyLanguageTask(languageTask.sourceText)
+        const followUp = bodyMessages.some((message) => message.role === 'assistant')
+        if (classification.task === 'unknown') {
+          systemPrompt = getFallbackLanguageTaskSystemPrompt(followUp)
+        } else {
+          const taskEvent: AiStreamEvent = { type: 'task', task: classification.task }
+          send(taskEvent)
+          yield taskEvent
+          systemPrompt = getLanguageTaskSystemPrompt(classification.task, followUp)
+        }
+        requestMessages = prepareLanguageTaskMessages(languageTask.sourceText, bodyMessages)
+      }
+
       const response = await fetch(`${config.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -98,7 +138,9 @@ export class AiLookupService {
         body: JSON.stringify({
           model: config.model,
           stream: true,
-          messages: [{ role: 'system', content: systemPrompt }, ...bodyMessages]
+          thinking: { type: 'disabled' },
+          temperature: 0.3,
+          messages: [{ role: 'system', content: systemPrompt }, ...requestMessages]
         }),
         signal: controller.signal
       })
@@ -166,9 +208,10 @@ export class AiLookupService {
     translation?: {
       sourceLanguage: AiTranslationLanguage
       targetLanguage: AiTranslationLanguage
-    }
+    },
+    languageTask?: AiLanguageTaskContext
   ): void {
-    void this.consume(requestId, messages, promptTarget, translation, onEvent)
+    void this.consume(requestId, messages, promptTarget, translation, languageTask, onEvent)
   }
 
   cancel(requestId: string): void {
@@ -191,6 +234,7 @@ export class AiLookupService {
           targetLanguage: AiTranslationLanguage
         }
       | undefined,
+    languageTask: AiLanguageTaskContext | undefined,
     onEvent: AiStreamHandler
   ): Promise<void> {
     for await (const event of this.stream(
@@ -198,6 +242,7 @@ export class AiLookupService {
       messages,
       promptTarget,
       translation,
+      languageTask,
       onEvent
     )) {
       // The stream handler owns IPC delivery; consuming keeps the generator alive.
@@ -206,24 +251,21 @@ export class AiLookupService {
   }
 }
 
-function getSystemPrompt(
-  config: ReturnType<AppConfigStore['load']>['aiLookup'],
-  promptTarget: AiPromptTarget,
-  translation?: {
-    sourceLanguage: AiTranslationLanguage
-    targetLanguage: AiTranslationLanguage
-  }
-): string {
-  if (promptTarget === 'translation') {
-    if (!translation) return ''
-    return `你是一个专业、准确、自然的翻译助手。请将用户提供的内容从${translation.sourceLanguage}翻译成${translation.targetLanguage}。
-当前翻译方向：源语言=${translation.sourceLanguage}；目标语言=${translation.targetLanguage}。
-保留原文的语气、格式和段落结构；专有名词、数字和 Markdown 标记应准确处理。除非用户明确要求解释，否则只输出翻译结果，不要添加前言、注释或语言标签。`
-  }
+function getTranslationSystemPrompt(translation?: {
+  sourceLanguage: AiTranslationLanguage
+  targetLanguage: AiTranslationLanguage
+}): string {
+  if (!translation) return ''
+  return `你是一名专业、地道的翻译专家。请将用户提供的内容从${translation.sourceLanguage}翻译成${translation.targetLanguage}，达到母语者的表达水准。
 
-  return promptTarget === 'sidebar'
-    ? config.sidebarSystemPrompt
-    : config.selectionToolbarSystemPrompt
+## 翻译要求
+1. 忠实传达原意，同时符合目标语言表达习惯，避免翻译腔；主动避免过度使用被动语态、冗余连接词和堆叠抽象名词。
+2. 保留原文的语气、风格、格式和段落结构；专有名词、数字、代码、URL 与 Markdown 标记准确处理，必要时可按目标语言习惯调整标记位置，但不得增删。
+3. 术语使用公认的权威译法；无标准译法的专有名词保留原文，不加注释。
+4. 除非用户明确要求解释，否则只输出译文，不添加前言、注释或语言标签（如"翻译如下："）。
+
+## 内部流程（不要输出）
+先完整理解原文并形成流畅的译文草稿，再静默检查是否有误译、漏译、翻译腔和格式错误，修正后只输出最终译文。`
 }
 
 function validateMessages(messages: AiChatMessage[]): AiChatMessage[] {

@@ -232,8 +232,17 @@ declare global {
         renameWordbook: (wordbookId: string, name: string) => Promise<void>
       }
       app: {
+        getVersion: () => Promise<string | null>
         onFocusSearch: (callback: () => void) => () => void
         onShowFindBar: (callback: () => void) => () => void
+      }
+      keyboard: {
+        getStatus: () => Promise<{ shortcut: string; registered: boolean } | null>
+        setMainWindowShortcut: (shortcut: string) => Promise<{
+          ok: boolean
+          status: { shortcut: string; registered: boolean }
+          error?: string
+        } | null>
       }
       notifications: {
         onToast: (callback: (payload: ToastPayload) => void) => () => void
@@ -248,8 +257,6 @@ declare global {
           provider: 'openai-compatible'
           baseUrl: string
           model: string
-          sidebarSystemPrompt: string
-          selectionToolbarSystemPrompt: string
           hasApiKey: boolean
         } | null>
         saveConfig: (request: {
@@ -257,16 +264,12 @@ declare global {
           provider: 'openai-compatible'
           baseUrl: string
           model: string
-          sidebarSystemPrompt: string
-          selectionToolbarSystemPrompt: string
           apiKey?: string
         }) => Promise<{
           enabled: boolean
           provider: 'openai-compatible'
           baseUrl: string
           model: string
-          sidebarSystemPrompt: string
-          selectionToolbarSystemPrompt: string
           hasApiKey: boolean
         } | null>
         startChat: (request: {
@@ -276,12 +279,19 @@ declare global {
             sourceLanguage: '中文' | 'English' | '日本語' | '한국어' | 'Français' | 'Deutsch'
             targetLanguage: '中文' | 'English' | '日本語' | '한국어' | 'Français' | 'Deutsch'
           }
+          languageTask?: {
+            sourceText: string
+            task?:
+              'english-lexical' | 'chinese-lexical' | 'english-to-chinese' | 'classical-to-modern'
+          }
         }) => Promise<string | null>
         cancel: (requestId: string) => void
         onEvent: (
           callback: (event: {
             requestId: string
-            type: 'delta' | 'done' | 'error'
+            type: 'task' | 'delta' | 'done' | 'error'
+            task?:
+              'english-lexical' | 'chinese-lexical' | 'english-to-chinese' | 'classical-to-modern'
             text?: string
             message?: string
           }) => void

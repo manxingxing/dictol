@@ -11,6 +11,7 @@ export type AppConfig = {
   }
   shortcuts: {
     lookupWordOnShortcut: string
+    showMainWindow: string
   }
   selection: {
     excludedPrograms: string[]
@@ -23,18 +24,8 @@ export type AppConfig = {
     provider: 'openai-compatible'
     baseUrl: string
     model: string
-    sidebarSystemPrompt: string
-    selectionToolbarSystemPrompt: string
   }
 }
-
-const DEFAULT_AI_SIDEBAR_SYSTEM_PROMPT = `你是一个专业、简洁的词典助手。请结合当前查词内容回答用户问题，并在后续对话中保持上下文。
-解释词语时，优先给出核心释义、词性、常见搭配和自然例句。用户继续追问时，直接回应其问题，不要重复完整词条。不要编造不确定的信息。`
-
-const DEFAULT_AI_SELECTION_TOOLBAR_SYSTEM_PROMPT = `你是一个专业、简洁的语言解释助手。请直接解释用户选中的文字，并根据内容判断适合的任务：单词释义、短语解释、整句翻译或段落说明。
-结果应当独立完整、便于快速阅读，不要提出后续问题，也不要使用聊天式开场。
-
-不要编造不确定的信息。`
 
 const DEFAULT_CONFIG: AppConfig = {
   featureFlags: {
@@ -42,7 +33,8 @@ const DEFAULT_CONFIG: AppConfig = {
     lookupWordOnSelection: false
   },
   shortcuts: {
-    lookupWordOnShortcut: 'Alt+D'
+    lookupWordOnShortcut: 'Alt+D',
+    showMainWindow: 'CommandOrControl+Alt+D'
   },
   selection: {
     excludedPrograms: []
@@ -54,9 +46,7 @@ const DEFAULT_CONFIG: AppConfig = {
     enabled: false,
     provider: 'openai-compatible',
     baseUrl: 'https://api.openai.com/v1',
-    model: '',
-    sidebarSystemPrompt: DEFAULT_AI_SIDEBAR_SYSTEM_PROMPT,
-    selectionToolbarSystemPrompt: DEFAULT_AI_SELECTION_TOOLBAR_SYSTEM_PROMPT
+    model: ''
   }
 }
 
@@ -132,7 +122,7 @@ function parseConfig(value: unknown): AppConfig {
       lookupWordOnShortcut?: unknown
       lookupWordOnSelection?: unknown
     }
-    shortcuts?: { lookupWordOnShortcut?: unknown }
+    shortcuts?: { lookupWordOnShortcut?: unknown; showMainWindow?: unknown }
     selection?: { excludedPrograms?: unknown }
     tts?: { edgeVoice?: unknown }
     aiLookup?: {
@@ -140,21 +130,8 @@ function parseConfig(value: unknown): AppConfig {
       provider?: unknown
       baseUrl?: unknown
       model?: unknown
-      sidebarSystemPrompt?: unknown
-      selectionToolbarSystemPrompt?: unknown
     }
   }
-
-  const sidebarSystemPrompt = normalizeConfigString(
-    candidate.aiLookup?.sidebarSystemPrompt,
-    DEFAULT_CONFIG.aiLookup.sidebarSystemPrompt,
-    4_000
-  )
-  const selectionToolbarSystemPrompt = normalizeConfigString(
-    candidate.aiLookup?.selectionToolbarSystemPrompt,
-    DEFAULT_CONFIG.aiLookup.selectionToolbarSystemPrompt,
-    4_000
-  )
 
   return {
     featureFlags: {
@@ -172,7 +149,12 @@ function parseConfig(value: unknown): AppConfig {
         typeof candidate.shortcuts?.lookupWordOnShortcut === 'string' &&
         candidate.shortcuts.lookupWordOnShortcut.trim()
           ? candidate.shortcuts.lookupWordOnShortcut.trim()
-          : DEFAULT_CONFIG.shortcuts.lookupWordOnShortcut
+          : DEFAULT_CONFIG.shortcuts.lookupWordOnShortcut,
+      showMainWindow:
+        typeof candidate.shortcuts?.showMainWindow === 'string' &&
+        candidate.shortcuts.showMainWindow.trim()
+          ? candidate.shortcuts.showMainWindow.trim()
+          : DEFAULT_CONFIG.shortcuts.showMainWindow
     },
     selection: {
       excludedPrograms: normalizeExcludedPrograms(candidate.selection?.excludedPrograms)
@@ -191,9 +173,7 @@ function parseConfig(value: unknown): AppConfig {
         DEFAULT_CONFIG.aiLookup.baseUrl,
         500
       ),
-      model: normalizeConfigString(candidate.aiLookup?.model, DEFAULT_CONFIG.aiLookup.model, 200),
-      sidebarSystemPrompt,
-      selectionToolbarSystemPrompt
+      model: normalizeConfigString(candidate.aiLookup?.model, DEFAULT_CONFIG.aiLookup.model, 200)
     }
   }
 }

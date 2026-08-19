@@ -39,8 +39,6 @@ import {
   useReorderOnlineDictionaries
 } from '@/hooks/use-online-dictionaries'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
 const CssCodeEditor = lazy(() => import('@/components/CssCodeEditor'))
 type DictionaryImportPreview = NonNullable<
   Awaited<ReturnType<Window['dictol']['dictionaries']['selectFile']>>
@@ -172,335 +170,352 @@ export function DictionariesPage(): React.JSX.Element {
       <p className="mb-2 text-sm font-medium text-primary">词典库</p>
       <h1 className="text-xl font-semibold tracking-tight">管理你的词典</h1>
 
-      <Card className="mb-4 mt-4">
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          <div className="min-w-0">
-            <CardTitle>全部词典</CardTitle>
-            <CardDescription>
-              拖动词典调整优先级；查词结果中的词典标签会使用相同顺序。
-            </CardDescription>
+      <div className="mt-8">
+        <section className="pb-6">
+          <div className="mb-3 flex items-start justify-between gap-5">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold leading-5">本地词典</h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                拖动词典调整优先级；查词结果中的词典标签会使用相同顺序。
+              </p>
+            </div>
+            <Button
+              className="shrink-0"
+              onClick={() => {
+                importDictionary.reset()
+                setImportDialogStep('select')
+                setImportPreview(null)
+                setSelectedImportFiles(new Set())
+                setImportFileError(null)
+                setImportDialogOpen(true)
+              }}
+              size="sm"
+              type="button"
+            >
+              <Upload />
+              导入词典
+            </Button>
           </div>
-          <Button
-            className="shrink-0"
-            onClick={() => {
-              importDictionary.reset()
-              setImportDialogStep('select')
-              setImportPreview(null)
-              setSelectedImportFiles(new Set())
-              setImportFileError(null)
-              setImportDialogOpen(true)
-            }}
-            size="sm"
-            type="button"
-          >
-            <Upload />
-            导入
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isLoading && <p className="text-sm text-muted-foreground">正在加载…</p>}
-          {isError && <p className="text-sm text-destructive">加载词典失败，请稍后重试。</p>}
-          {!isLoading && !isError && dictionaries.length === 0 && (
-            <p className="text-sm text-muted-foreground">暂无词典。</p>
-          )}
-          {!isLoading && !isError && dictionaries.length > 0 && (
-            <ul className="space-y-2">
-              {dictionaries.map((dictionary) => {
-                const status = dictionaryStatus[dictionary.status]
-                const StatusIcon = status.icon
-                const isDeleting =
-                  deleteDictionary.isPending && deleteDictionary.variables === dictionary.id
+          <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
+            {isLoading && (
+              <p className="bg-card px-4 py-5 text-sm text-muted-foreground">正在加载…</p>
+            )}
+            {isError && (
+              <p className="bg-card px-4 py-5 text-sm text-destructive">
+                加载词典失败，请稍后重试。
+              </p>
+            )}
+            {!isLoading && !isError && dictionaries.length === 0 && (
+              <p className="bg-card px-4 py-5 text-sm text-muted-foreground">暂无词典。</p>
+            )}
+            {!isLoading && !isError && dictionaries.length > 0 && (
+              <ul className="divide-y divide-border">
+                {dictionaries.map((dictionary) => {
+                  const status = dictionaryStatus[dictionary.status]
+                  const StatusIcon = status.icon
+                  const isDeleting =
+                    deleteDictionary.isPending && deleteDictionary.variables === dictionary.id
 
-                return (
-                  <li
-                    key={dictionary.id}
-                    className={`flex items-center gap-3 rounded-lg border border-border bg-muted/45 px-3 py-3 transition-[border-color,opacity] ${
-                      draggedDictionaryId === dictionary.id ? 'opacity-45' : ''
-                    } ${
-                      dropTarget?.id === dictionary.id
-                        ? dropTarget.position === 'before'
-                          ? 'border-t-2 border-t-primary'
-                          : 'border-b-2 border-b-primary'
-                        : ''
-                    }`}
-                    onDragOver={(event) => {
-                      if (!draggedDictionaryId || draggedDictionaryId === dictionary.id) return
-                      event.preventDefault()
-                      event.dataTransfer.dropEffect = 'move'
-                      const bounds = event.currentTarget.getBoundingClientRect()
-                      setDropTarget({
-                        id: dictionary.id,
-                        position:
-                          event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
-                      })
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault()
-                      if (!draggedDictionaryId) return
-                      const bounds = event.currentTarget.getBoundingClientRect()
-                      const dropPosition =
-                        event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
-                      const nextOrder = dictionaries
-                        .map((item) => item.id)
-                        .filter((id) => id !== draggedDictionaryId)
-                      let targetIndex = nextOrder.indexOf(dictionary.id)
-                      if (targetIndex < 0) return
-                      if (dropPosition === 'after') targetIndex += 1
-                      nextOrder.splice(targetIndex, 0, draggedDictionaryId)
-                      finishDragging()
-                      reorderDictionaries.mutate(nextOrder)
-                    }}
-                  >
-                    <button
-                      aria-label={`拖动排序 ${dictionary.name}`}
-                      className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
-                      disabled={reorderDictionaries.isPending}
-                      draggable={!reorderDictionaries.isPending}
-                      onDragEnd={finishDragging}
-                      onDragStart={(event) => {
-                        setDraggedDictionaryId(dictionary.id)
-                        setDropTarget(null)
-                        event.dataTransfer.effectAllowed = 'move'
-                        event.dataTransfer.setData('text/plain', dictionary.id)
-                      }}
-                      type="button"
-                    >
-                      <GripVertical className="size-4" />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium">{dictionary.name}</p>
-                        <span
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}
-                        >
-                          <StatusIcon
-                            className={`size-3.5 ${dictionary.status === 'importing' ? 'animate-spin' : ''}`}
-                          />
-                          {status.label}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {dictionary.recordCount
-                          ? `${formatRecordCount(dictionary.recordCount)} 个词条`
-                          : dictionary.status === 'importing'
-                            ? '正在复制文件并建立索引'
-                            : '尚无词条统计'}
-                      </p>
-                    </div>
-                    <Button
-                      aria-label={`修改词典名称 ${dictionary.name}`}
-                      className="shrink-0 text-muted-foreground"
-                      disabled={updateDictionaryName.isPending}
-                      onClick={() => {
-                        updateDictionaryName.reset()
-                        setNameEditor({
+                  return (
+                    <li
+                      key={dictionary.id}
+                      className={`flex min-h-16 items-center gap-3 bg-card px-4 py-3 transition-[background-color,opacity] hover:bg-muted/40 ${
+                        draggedDictionaryId === dictionary.id ? 'opacity-45' : ''
+                      } ${
+                        dropTarget?.id === dictionary.id
+                          ? dropTarget.position === 'before'
+                            ? 'border-t-2 border-t-primary'
+                            : 'border-b-2 border-b-primary'
+                          : ''
+                      }`}
+                      onDragOver={(event) => {
+                        if (!draggedDictionaryId || draggedDictionaryId === dictionary.id) return
+                        event.preventDefault()
+                        event.dataTransfer.dropEffect = 'move'
+                        const bounds = event.currentTarget.getBoundingClientRect()
+                        setDropTarget({
                           id: dictionary.id,
-                          originalName: dictionary.name,
-                          value: dictionary.name
+                          position:
+                            event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
                         })
                       }}
-                      size="icon"
-                      title="修改名称"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      aria-label={`编辑自定义 CSS ${dictionary.name}`}
-                      className={`shrink-0 ${dictionary.customCss ? 'text-primary' : 'text-muted-foreground'}`}
-                      disabled={updateDictionaryCustomCss.isPending}
-                      onClick={() => {
-                        updateDictionaryCustomCss.reset()
-                        setCssEditor({
-                          id: dictionary.id,
-                          name: dictionary.name,
-                          value: dictionary.customCss
-                        })
-                      }}
-                      size="icon"
-                      title="自定义 CSS"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Code2 />
-                    </Button>
-                    <Button
-                      aria-label={`删除词典 ${dictionary.name}`}
-                      className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      disabled={dictionary.status === 'importing' || deleteDictionary.isPending}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `确定删除“${dictionary.name}”吗？词典记录、索引和已复制文件都会被删除。`
-                          )
-                        ) {
-                          deleteDictionary.mutate(dictionary.id)
-                        }
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      {isDeleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          {deleteDictionary.isError && (
-            <p className="mt-3 text-xs text-destructive">
-              删除失败：{deleteDictionary.error.message}
-            </p>
-          )}
-          {reorderDictionaries.isError && (
-            <p className="mt-3 text-xs text-destructive">
-              排序保存失败：{reorderDictionaries.error.message}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          <div className="min-w-0">
-            <CardTitle>在线词典</CardTitle>
-            <CardDescription>配置常用网站，在查词结果旁并排查看在线词典内容。</CardDescription>
-          </div>
-          <Button
-            aria-label="添加在线词典"
-            className="shrink-0"
-            onClick={openOnlineEditor}
-            size="icon"
-            title="添加在线词典"
-            type="button"
-            variant="ghost"
-          >
-            <Plus />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {onlineLoading && <p className="text-sm text-muted-foreground">正在加载…</p>}
-          {onlineError && (
-            <p className="text-sm text-destructive">加载在线词典失败，请稍后重试。</p>
-          )}
-          {!onlineLoading && !onlineError && onlineDictionaries.length === 0 && (
-            <p className="text-sm text-muted-foreground">还没有配置在线词典。</p>
-          )}
-          {!onlineLoading && !onlineError && onlineDictionaries.length > 0 && (
-            <ul className="space-y-2">
-              {onlineDictionaries.map((dictionary) => {
-                const isDeleting =
-                  removeOnlineDictionary.isPending &&
-                  removeOnlineDictionary.variables === dictionary.id
-                return (
-                  <li
-                    className={`flex items-center gap-3 rounded-lg border border-border bg-muted/45 px-3 py-3 transition-[border-color,opacity] ${
-                      draggedOnlineId === dictionary.id ? 'opacity-45' : ''
-                    } ${
-                      onlineDropTarget?.id === dictionary.id
-                        ? onlineDropTarget.position === 'before'
-                          ? 'border-t-2 border-t-primary'
-                          : 'border-b-2 border-b-primary'
-                        : ''
-                    }`}
-                    key={dictionary.id}
-                    onDragOver={(event) => {
-                      if (!draggedOnlineId || draggedOnlineId === dictionary.id) return
-                      event.preventDefault()
-                      event.dataTransfer.dropEffect = 'move'
-                      const bounds = event.currentTarget.getBoundingClientRect()
-                      setOnlineDropTarget({
-                        id: dictionary.id,
-                        position:
+                      onDrop={(event) => {
+                        event.preventDefault()
+                        if (!draggedDictionaryId) return
+                        const bounds = event.currentTarget.getBoundingClientRect()
+                        const dropPosition =
                           event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
-                      })
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault()
-                      if (!draggedOnlineId) return
-                      const bounds = event.currentTarget.getBoundingClientRect()
-                      const position =
-                        event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
-                      const nextOrder = onlineDictionaries
-                        .map((item) => item.id)
-                        .filter((id) => id !== draggedOnlineId)
-                      let targetIndex = nextOrder.indexOf(dictionary.id)
-                      if (targetIndex < 0) return
-                      if (position === 'after') targetIndex += 1
-                      nextOrder.splice(targetIndex, 0, draggedOnlineId)
-                      finishOnlineDragging()
-                      reorderOnlineDictionaries.mutate(nextOrder)
-                    }}
-                  >
-                    <button
-                      aria-label={`拖动排序 ${dictionary.name}`}
-                      className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
-                      disabled={reorderOnlineDictionaries.isPending}
-                      draggable={!reorderOnlineDictionaries.isPending}
-                      onDragEnd={finishOnlineDragging}
-                      onDragStart={(event) => {
-                        setDraggedOnlineId(dictionary.id)
-                        setOnlineDropTarget(null)
-                        event.dataTransfer.effectAllowed = 'move'
-                        event.dataTransfer.setData('text/plain', dictionary.id)
+                        const nextOrder = dictionaries
+                          .map((item) => item.id)
+                          .filter((id) => id !== draggedDictionaryId)
+                        let targetIndex = nextOrder.indexOf(dictionary.id)
+                        if (targetIndex < 0) return
+                        if (dropPosition === 'after') targetIndex += 1
+                        nextOrder.splice(targetIndex, 0, draggedDictionaryId)
+                        finishDragging()
+                        reorderDictionaries.mutate(nextOrder)
                       }}
-                      type="button"
                     >
-                      <GripVertical className="size-4" />
-                    </button>
-                    <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background">
-                      <img
-                        alt=""
-                        className="size-full rounded-full object-cover"
-                        onError={(event) => {
-                          event.currentTarget.style.display = 'none'
-                          event.currentTarget.nextElementSibling?.classList.remove('hidden')
+                      <button
+                        aria-label={`拖动排序 ${dictionary.name}`}
+                        className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                        disabled={reorderDictionaries.isPending}
+                        draggable={!reorderDictionaries.isPending}
+                        onDragEnd={finishDragging}
+                        onDragStart={(event) => {
+                          setDraggedDictionaryId(dictionary.id)
+                          setDropTarget(null)
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData('text/plain', dictionary.id)
                         }}
-                        src={dictionary.faviconUrl}
-                      />
-                      <Globe2 className="absolute hidden size-4 text-muted-foreground" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{dictionary.name}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {dictionary.urlTemplate}
-                      </p>
-                    </div>
-                    <Button
-                      aria-label={`删除在线词典 ${dictionary.name}`}
-                      className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      disabled={removeOnlineDictionary.isPending}
-                      onClick={() => {
-                        if (window.confirm(`确定删除“${dictionary.name}”吗？`)) {
-                          removeOnlineDictionary.mutate(dictionary.id)
-                        }
+                        type="button"
+                      >
+                        <GripVertical className="size-4" />
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium">{dictionary.name}</p>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}
+                          >
+                            <StatusIcon
+                              className={`size-3.5 ${dictionary.status === 'importing' ? 'animate-spin' : ''}`}
+                            />
+                            {status.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {dictionary.recordCount
+                            ? `${formatRecordCount(dictionary.recordCount)} 个词条`
+                            : dictionary.status === 'importing'
+                              ? '正在复制文件并建立索引'
+                              : '尚无词条统计'}
+                        </p>
+                      </div>
+                      <Button
+                        aria-label={`修改词典名称 ${dictionary.name}`}
+                        className="shrink-0 text-muted-foreground"
+                        disabled={updateDictionaryName.isPending}
+                        onClick={() => {
+                          updateDictionaryName.reset()
+                          setNameEditor({
+                            id: dictionary.id,
+                            originalName: dictionary.name,
+                            value: dictionary.name
+                          })
+                        }}
+                        size="icon"
+                        title="修改名称"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        aria-label={`编辑自定义 CSS ${dictionary.name}`}
+                        className={`shrink-0 ${dictionary.customCss ? 'text-primary' : 'text-muted-foreground'}`}
+                        disabled={updateDictionaryCustomCss.isPending}
+                        onClick={() => {
+                          updateDictionaryCustomCss.reset()
+                          setCssEditor({
+                            id: dictionary.id,
+                            name: dictionary.name,
+                            value: dictionary.customCss
+                          })
+                        }}
+                        size="icon"
+                        title="自定义 CSS"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Code2 />
+                      </Button>
+                      <Button
+                        aria-label={`删除词典 ${dictionary.name}`}
+                        className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        disabled={dictionary.status === 'importing' || deleteDictionary.isPending}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `确定删除“${dictionary.name}”吗？词典记录、索引和已复制文件都会被删除。`
+                            )
+                          ) {
+                            deleteDictionary.mutate(dictionary.id)
+                          }
+                        }}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {isDeleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {deleteDictionary.isError && (
+              <p className="border-t border-border bg-card px-4 py-3 text-xs text-destructive">
+                删除失败：{deleteDictionary.error.message}
+              </p>
+            )}
+            {reorderDictionaries.isError && (
+              <p className="border-t border-border bg-card px-4 py-3 text-xs text-destructive">
+                排序保存失败：{reorderDictionaries.error.message}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="pt-6">
+          <div className="mb-3 flex items-start justify-between gap-5">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold leading-5">在线词典</h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                配置常用网站，在查词结果旁并排查看在线词典内容。
+              </p>
+            </div>
+            <Button
+              aria-label="添加在线词典"
+              className="shrink-0"
+              onClick={openOnlineEditor}
+              size="sm"
+              title="添加在线词典"
+              type="button"
+              variant="outline"
+            >
+              <Plus />
+              添加在线词典
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
+            {onlineLoading && (
+              <p className="bg-card px-4 py-5 text-sm text-muted-foreground">正在加载…</p>
+            )}
+            {onlineError && (
+              <p className="bg-card px-4 py-5 text-sm text-destructive">
+                加载在线词典失败，请稍后重试。
+              </p>
+            )}
+            {!onlineLoading && !onlineError && onlineDictionaries.length === 0 && (
+              <p className="bg-card px-4 py-5 text-sm text-muted-foreground">
+                还没有配置在线词典。
+              </p>
+            )}
+            {!onlineLoading && !onlineError && onlineDictionaries.length > 0 && (
+              <ul className="divide-y divide-border">
+                {onlineDictionaries.map((dictionary) => {
+                  const isDeleting =
+                    removeOnlineDictionary.isPending &&
+                    removeOnlineDictionary.variables === dictionary.id
+                  return (
+                    <li
+                      className={`flex min-h-16 items-center gap-3 bg-card px-4 py-3 transition-[background-color,opacity] hover:bg-muted/40 ${
+                        draggedOnlineId === dictionary.id ? 'opacity-45' : ''
+                      } ${
+                        onlineDropTarget?.id === dictionary.id
+                          ? onlineDropTarget.position === 'before'
+                            ? 'border-t-2 border-t-primary'
+                            : 'border-b-2 border-b-primary'
+                          : ''
+                      }`}
+                      key={dictionary.id}
+                      onDragOver={(event) => {
+                        if (!draggedOnlineId || draggedOnlineId === dictionary.id) return
+                        event.preventDefault()
+                        event.dataTransfer.dropEffect = 'move'
+                        const bounds = event.currentTarget.getBoundingClientRect()
+                        setOnlineDropTarget({
+                          id: dictionary.id,
+                          position:
+                            event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
+                        })
                       }}
-                      size="icon"
-                      title="删除在线词典"
-                      type="button"
-                      variant="ghost"
+                      onDrop={(event) => {
+                        event.preventDefault()
+                        if (!draggedOnlineId) return
+                        const bounds = event.currentTarget.getBoundingClientRect()
+                        const position =
+                          event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
+                        const nextOrder = onlineDictionaries
+                          .map((item) => item.id)
+                          .filter((id) => id !== draggedOnlineId)
+                        let targetIndex = nextOrder.indexOf(dictionary.id)
+                        if (targetIndex < 0) return
+                        if (position === 'after') targetIndex += 1
+                        nextOrder.splice(targetIndex, 0, draggedOnlineId)
+                        finishOnlineDragging()
+                        reorderOnlineDictionaries.mutate(nextOrder)
+                      }}
                     >
-                      {isDeleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          {reorderOnlineDictionaries.isError && (
-            <p className="mt-3 text-xs text-destructive">
-              排序保存失败：{reorderOnlineDictionaries.error.message}
-            </p>
-          )}
-          {removeOnlineDictionary.isError && (
-            <p className="mt-3 text-xs text-destructive">
-              删除失败：{removeOnlineDictionary.error.message}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+                      <button
+                        aria-label={`拖动排序 ${dictionary.name}`}
+                        className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                        disabled={reorderOnlineDictionaries.isPending}
+                        draggable={!reorderOnlineDictionaries.isPending}
+                        onDragEnd={finishOnlineDragging}
+                        onDragStart={(event) => {
+                          setDraggedOnlineId(dictionary.id)
+                          setOnlineDropTarget(null)
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData('text/plain', dictionary.id)
+                        }}
+                        type="button"
+                      >
+                        <GripVertical className="size-4" />
+                      </button>
+                      <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                        <img
+                          alt=""
+                          className="size-full rounded-full object-cover"
+                          onError={(event) => {
+                            event.currentTarget.style.display = 'none'
+                            event.currentTarget.nextElementSibling?.classList.remove('hidden')
+                          }}
+                          src={dictionary.faviconUrl}
+                        />
+                        <Globe2 className="absolute hidden size-4 text-muted-foreground" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{dictionary.name}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {dictionary.urlTemplate}
+                        </p>
+                      </div>
+                      <Button
+                        aria-label={`删除在线词典 ${dictionary.name}`}
+                        className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        disabled={removeOnlineDictionary.isPending}
+                        onClick={() => {
+                          if (window.confirm(`确定删除“${dictionary.name}”吗？`)) {
+                            removeOnlineDictionary.mutate(dictionary.id)
+                          }
+                        }}
+                        size="icon"
+                        title="删除在线词典"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {isDeleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {reorderOnlineDictionaries.isError && (
+              <p className="border-t border-border bg-card px-4 py-3 text-xs text-destructive">
+                排序保存失败：{reorderOnlineDictionaries.error.message}
+              </p>
+            )}
+            {removeOnlineDictionary.isError && (
+              <p className="border-t border-border bg-card px-4 py-3 text-xs text-destructive">
+                删除失败：{removeOnlineDictionary.error.message}
+              </p>
+            )}
+          </div>
+        </section>
+      </div>
 
       <Dialog
         open={importDialogOpen}

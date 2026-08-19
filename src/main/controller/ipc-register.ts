@@ -6,6 +6,7 @@ import { EmbedBrowserController } from './embed-browser'
 import { NotificationController } from './notification'
 import { OnlineDictionaryController } from './online-dictionary'
 import { AiController } from './ai'
+import { AppController } from './app'
 import { QueryHistoryController } from './query-history'
 import { SearchPopoverController } from './search-popover'
 import { SelectionToolbarController } from './selection-toolbar'
@@ -13,10 +14,12 @@ import { TtsController } from './tts'
 import { WordCaptureController } from './word-capture'
 import { WordLookupController } from './word-lookup'
 import { WordbookController } from './wordbook'
+import { KeyboardController } from './keyboard'
 
 export const registerIPCHandlers = (appRuntime: AppRuntime): void => {
   const controllers = [
     new AiController(appRuntime),
+    new AppController(appRuntime),
     new DictionaryEntryController(appRuntime),
     new DictionaryController(appRuntime),
     new DictionaryViewController(appRuntime),
@@ -24,6 +27,7 @@ export const registerIPCHandlers = (appRuntime: AppRuntime): void => {
     new NotificationController(appRuntime),
     new OnlineDictionaryController(appRuntime),
     new QueryHistoryController(appRuntime),
+    new KeyboardController(appRuntime),
     new SearchPopoverController(appRuntime),
     new SelectionToolbarController(appRuntime),
     new TtsController(appRuntime),

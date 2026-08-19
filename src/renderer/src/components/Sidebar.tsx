@@ -4,30 +4,45 @@ import { BookMarked, History, Languages, Library, Search, Settings } from 'lucid
 import appIcon from '@/assets/icon_320x320.png'
 import { Button } from '@/components/ui/button'
 import { useAiLookupConfig } from '@/hooks/use-ai-lookup'
-import { useAppStore } from '@/stores/app-store'
+import { cn } from '@/lib/utils'
+import { selectCompactMode, useAppStore } from '@/stores/app-store'
 
 const navigation = [
   { label: '查词', path: '/search', icon: Search },
   { label: '历史', path: '/history', icon: History },
-  { label: '生词本', path: '/wordbooks', icon: BookMarked },
+  { label: '生词本', path: '/wordbooks', icon: BookMarked }
 ]
 
 export function Sidebar(): React.JSX.Element {
   const lastQueryPath = useAppStore((state) => state.lastQueryPath)
+  const displayInCompactMode = useAppStore(selectCompactMode)
   const aiConfig = useAiLookupConfig()
   const items = aiConfig.data?.enabled
     ? [...navigation, { label: '翻译', path: '/translation', icon: Languages }]
     : navigation
 
   return (
-    <aside className="flex w-[4rem] shrink-0 flex-col border-r border-border bg-sidebar px-2 pt-3.5 pb-3">
-      <div className="mb-[22px] flex h-9 justify-center">
-        <div className="size-9 overflow-hidden rounded-xl shadow-sm" title="Dictol">
+    <aside
+      className={cn(
+        'flex shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar pt-3.5 pb-3 transition-[width,padding] duration-150 ease-out',
+        displayInCompactMode ? 'w-12 px-1' : 'w-[4rem] px-2'
+      )}
+    >
+      <div
+        className={cn('flex justify-center', displayInCompactMode ? 'mb-4 h-7' : 'mb-[22px] h-9')}
+      >
+        <div
+          className={cn(
+            'overflow-hidden shadow-sm',
+            displayInCompactMode ? 'size-7 rounded-lg' : 'size-9 rounded-xl'
+          )}
+          title="Dictol"
+        >
           <img alt="" className="size-full object-cover" src={appIcon} />
         </div>
       </div>
 
-      <nav className="space-y-2.5" aria-label="主导航">
+      <nav className={cn(displayInCompactMode ? 'space-y-2' : 'space-y-2.5')} aria-label="主导航">
         {items.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}
@@ -37,37 +52,41 @@ export function Sidebar(): React.JSX.Element {
             {({ isActive }) => (
               <Button
                 aria-label={label}
-                className={`h-auto w-full flex-col gap-1 px-0 py-1.5 ${
+                className={cn(
+                  'h-auto w-full flex-col px-0',
+                  displayInCompactMode ? 'gap-0 py-2' : 'gap-1 py-1.5',
                   isActive
                     ? 'bg-primary/8 font-medium text-primary ring-1 ring-inset ring-primary/20 hover:bg-primary/12'
                     : 'text-muted-foreground'
-                }`}
+                )}
                 title={label}
                 variant="ghost"
               >
-                <Icon />
-                <span className="text-[11px]">{label}</span>
+                <Icon className={displayInCompactMode ? 'size-4' : 'size-5'} />
+                {!displayInCompactMode && <span className="text-[11px]">{label}</span>}
               </Button>
             )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="mt-auto space-y-2.5">
+      <div className={cn('mt-auto', displayInCompactMode ? 'space-y-2' : 'space-y-2.5')}>
         <NavLink to="/dictionaries" className="block">
           {({ isActive }) => (
             <Button
               aria-label="词典库"
-              className={`h-auto w-full flex-col gap-1 px-0 py-1.5 ${
+              className={cn(
+                'h-auto w-full flex-col px-0',
+                displayInCompactMode ? 'gap-0 py-2' : 'gap-1 py-1.5',
                 isActive
                   ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
                   : 'text-muted-foreground'
-              }`}
+              )}
               title="词典库"
               variant="ghost"
             >
-              <Library />
-              <span className="text-[11px]">词典库</span>
+              <Library className={displayInCompactMode ? 'size-4' : 'size-5'} />
+              {!displayInCompactMode && <span className="text-[11px]">词典库</span>}
             </Button>
           )}
         </NavLink>
@@ -75,16 +94,18 @@ export function Sidebar(): React.JSX.Element {
           {({ isActive }) => (
             <Button
               aria-label="设置"
-              className={`h-auto w-full flex-col gap-1 px-0 py-1.5 ${
+              className={cn(
+                'h-auto w-full flex-col px-0',
+                displayInCompactMode ? 'gap-0 py-2' : 'gap-1 py-1.5',
                 isActive
                   ? 'bg-primary/12 font-medium text-primary ring-1 ring-inset ring-primary/20'
                   : 'text-muted-foreground'
-              }`}
+              )}
               title="设置"
               variant="ghost"
             >
-              <Settings className="size-5" />
-              <span className="text-[11px] leading-none">设置</span>
+              <Settings className={displayInCompactMode ? 'size-4' : 'size-5'} />
+              {!displayInCompactMode && <span className="text-[11px] leading-none">设置</span>}
             </Button>
           )}
         </NavLink>

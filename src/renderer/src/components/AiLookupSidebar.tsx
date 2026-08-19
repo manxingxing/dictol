@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   AuiIf,
   AssistantRuntimeProvider,
@@ -19,6 +19,7 @@ import { RightSidebarSizeToggle } from '@/components/RightSidebarSizeToggle'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
+import type { LanguageTaskKind } from '../../../shared/language-task'
 
 type AiLookupThreadProps = {
   word: string
@@ -26,98 +27,106 @@ type AiLookupThreadProps = {
 
 type AiLookupEvent = Parameters<Parameters<typeof window.dictol.aiLookup.onEvent>[0]>[0]
 
-const ipcChatModel: ChatModelAdapter = {
-  async *run({ messages, abortSignal }) {
-    abortSignal.throwIfAborted()
-    const serializedMessages = messages.flatMap((message) => {
-      const content = message.content
-        .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-        .map((part) => part.text)
-        .join('\n')
-        .trim()
-      if (!content || (message.role !== 'user' && message.role !== 'assistant')) return []
-      return [{ role: message.role, content }]
-    })
+function createIpcChatModel(sourceText: string): ChatModelAdapter {
+  let activeTask: LanguageTaskKind | undefined
+  return {
+    async *run({ messages, abortSignal }) {
+      abortSignal.throwIfAborted()
+      const serializedMessages = messages.flatMap((message) => {
+        const content = message.content
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map((part) => part.text)
+          .join('\n')
+          .trim()
+        if (!content || (message.role !== 'user' && message.role !== 'assistant')) return []
+        return [{ role: message.role, content }]
+      })
 
-    let requestId: string | null = null
-    let stop: (() => void) | undefined
-    let removeAbortListener: (() => void) | undefined
-    const deltas = new ReadableStream<string>({
-      start(controller) {
-        let settled = false
-        const pendingEvents: AiLookupEvent[] = []
-        const close = (): void => {
-          if (settled) return
-          settled = true
-          controller.close()
-        }
-        const fail = (error: unknown): void => {
-          if (settled) return
-          settled = true
-          controller.error(error)
-        }
-        const handleEvent = (event: AiLookupEvent): void => {
-          if (!requestId) {
-            if (pendingEvents.length < 32) pendingEvents.push(event)
-            return
+      let requestId: string | null = null
+      let stop: (() => void) | undefined
+      let removeAbortListener: (() => void) | undefined
+      const deltas = new ReadableStream<string>({
+        start(controller) {
+          let settled = false
+          const pendingEvents: AiLookupEvent[] = []
+          const close = (): void => {
+            if (settled) return
+            settled = true
+            controller.close()
           }
-          if (event.requestId !== requestId) return
-          if (event.type === 'delta' && event.text) controller.enqueue(event.text)
-          if (event.type === 'done') {
+          const fail = (error: unknown): void => {
+            if (settled) return
+            settled = true
+            controller.error(error)
+          }
+          const handleEvent = (event: AiLookupEvent): void => {
+            if (!requestId) {
+              if (pendingEvents.length < 32) pendingEvents.push(event)
+              return
+            }
+            if (event.requestId !== requestId) return
+            if (event.type === 'task') activeTask = event.task
+            if (event.type === 'delta' && event.text) controller.enqueue(event.text)
+            if (event.type === 'done') {
+              unsubscribe()
+              close()
+            }
+            if (event.type === 'error') {
+              unsubscribe()
+              fail(new Error(event.message ?? 'AI 请求失败。'))
+            }
+          }
+          const unsubscribe = window.dictol.aiLookup.onEvent((event) => {
+            handleEvent(event)
+          })
+          void window.dictol.aiLookup
+            .startChat({
+              messages: serializedMessages,
+              promptTarget: 'sidebar',
+              languageTask: { sourceText, task: activeTask }
+            })
+            .then((value) => {
+              requestId = value
+              if (!requestId) {
+                fail(new Error('AI 请求无法启动。'))
+                return
+              }
+              pendingEvents.splice(0).forEach((event) => handleEvent(event))
+            })
+            .catch(fail)
+          const onAbort = (): void => {
+            if (requestId) window.dictol.aiLookup.cancel(requestId)
+            unsubscribe()
+            fail(abortSignal.reason ?? new Error('请求已取消。'))
+          }
+          abortSignal.addEventListener('abort', onAbort, { once: true })
+          removeAbortListener = () => abortSignal.removeEventListener('abort', onAbort)
+          if (abortSignal.aborted) onAbort()
+          stop = () => {
+            if (requestId) window.dictol.aiLookup.cancel(requestId)
             unsubscribe()
             close()
           }
-          if (event.type === 'error') {
-            unsubscribe()
-            fail(new Error(event.message ?? 'AI 请求失败。'))
-          }
+        },
+        cancel() {
+          stop?.()
         }
-        const unsubscribe = window.dictol.aiLookup.onEvent((event) => {
-          handleEvent(event)
-        })
-        void window.dictol.aiLookup
-          .startChat({ messages: serializedMessages })
-          .then((value) => {
-            requestId = value
-            if (!requestId) {
-              fail(new Error('AI 请求无法启动。'))
-              return
-            }
-            pendingEvents.splice(0).forEach((event) => handleEvent(event))
-          })
-          .catch(fail)
-        const onAbort = (): void => {
-          if (requestId) window.dictol.aiLookup.cancel(requestId)
-          unsubscribe()
-          fail(abortSignal.reason ?? new Error('请求已取消。'))
-        }
-        abortSignal.addEventListener('abort', onAbort, { once: true })
-        removeAbortListener = () => abortSignal.removeEventListener('abort', onAbort)
-        if (abortSignal.aborted) onAbort()
-        stop = () => {
-          if (requestId) window.dictol.aiLookup.cancel(requestId)
-          unsubscribe()
-          close()
-        }
-      },
-      cancel() {
-        stop?.()
-      }
-    })
+      })
 
-    const reader = deltas.getReader()
-    let fullText = ''
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) return
-        fullText += value
-        yield { content: [{ type: 'text', text: fullText }] }
+      const reader = deltas.getReader()
+      let fullText = ''
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) return
+          fullText += value
+          yield { content: [{ type: 'text', text: fullText }] }
+        }
+      } finally {
+        removeAbortListener?.()
+        stop?.()
+        reader.releaseLock()
       }
-    } finally {
-      removeAbortListener?.()
-      stop?.()
-      reader.releaseLock()
     }
   }
 }
@@ -127,7 +136,6 @@ export function AiLookupSidebar(): React.JSX.Element {
   const searchQuery = useAppStore((state) => state.searchQuery)
   const setAiSearchTerm = useAppStore((state) => state.setAiSearchTerm)
   const setRightSidebarOpen = useAppStore((state) => state.setRightSidebarOpen)
-  const runtime = useLocalRuntime(ipcChatModel)
   const [followSearch, setFollowSearch] = useState(false)
   const followedQueryRef = useRef(searchQuery.trim())
   const normalizedWord = word.trim()
@@ -178,15 +186,23 @@ export function AiLookupSidebar(): React.JSX.Element {
         </Button>
       </div>
       {normalizedWord ? (
-        <AssistantRuntimeProvider runtime={runtime}>
-          <AiLookupThread word={normalizedWord} />
-        </AssistantRuntimeProvider>
+        <AiLookupSession key={normalizedWord} sourceText={normalizedWord} />
       ) : (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm leading-6 text-muted-foreground">
           选择一个词条后，可以在这里询问 AI
         </div>
       )}
     </div>
+  )
+}
+
+function AiLookupSession({ sourceText }: { sourceText: string }): React.JSX.Element {
+  const model = useMemo(() => createIpcChatModel(sourceText), [sourceText])
+  const runtime = useLocalRuntime(model)
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <AiLookupThread word={sourceText} />
+    </AssistantRuntimeProvider>
   )
 }
 
@@ -199,7 +215,7 @@ function AiLookupThread({ word }: AiLookupThreadProps): React.JSX.Element {
     aui.thread().reset()
     aui.thread().append({
       role: 'user',
-      content: [{ type: 'text', text: `请解释“${normalizedWord}”` }],
+      content: [{ type: 'text', text: normalizedWord }],
       startRun: true
     })
   }, [aui, normalizedWord])
