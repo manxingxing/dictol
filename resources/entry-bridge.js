@@ -119,7 +119,7 @@
       })
     }
   }
-  window.playText = readAloud
+  window.playTTS = readAloud
 
   const createMenuButton = (label, icon, action) => {
     const button = document.createElement('button')
@@ -267,28 +267,90 @@
     },
     true
   )
-  // 播放内置音频
-  document.addEventListener('click', (event) => {
-    if (event.defaultPrevented) return
-    const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null
-    const href = anchor?.href
-    if (
-      !href ||
-      !/^dictol-resource:\/\//i.test(href) ||
-      !/[.](?:mp3|wav|ogg|oga|spx|m4a)(?:[?#]|$)/i.test(href)
-    ) {
-      return
+  const dictionaryAudioPattern = /\.(?:mp3|wav|ogg|oga|spx|m4a)(?:[?#]|$)/i
+
+  const resolveDictionaryAudioHref = (anchor) => {
+    const rawHref = anchor?.getAttribute('href')?.trim()
+    if (!rawHref) return ''
+
+    try {
+      if (/^dictol-resource:\/\//i.test(rawHref)) {
+        const url = new URL(rawHref, document.baseURI)
+        return dictionaryAudioPattern.test(url.href) ? url.href : ''
+      }
+
+      // 兼容动态插入、尚未经过 createEntryDocument 重写的 sound:// 链接。
+      if (/^sound:\/\//i.test(rawHref)) {
+        const soundUrl = new URL(rawHref)
+        const resourcePath = `${soundUrl.hostname}${soundUrl.pathname}`
+        const url = new URL(resourcePath, document.baseURI)
+        return dictionaryAudioPattern.test(url.href) ? url.href : ''
+      }
+    } catch {
+      return ''
     }
-    event.preventDefault()
+
+    return ''
+  }
+
+  const playDictionaryAudio = (href) => {
     releaseGeneratedAudioUrl()
     localAudio.pause()
     localAudio.src = href
-    localAudio.play().catch((error) =>
+
+    void localAudio.play().catch((error) => {
+      if (error?.name === 'AbortError') return
+
       window.dictolEntry?.showToast?.({
         type: 'error',
         message: `Failed to play dictionary audio: ${error.message}`
       })
-    )
-  })
+    })
+  }
+
+  // 播放内置音频：捕获阶段只安装 fallback，不抢先播放词典自己的音频。
+  const installDictionaryAudioFallback = (event) => {
+    const target = event.target instanceof Element ? event.target : null
+    const anchor = target?.closest('a[href]')
+    if (!target || !anchor) return
+
+    const href = resolveDictionaryAudioHref(anchor)
+    if (!href) return
+
+    let fallbackInvoked = false
+    const fallback = (clickEvent) => {
+      fallbackInvoked = true
+
+      console.debug('called from fallback Listener for audio play')
+      // 词典自己的 handler 已经处理了这个点击，避免重复播放。
+      if (clickEvent.defaultPrevented) {
+        console.debug('played by listners from the dictionary javascript')
+        return
+      }
+      console.debug('playing audio from fallback listner')
+
+      clickEvent.preventDefault()
+      clickEvent.stopPropagation()
+      playDictionaryAudio(href)
+    }
+
+    console.debug("installing fallback listerning for element", target)
+    /*
+     * 让 fallback 运行在实际 target 阶段：
+     * - 可以绕过词典父级 listener 的 stopPropagation；
+     * - 词典若在 target 上先调用 preventDefault，fallback 不会重复播放。
+     */
+    target.addEventListener('click', fallback, { once: true })
+
+    // 如果事件没有到达 target 阶段，清理临时 listener，避免泄漏。
+    setTimeout(() => {
+      if (!fallbackInvoked) {
+        console.debug('clearning fallback Listener')
+        target.removeEventListener('click', fallback)
+      }
+    }, 0)
+  }
+
+  document.addEventListener('click', installDictionaryAudioFallback, true)
   // -------------------------------------------------------------------------
 })()
