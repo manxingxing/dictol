@@ -44,7 +44,13 @@ export function SearchResultPage(): React.JSX.Element {
     normalizedTerm &&
     normalizedTerm === aiSearchTerm
   )
-  const { data: group, isLoading, isFetching, isError } = useDictionaryLookup(normalizedTerm)
+  const {
+    data: group,
+    isLoading,
+    isFetching,
+    isError,
+    isPlaceholderData
+  } = useDictionaryLookup(normalizedTerm)
   const { mutateAsync: recordQueryHistory } = useRecordQueryHistory()
   const toggleStar = useToggleStar()
   const isStarred = useIsStarred(group?.word)
@@ -86,12 +92,14 @@ export function SearchResultPage(): React.JSX.Element {
   }, [activeDictionary?.dictionaryId, normalizedTerm])
 
   useEffect(() => {
-    if (!group || recordedPathname.current === location.pathname) return
+    if (!group || isPlaceholderData || recordedPathname.current === location.pathname) {
+      return
+    }
     recordedPathname.current = location.pathname
     void recordQueryHistory(group.word).catch((error: unknown) => {
       console.error('Failed to record query history', error)
     })
-  }, [group, location.pathname, recordQueryHistory])
+  }, [group, isPlaceholderData, location.pathname, recordQueryHistory])
 
   useEffect(() => {
     if (!activeDictionary || requestedDictionaryId === activeDictionary.dictionaryId) return

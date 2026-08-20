@@ -1,9 +1,16 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { History, LoaderCircle, Search, Trash2 } from 'lucide-react'
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -19,18 +26,18 @@ import {
   useQueryHistory,
   type QueryHistoryItem
 } from '@/hooks/use-query-history'
-import { formatTime } from '@/lib/utils'
+import { cn, formatTime } from '@/lib/utils'
 
 function getColumnClassName(columnId: string, header: boolean): string | undefined {
   switch (columnId) {
     case 'term':
       return header ? undefined : 'max-w-0'
     case 'queryCount':
-      return 'w-24 text-right'
-    case 'lastQueriedAt':
-      return 'w-26'
-    case 'actions':
       return 'w-20 text-right'
+    case 'lastQueriedAt':
+      return 'w-36 text-right'
+    case 'actions':
+      return 'w-28 text-right'
     default:
       return undefined
   }
@@ -39,6 +46,7 @@ function getColumnClassName(columnId: string, header: boolean): string | undefin
 export const HistoryPage = (): React.JSX.Element => {
   const navigate = useNavigate()
   const setSearchQuery = useAppStore((state) => state.setSearchQuery)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
 
   const { data: history = [], isLoading, isError } = useQueryHistory()
   const clearHistory = useClearQueryHistory()
@@ -50,6 +58,15 @@ export const HistoryPage = (): React.JSX.Element => {
     },
     [navigate, setSearchQuery]
   )
+
+  const confirmClearHistory = async (): Promise<void> => {
+    try {
+      await clearHistory.mutateAsync()
+      setClearDialogOpen(false)
+    } catch {
+      // The mutation error is shown in the confirmation dialog.
+    }
+  }
 
   const columns = useMemo<ColumnDef<QueryHistoryItem>[]>(
     () => [
@@ -113,53 +130,60 @@ export const HistoryPage = (): React.JSX.Element => {
   })
 
   return (
-    <section className="mx-auto flex md:h-full min-h-0 w-full max-w-3xl flex-col p-6 sm:p-8">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="mb-2 text-sm font-medium text-primary">查询历史</p>
-          <h1 className="text-xl font-semibold tracking-tight">最近查询</h1>
-        </div>
-        {history.length > 0 && (
+    <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-col p-6 sm:min-h-full sm:p-8">
+      <p className="mb-2 text-sm font-medium text-primary">查询历史</p>
+      <h1 className="text-xl font-semibold tracking-tight">最近查询</h1>
+
+      <section className="min-h-0 flex-1 mt-8">
+        <div className="mb-3 flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold leading-5">最近访问的词条</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              共 {history.length} 条记录
+            </p>
+          </div>
           <Button
-            className="hover:bg-destructive/10 hover:text-destructive"
+            className="shrink-0 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
             disabled={clearHistory.isPending}
             onClick={() => {
-              if (window.confirm('确定清空全部查询历史吗？')) clearHistory.mutate()
+              clearHistory.reset()
+              setClearDialogOpen(true)
             }}
             type="button"
-            variant="ghost"
+            variant="outline"
           >
-            {clearHistory.isPending ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+            <Trash2 />
             清空历史
           </Button>
-        )}
-      </div>
+        </div>
 
-      <Card className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardHeader className="shrink-0">
-          <CardTitle>最近访问的词条</CardTitle>
-          <CardDescription>最多保留 200 条记录，重复查询会更新到列表顶部。</CardDescription>
-        </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col">
-          {isLoading && <p className="text-sm text-muted-foreground">正在加载…</p>}
-          {isError && <p className="text-sm text-destructive">加载查询历史失败。</p>}
+        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-border bg-muted/30">
+          {isLoading && (
+            <p className="bg-card px-4 py-5 text-sm text-muted-foreground">正在加载…</p>
+          )}
+          {isError && (
+            <p className="bg-card px-4 py-5 text-sm text-destructive">加载查询历史失败。</p>
+          )}
           {!isLoading && !isError && history.length === 0 && (
-            <div className="py-8 text-center">
-              <History className="mx-auto mb-3 size-6 text-muted-foreground" />
+            <div className="bg-card px-4 py-10 text-center">
+              <History className="mx-auto mb-3 size-6 text-primary" />
               <p className="text-sm font-medium">暂无查询记录</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 查询单词后，最近访问的词条会显示在这里。
               </p>
             </div>
           )}
           {!isLoading && !isError && history.length > 0 && (
-            <Table className="table-fixed" containerClassName="min-h-0 flex-1 overflow-auto">
-              <TableHeader className="sticky top-0 z-10 bg-card">
+            <Table
+              className="min-w-0 table-fixed"
+              containerClassName="max-w-full max-h-full overflow-x-hidden overflow-y-auto"
+            >
+              <TableHeader className="sticky top-0 z-10 bg-muted/30">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow className="hover:bg-transparent" key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <TableHead
-                        className={getColumnClassName(header.column.id, true)}
+                        className={cn('px-4', getColumnClassName(header.column.id, true))}
                         key={header.id}
                       >
                         {header.isPlaceholder
@@ -172,10 +196,10 @@ export const HistoryPage = (): React.JSX.Element => {
               </TableHeader>
               <TableBody>
                 {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow className="bg-card hover:bg-muted/40" key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
-                        className={getColumnClassName(cell.column.id, false)}
+                        className={cn('px-4 py-4', getColumnClassName(cell.column.id, false))}
                         key={cell.id}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -186,11 +210,48 @@ export const HistoryPage = (): React.JSX.Element => {
               </TableBody>
             </Table>
           )}
+        </div>
+        <p className="py-2 text-xs text-center leading-6 text-muted-foreground">
+          最多保留 200 条记录, 重复查询会更新到列表顶部
+        </p>
+      </section>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!clearHistory.isPending) setClearDialogOpen(open)
+        }}
+        open={clearDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>清空查询历史</DialogTitle>
+            <DialogDescription>这会移除所有最近查询记录，且无法恢复。</DialogDescription>
+          </DialogHeader>
+          <p className="text-sm leading-6">确定要清空全部查询历史吗？</p>
           {clearHistory.isError && (
-            <p className="mt-3 text-xs text-destructive">清空查询历史失败。</p>
+            <p className="text-sm text-destructive">清空查询历史失败，请重试。</p>
           )}
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button
+              disabled={clearHistory.isPending}
+              onClick={() => setClearDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button
+              disabled={clearHistory.isPending}
+              onClick={() => void confirmClearHistory()}
+              type="button"
+              variant="destructive"
+            >
+              {clearHistory.isPending && <LoaderCircle className="animate-spin" />}
+              清空历史
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
