@@ -19,11 +19,11 @@ body {
 .selection-menu {
   display: flex;
   flex-direction: row;
-  gap: 2px;
+  gap: 1px;
   box-sizing: border-box;
   width: 100%;
   height: 40px;
-  padding: 4px;
+  padding: 4px 3px;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 68%);
   border-radius: 12px;
@@ -42,9 +42,9 @@ body {
   height: 30px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   box-sizing: border-box;
-  padding: 0 8px;
+  padding: 0 6px;
   border: 0;
   border-radius: 8px;
   outline: none;
@@ -71,14 +71,14 @@ body {
 }
 
 .selection-action-more {
-  width: 30px;
-  flex: 0 0 30px;
+  width: 28px;
+  flex: 0 0 28px;
   padding: 0;
 }
 
 .selection-action-logo {
-  width: 30px;
-  flex: 0 0 30px;
+  width: 28px;
+  flex: 0 0 28px;
   padding: 0;
 }
 

@@ -32,8 +32,8 @@ import { BaseController } from './base-controller'
 
 const MAX_SELECTION_LENGTH = 200
 const TOOLBAR_HEIGHT = 44
-const TOOLBAR_WIDTH = 310
-const TOOLBAR_WIDTH_WITH_AI = 390
+const TOOLBAR_WIDTH = 280
+const TOOLBAR_WIDTH_WITH_AI = 352
 const MOUSE_ANCHOR_GAP = 16
 const SELECTION_ANCHOR_GAP = 4
 const EXPLANATION_SELECTION_GAP = 8

@@ -175,7 +175,7 @@ export class WindowManager {
     }
 
     const window = new BrowserWindow({
-      width: 310,
+      width: 280,
       height: 44,
       show: false,
       frame: false,
