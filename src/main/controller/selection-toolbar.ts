@@ -18,6 +18,7 @@ import type {
 } from '../../shared/selection-explanation'
 import type {
   CapturedSelection,
+  KeyDownListener,
   MouseDownListener,
   MouseWheelListener,
   SelectionListener
@@ -79,6 +80,7 @@ type PendingExplanationLoading = {
 
 export class SelectionToolbarController extends BaseController {
   private currentCapture: CapturedSelection | undefined
+  private pendingToolbarCapture: CapturedSelection | undefined
   private anchor: SelectionAnchor | undefined
   private toolbarWebContentsId: number | undefined
   private explanationWebContentsId: number | undefined
@@ -94,11 +96,11 @@ export class SelectionToolbarController extends BaseController {
   private inactivityTimer: ReturnType<typeof setTimeout> | undefined
   private nativeMenu: Menu | undefined
   private activeAiRequestId: string | undefined
+  private toolbarDismissSubscriptions: Array<() => void> = []
+  private globalMouseDownUnsubscribe: (() => void) | undefined
 
   override mount(): void {
     this.runtime.selectionHookService.onSelection(this.handleSelection)
-    this.runtime.selectionHookService.onMouseDown(this.handleGlobalMouseDown)
-    this.runtime.selectionHookService.onMouseWheel(this.handleMouseWheel)
     ipcMain.on('selection-toolbar:lookup-in-main', this.lookupInMain)
     ipcMain.on('selection-toolbar:explain', this.explain)
     ipcMain.on('selection-toolbar:ai-explain', this.aiExplain)
@@ -130,24 +132,42 @@ export class SelectionToolbarController extends BaseController {
 
     if (capture.source !== 'selection' || BrowserWindow.getFocusedWindow()) return
     this.currentCapture = capture
+    this.pendingToolbarCapture = capture
     this.anchor = toDisplayAnchor(capture)
     this.hideExplanation()
 
     const window = this.initializeToolbarWindow()
     this.syncToolbarSize(window, this.runtime.appConfig.load().aiLookup.enabled)
     this.positionToolbar(window, TOOLBAR_HEIGHT)
-    if (this.toolbarLoaded) this.showToolbar(window)
+    if (this.toolbarLoaded) this.showPendingToolbar(window)
     this.prewarmExplanationWindow()
   }
 
   private readonly handleGlobalMouseDown: MouseDownListener = (event): void => {
+    console.log('[selection-popup] global mouse-down', {
+      toolbarVisible: this.currentToolbarWindow?.isVisible() ?? false,
+      explanationVisible: this.currentExplanationWindow?.isVisible() ?? false,
+      ignoredForNativeMenu: Boolean(this.nativeMenu)
+    })
     if (this.nativeMenu) return
 
     const point = toDisplayPoint(event)
     this.hideSelectionWindowsOutside(point)
   }
 
+  private readonly handleGlobalKeyDown: KeyDownListener = (): void => {
+    console.log('[selection-popup] global key-down', {
+      toolbarVisible: this.currentToolbarWindow?.isVisible() ?? false,
+      explanationVisible: this.currentExplanationWindow?.isVisible() ?? false
+    })
+    this.hideToolbar()
+  }
+
   private readonly handleMouseWheel: MouseWheelListener = (): void => {
+    console.log('[selection-popup] global mouse-wheel', {
+      toolbarVisible: this.currentToolbarWindow?.isVisible() ?? false,
+      explanationVisible: this.currentExplanationWindow?.isVisible() ?? false
+    })
     // Keep the explanation document scrollable. Only the short-lived selection
     // toolbar is dismissed by a global scroll gesture.
     this.hideToolbar()
@@ -248,6 +268,7 @@ export class SelectionToolbarController extends BaseController {
     }
   }
 
+  // 无活动时，自动隐藏toolbar
   private readonly handleToolbarActivity = (event: IpcMainEvent): void => {
     if (!this.acceptsToolbarSender(event) || !this.currentToolbarWindow?.isVisible()) return
     this.scheduleToolbarAutoHide()
@@ -355,9 +376,10 @@ export class SelectionToolbarController extends BaseController {
 
     window.webContents.on('did-finish-load', () => {
       this.toolbarLoaded = true
-      if (this.currentCapture) this.showToolbar(window)
+      this.showPendingToolbar(window)
     })
-    window.on('hide', this.clearToolbarAutoHide)
+    window.on('hide', this.handleToolbarHidden)
+    window.on('closed', this.handleToolbarHidden)
     window.webContents.on('will-navigate', (event) => event.preventDefault())
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
@@ -370,9 +392,10 @@ export class SelectionToolbarController extends BaseController {
     return window
   }
 
-  private showToolbar(window: BrowserWindow): void {
-    const capture = this.currentCapture
+  private showPendingToolbar(window: BrowserWindow): void {
+    const capture = this.pendingToolbarCapture
     if (!capture || window.isDestroyed()) return
+    this.pendingToolbarCapture = undefined
     const programName = capture.selection.programName.trim()
     const payload: SelectionToolbarPayload = {
       word: capture.selection.text.trim(),
@@ -384,6 +407,8 @@ export class SelectionToolbarController extends BaseController {
     this.positionToolbar(window, TOOLBAR_HEIGHT)
     window.webContents.send('selection-toolbar:update', payload)
     showSelectionWindowInactive(window, { preventActivationOnClick: true })
+    this.subscribeToolbarDismissEvents()
+    this.syncGlobalMouseDownSubscription()
     this.scheduleToolbarAutoHide()
   }
 
@@ -409,6 +434,42 @@ export class SelectionToolbarController extends BaseController {
     this.inactivityTimer = undefined
   }
 
+  private subscribeToolbarDismissEvents(): void {
+    if (this.toolbarDismissSubscriptions.length > 0) return
+    const selectionHook = this.runtime.selectionHookService
+    this.toolbarDismissSubscriptions = [
+      selectionHook.onKeyDown(this.handleGlobalKeyDown),
+      selectionHook.onMouseWheel(this.handleMouseWheel)
+    ]
+  }
+
+  private unsubscribeToolbarDismissEvents(): void {
+    this.toolbarDismissSubscriptions.forEach((unsubscribe) => unsubscribe())
+    this.toolbarDismissSubscriptions = []
+  }
+
+  private readonly handleToolbarHidden = (): void => {
+    this.pendingToolbarCapture = undefined
+    this.clearToolbarAutoHide()
+    this.unsubscribeToolbarDismissEvents()
+    this.syncGlobalMouseDownSubscription()
+  }
+
+  private readonly syncGlobalMouseDownSubscription = (): void => {
+    const shouldListen = Boolean(
+      this.currentToolbarWindow?.isVisible() || this.currentExplanationWindow?.isVisible()
+    )
+    if (shouldListen && !this.globalMouseDownUnsubscribe) {
+      this.globalMouseDownUnsubscribe = this.runtime.selectionHookService.onMouseDown(
+        this.handleGlobalMouseDown
+      )
+      return
+    }
+    if (shouldListen || !this.globalMouseDownUnsubscribe) return
+    this.globalMouseDownUnsubscribe()
+    this.globalMouseDownUnsubscribe = undefined
+  }
+
   private initializeExplanationWindow(): BrowserWindow {
     const window = this.runtime.windowManager.createSelectionExplanationWindow()
     if (this.explanationWebContentsId === window.webContents.id) return window
@@ -421,6 +482,8 @@ export class SelectionToolbarController extends BaseController {
       this.hideExplanation()
     })
     window.on('resize', () => this.rememberExplanationSize(window))
+    window.on('hide', this.syncGlobalMouseDownSubscription)
+    window.on('closed', this.syncGlobalMouseDownSubscription)
     window.webContents.on('did-finish-load', () => {
       this.explanationLoaded = true
       this.flushExplanationPayload()
@@ -428,7 +491,7 @@ export class SelectionToolbarController extends BaseController {
         this.explanationPayload?.mode === 'ai' &&
         this.explanationPayload.requestId === this.lookupVersion
       ) {
-        showSelectionWindowInactive(window)
+        this.showExplanationWindow(window)
       }
     })
     window.webContents.on('will-navigate', (event) => event.preventDefault())
@@ -455,6 +518,11 @@ export class SelectionToolbarController extends BaseController {
         console.error('Failed to prewarm selection explanation window', error)
       }
     })
+  }
+
+  private showExplanationWindow(window: BrowserWindow): void {
+    showSelectionWindowInactive(window)
+    this.syncGlobalMouseDownSubscription()
   }
 
   private configureExplanationView(): void {
@@ -495,10 +563,7 @@ export class SelectionToolbarController extends BaseController {
     const keepWindowVisible = window.isVisible()
     this.resolvePendingExplanationLoading()
     const loadingReady = this.waitForExplanationLoading(version)
-    if (!keepWindowVisible) {
-      hideSelectionWindow(window)
-      this.explanationView.hide()
-    }
+    this.explanationView.hide()
     this.updateExplanation({
       mode: 'dictionary',
       requestId: version,
@@ -511,7 +576,7 @@ export class SelectionToolbarController extends BaseController {
       const lookupPromise = this.db.lookupDictionaryEntryGroup(normalizedWord)
       await loadingReady
       if (version !== this.lookupVersion) return
-      if (!keepWindowVisible) showSelectionWindowInactive(window)
+      if (!keepWindowVisible) this.showExplanationWindow(window)
 
       const group = await lookupPromise
       if (version !== this.lookupVersion) return
@@ -590,7 +655,7 @@ export class SelectionToolbarController extends BaseController {
       state: 'loading'
     })
     this.positionExplanation(window)
-    if (this.explanationLoaded) showSelectionWindowInactive(window)
+    if (this.explanationLoaded) this.showExplanationWindow(window)
 
     let content = ''
     this.runtime.aiLookupService.start(
@@ -598,6 +663,12 @@ export class SelectionToolbarController extends BaseController {
       [{ role: 'user', content: normalizedWord }],
       'selection-toolbar',
       (event) => {
+        if (
+          (event.type === 'done' || event.type === 'error') &&
+          this.activeAiRequestId === requestId
+        ) {
+          this.activeAiRequestId = undefined
+        }
         if (version !== this.lookupVersion) return
         if (event.type === 'task') {
           return
@@ -833,7 +904,13 @@ export class SelectionToolbarController extends BaseController {
   }
 
   private hideToolbar(): void {
-    hideSelectionWindow(this.currentToolbarWindow)
+    this.pendingToolbarCapture = undefined
+    const window = this.currentToolbarWindow
+    if (window?.isVisible()) {
+      hideSelectionWindow(window)
+    } else {
+      this.handleToolbarHidden()
+    }
   }
 
   private hideExplanation(): void {
@@ -843,7 +920,12 @@ export class SelectionToolbarController extends BaseController {
     this.explanationDictionaryMatches = []
     this.loadedExplanationDictionaryId = undefined
     this.runtime.windowManager.setSelectionExplanationSwitcherVisible(false)
-    hideSelectionWindow(this.currentExplanationWindow)
+    const window = this.currentExplanationWindow
+    if (window?.isVisible()) {
+      hideSelectionWindow(window)
+    } else {
+      this.syncGlobalMouseDownSubscription()
+    }
   }
 
   private cancelAiExplanation(): void {

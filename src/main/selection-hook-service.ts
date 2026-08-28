@@ -1,4 +1,5 @@
 import type {
+  KeyboardEventData,
   MouseEventData,
   MouseWheelEventData,
   SelectionHookConstructor,
@@ -33,13 +34,12 @@ export type SelectionHookCapabilities = {
 
 export type SelectionListener = (capture: CapturedSelection) => void
 export type SelectionUnavailableListener = (source: SelectionSource) => void
+export type KeyDownListener = (event: KeyboardEventData) => void
 export type MouseDownListener = (event: MouseEventData) => void
 export type MouseWheelListener = (event: MouseWheelEventData) => void
 type SelectionHookEvents = {
   'text-selection': [capture: CapturedSelection]
   'selection-unavailable': [source: SelectionSource]
-  'mouse-down': [event: MouseEventData]
-  'mouse-wheel': [event: MouseWheelEventData]
 }
 
 export class SelectionHookService implements ShortcutHandler {
@@ -160,14 +160,22 @@ export class SelectionHookService implements ShortcutHandler {
     return () => this.eventBus.off('selection-unavailable', listener)
   }
 
+  onKeyDown(listener: KeyDownListener): () => void {
+    const hook = this.getHook()
+    hook.on('key-down', listener)
+    return () => hook.off('key-down', listener)
+  }
+
   onMouseDown(listener: MouseDownListener): () => void {
-    this.eventBus.on('mouse-down', listener)
-    return () => this.eventBus.off('mouse-down', listener)
+    const hook = this.getHook()
+    hook.on('mouse-down', listener)
+    return () => hook.off('mouse-down', listener)
   }
 
   onMouseWheel(listener: MouseWheelListener): () => void {
-    this.eventBus.on('mouse-wheel', listener)
-    return () => this.eventBus.off('mouse-wheel', listener)
+    const hook = this.getHook()
+    hook.on('mouse-wheel', listener)
+    return () => hook.off('mouse-wheel', listener)
   }
 
   private getHook(): SelectionHookInstance {
@@ -176,8 +184,6 @@ export class SelectionHookService implements ShortcutHandler {
       const SelectionHook = require('selection-hook') as SelectionHookConstructor
       this.hook = new SelectionHook()
       this.hook.on('text-selection', this.handleTextSelection)
-      this.hook.on('mouse-down', this.handleMouseDown)
-      this.hook.on('mouse-wheel', this.handleMouseWheel)
       this.hook.on('error', this.handleError)
     }
     return this.hook
@@ -190,14 +196,6 @@ export class SelectionHookService implements ShortcutHandler {
   private readonly handleTextSelection = (selection: TextSelectionData): void => {
     if (this.config.passiveMode) return
     this.emitSelection(selection, 'selection')
-  }
-
-  private readonly handleMouseDown = (event: MouseEventData): void => {
-    this.eventBus.emit('mouse-down', event)
-  }
-
-  private readonly handleMouseWheel = (event: MouseWheelEventData): void => {
-    this.eventBus.emit('mouse-wheel', event)
   }
 
   private readonly handleError = (error: Error): void => {
