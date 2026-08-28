@@ -50,6 +50,9 @@ export class EmbedBrowserController extends BaseController {
 
   private getView(): WebContentsViewManager {
     const view = this.runtime.windowManager.createEmbedBrowserView()
+    this.runtime.mainWindowShortcutRouter?.register(view.webContents, 'embed-browser', [
+      'focus-search'
+    ])
     this.runtime.adBlockService.attach(view.webContents.session)
     return view
   }

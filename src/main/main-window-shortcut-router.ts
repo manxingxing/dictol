@@ -2,7 +2,8 @@ import { type BrowserWindow, type Event, type Input, type WebContents } from 'el
 
 import type { WindowManager } from './window-manager'
 
-type MainWindowShortcutTarget = 'main' | 'dictionary' | 'search-popover' | 'find-bar'
+type MainWindowShortcutTarget =
+  'main' | 'dictionary' | 'search-popover' | 'find-bar' | 'embed-browser'
 type ShortcutAction = 'focus-search' | 'show-find-bar'
 
 type Registration = {
@@ -19,12 +20,21 @@ export class MainWindowShortcutRouter {
     private readonly mainWindow: BrowserWindow
   ) {}
 
-  register(webContents: WebContents, target: MainWindowShortcutTarget): void {
+  register(
+    webContents: WebContents,
+    target: MainWindowShortcutTarget,
+    allowedActions?: readonly ShortcutAction[]
+  ): void {
     if (webContents.isDestroyed() || this.registrations.has(webContents.id)) return
 
     const listener = (event: Event, input: Input): void => {
       const action = getShortcutAction(input)
-      if (!action || this.mainWindow.isDestroyed() || this.mainWindow.webContents.isDestroyed()) {
+      if (
+        !action ||
+        (allowedActions && !allowedActions.includes(action)) ||
+        this.mainWindow.isDestroyed() ||
+        this.mainWindow.webContents.isDestroyed()
+      ) {
         return
       }
 
