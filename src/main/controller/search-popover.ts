@@ -1,5 +1,6 @@
 import { ipcMain, type IpcMainEvent, type Rectangle } from 'electron'
 import { is } from '@electron-toolkit/utils'
+import type { AppRuntime } from '../app-runtime'
 import type { WebContentsViewManager } from '../web-contents-view-manager'
 import { resolveRendererPath } from '../output-path'
 import { BaseController } from './base-controller'
@@ -15,6 +16,14 @@ export type SearchPopoverPayload = {
   items: SearchPopoverItem[]
   selectedIndex: number
   status?: 'loading' | 'empty'
+}
+
+export function dismissSearchPopover(runtime: AppRuntime): void {
+  const popover = runtime.windowManager.searchPopoverView
+  if (!popover?.isVisible) return
+  popover.hide()
+  runtime.windowManager.focusMainWindowRenderer()
+  popover.sendToMainWindow('search-popover:dismissed')
 }
 
 export class SearchPopoverController extends BaseController {
@@ -91,9 +100,7 @@ export class SearchPopoverController extends BaseController {
   dismiss = (event: IpcMainEvent): void => {
     const popover = this.currentPopover
     if (!popover?.acceptsSender(event.sender.id)) return
-    popover.hide()
-    this.runtime.windowManager.focusMainWindowRenderer()
-    popover.sendToMainWindow('search-popover:dismissed')
+    dismissSearchPopover(this.runtime)
   }
 
   private initializeView(): WebContentsViewManager {

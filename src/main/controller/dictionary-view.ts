@@ -11,6 +11,7 @@ import { is } from '@electron-toolkit/utils'
 import type { WebContentsViewManager } from '../web-contents-view-manager'
 import { resolveRendererPath } from '../output-path'
 import { BaseController } from './base-controller'
+import { dismissSearchPopover } from './search-popover'
 
 export class DictionaryViewController extends BaseController {
   private static readonly maxAiExplanationTextLength = 10_000
@@ -92,11 +93,7 @@ export class DictionaryViewController extends BaseController {
 
   pointerDown = (event: IpcMainEvent): void => {
     if (!this.acceptsViewSender(event.sender.id)) return
-    const popover = this.runtime.windowManager.searchPopoverView
-    if (!popover?.isVisible) return
-    popover.hide()
-    this.runtime.windowManager.focusMainWindowRenderer()
-    popover.sendToMainWindow('search-popover:dismissed')
+    dismissSearchPopover(this.runtime)
   }
 
   findInPage = (event: IpcMainEvent, text: string): void => {

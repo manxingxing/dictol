@@ -8,6 +8,7 @@ import {
 
 import type { WebContentsViewManager } from '../web-contents-view-manager'
 import { BaseController } from './base-controller'
+import { dismissSearchPopover } from './search-popover'
 
 export class EmbedBrowserController extends BaseController {
   private configuredViewId: number | undefined
@@ -63,6 +64,10 @@ export class EmbedBrowserController extends BaseController {
         })
       }
       return { action: 'deny' }
+    })
+    view.webContents.on('before-mouse-event', (_event, mouse) => {
+      if (mouse.type !== 'mouseDown') return
+      dismissSearchPopover(this.runtime)
     })
     const notifyUrl = (): void => {
       const url = view.getURL()
