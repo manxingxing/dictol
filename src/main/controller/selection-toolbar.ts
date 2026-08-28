@@ -105,7 +105,6 @@ export class SelectionToolbarController extends BaseController {
     ipcMain.on('selection-toolbar:copy', this.copy)
     ipcMain.on('selection-toolbar:google', this.google)
     ipcMain.on('selection-toolbar:open-menu', this.openNativeMenu)
-    ipcMain.on('selection-toolbar:dismiss', this.dismissToolbar)
     ipcMain.on('selection-toolbar:activity', this.handleToolbarActivity)
     ipcMain.on('selection-explanation:close', this.closeExplanation)
     ipcMain.on('selection-explanation:loading-ready', this.handleExplanationLoadingReady)
@@ -247,10 +246,6 @@ export class SelectionToolbarController extends BaseController {
       this.scheduleToolbarAutoHide()
       console.error('Failed to show selection toolbar native menu', error)
     }
-  }
-
-  private readonly dismissToolbar = (event: IpcMainEvent): void => {
-    if (this.acceptsToolbarSender(event)) this.hideToolbar()
   }
 
   private readonly handleToolbarActivity = (event: IpcMainEvent): void => {

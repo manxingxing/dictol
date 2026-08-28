@@ -22,7 +22,6 @@ declare global {
       copy: () => void
       google: () => void
       openMenu: () => void
-      dismiss: () => void
       activity: () => void
     }
   }

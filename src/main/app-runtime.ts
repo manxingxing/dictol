@@ -187,7 +187,6 @@ export class AppRuntime {
   restartInputServices(): void {
     this.shortcutRegister.unregister(LOOKUP_WORD_ON_SHORTCUT)
     const config = this.appConfig.load()
-    console.log('new config:', config)
     this.initSelectionHook(config)
     this.registerGlobalShortCuts(config)
   }
