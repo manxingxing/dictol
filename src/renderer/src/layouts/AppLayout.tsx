@@ -36,13 +36,13 @@ export function AppLayout(): React.JSX.Element {
   }, [navigate, setSearchQuery])
 
   return (
-    <div className="relative flex h-screen min-h-0 flex-col bg-background text-foreground">
+    <div className="relative flex h-screen min-h-0 flex-col text-foreground">
       <WindowTitleBar />
 
       <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
         <Sidebar />
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto border-t">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto border-t bg-background">
           <Outlet />
         </main>
       </div>

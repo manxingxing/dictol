@@ -10,6 +10,9 @@ import { resolvePreloadPath } from './output-path'
 import { applySelectionWindowBehavior, hideSelectionWindow } from './selection-window-behavior'
 import { WebContentsViewManager } from './web-contents-view-manager'
 
+const getMainWindowBackgroundColor = (useDarkColors: boolean): string =>
+  process.platform === 'darwin' ? '#00000000' : useDarkColors ? '#171a18' : '#faf9f7'
+
 export class WindowManager {
   mainWindow: BrowserWindow | undefined
   dictionaryView: WebContentsViewManager | undefined
@@ -44,10 +47,16 @@ export class WindowManager {
       minWidth: 520,
       minHeight: 520,
       show: false,
-      backgroundColor: darkMode ? '#171a18' : '#faf9f7',
+      backgroundColor: getMainWindowBackgroundColor(darkMode),
       autoHideMenuBar: true,
       ...(process.platform === 'darwin'
-        ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 16 } }
+        ? {
+            titleBarStyle: 'hidden' as const,
+            trafficLightPosition: { x: 16, y: 16 },
+            transparent: true,
+            vibrancy: 'sidebar' as const,
+            visualEffectState: 'active' as const
+          }
         : process.platform === 'win32'
           ? {
               titleBarStyle: 'hidden' as const,
@@ -355,7 +364,7 @@ export class WindowManager {
     const useDarkColors = nativeTheme.shouldUseDarkColors
     const window = this.mainWindow
     if (!window || window.isDestroyed()) return
-    window.setBackgroundColor(useDarkColors ? '#171a18' : '#faf9f7')
+    window.setBackgroundColor(getMainWindowBackgroundColor(useDarkColors))
 
     if (this.dictionaryView && !this.dictionaryView.isDestroyed) {
       this.dictionaryView.setBackgroundColor(useDarkColors ? '#171a18' : '#ffffff')

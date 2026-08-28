@@ -34,6 +34,9 @@
   --input: #cbcbc7;
   --ring: #6d987e;
   --sidebar: #f5f5f2;
+  --app-chrome-background: var(--sidebar);
+  --app-chrome-backdrop-filter: none;
+  --app-chrome-native-opacity: 42%;
   --surface-secondary: #faf9f6;
   --surface-hover: #eeeeea;
   --surface-pressed: #e5e6e1;
@@ -59,29 +62,31 @@
 
 :root[data-chrome-tone='moss'] {
   /* Moss light follows the approved editorial workspace palette. */
-  --background: #fffef9;
+  --background: #f7faf7;
   --foreground: #20241f;
-  --card: #fffdf7;
+  --card: #fbfcf9;
   --card-foreground: #20241f;
-  --muted: #f0ede3;
+  --muted: #eef2ec;
   --muted-foreground: #747d73;
   --border: #d8d7ce;
   --border-strong: #c6c9bf;
   --input: #c6c9bf;
   --sidebar: #e8ebdf;
-  --surface-secondary: #f8f5ec;
+  --app-chrome-background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+  --app-chrome-backdrop-filter: blur(18px) saturate(135%);
+  --surface-secondary: #f2f7f1;
   --surface-hover: #ecefe5;
   --surface-pressed: #dce3d8;
   --accent-soft: #dfeadf;
-  --ai-panel-background: #f8f5ec;
+  --ai-panel-background: #f2f7f1;
   --ai-user-message-background: #dfeadf;
   --ai-user-message-border: rgb(53 106 77 / 12%);
-  --ai-assistant-message-background: #fffdf7;
+  --ai-assistant-message-background: #fbfcf9;
   --ai-assistant-message-border: #d8d7ce;
-  --dictionary-tab-background: #f8f5ec;
+  --dictionary-tab-background: #f2f7f1;
   --dictionary-tab-hover-background: var(--surface-hover);
-  --search-action-dock-background: #f8f5ec;
-  --dictionary-toolbar-background: #fffdf7;
+  --search-action-dock-background: #f2f7f1;
+  --dictionary-toolbar-background: #fbfcf9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -102,6 +107,7 @@
     --input: #4a4a4a;
     --ring: #8db89a;
     --sidebar: #151515;
+    --app-chrome-native-opacity: 48%;
     --surface-secondary: #1a1a1a;
     --surface-hover: #292929;
     --surface-pressed: #333333;
@@ -137,6 +143,8 @@
     --border-strong: #465044;
     --input: #465044;
     --sidebar: #151b15;
+    --app-chrome-background: color-mix(in srgb, var(--sidebar) 82%, transparent);
+    --app-chrome-backdrop-filter: blur(18px) saturate(130%);
     --surface-secondary: #171c16;
     --surface-hover: #222b21;
     --surface-pressed: #2a3529;
@@ -202,6 +210,25 @@ body [data-sonner-toaster].toaster {
 .window-titlebar-content {
   margin-left: env(titlebar-area-x, 0px);
   width: env(titlebar-area-width, 100%);
+}
+
+.app-chrome-surface {
+  background: var(--app-chrome-background);
+  -webkit-backdrop-filter: var(--app-chrome-backdrop-filter);
+  backdrop-filter: var(--app-chrome-backdrop-filter);
+}
+
+:root[data-chrome-vibrancy='on'] {
+  --app-chrome-background: color-mix(
+    in srgb,
+    var(--sidebar) var(--app-chrome-native-opacity),
+    transparent
+  );
+  --app-chrome-backdrop-filter: none;
+}
+
+:root[data-chrome-vibrancy='on'] body {
+  background: transparent;
 }
 
 .titlebar-search-trigger {
@@ -276,10 +303,10 @@ body [data-sonner-toaster].toaster {
 
 .appearance-tone-preview[data-tone='moss'] {
   --preview-chrome: #e8ebdf;
-  --preview-panel: #f8f5ec;
-  --preview-toolbar: #fffdf7;
-  --preview-pill: #f8f5ec;
-  --preview-message: #fffdf7;
+  --preview-panel: #f2f7f1;
+  --preview-toolbar: #fbfcf9;
+  --preview-pill: #f2f7f1;
+  --preview-message: #fbfcf9;
 }
 
 .appearance-tone-preview__titlebar {

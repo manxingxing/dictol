@@ -7,6 +7,11 @@ export function useChromeTone(): void {
 
   useLayoutEffect(() => {
     document.documentElement.dataset.chromeTone = chromeTone
+    if (window.dictol.platform === 'darwin' && chromeTone === 'moss') {
+      document.documentElement.dataset.chromeVibrancy = 'on'
+    } else {
+      delete document.documentElement.dataset.chromeVibrancy
+    }
   }, [chromeTone])
 
   useEffect(() => {

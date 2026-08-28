@@ -22,7 +22,7 @@ export function WindowTitleBar(): React.JSX.Element {
 
   return (
     <header
-      className="drag-region flex shrink-0 items-center border-border bg-sidebar"
+      className="app-chrome-surface drag-region flex shrink-0 items-center border-border"
       style={{ height: MAIN_WINDOW_TITLEBAR_HEIGHT }}
     >
       <div
