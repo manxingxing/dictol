@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { ArrowRight, Globe2, Link, Unlink, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -8,9 +9,9 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
 
 export function EmbedBrowser(): React.JSX.Element {
+  const { term } = useParams<{ term?: string }>()
   const url = useAppStore((state) => state.embedBrowserUrl)
   const searchTerm = useAppStore((state) => state.embedBrowserSearchTerm)
-  const searchQuery = useAppStore((state) => state.searchQuery)
   const setEmbedBrowserUrl = useAppStore((state) => state.setEmbedBrowserUrl)
   const setEmbedBrowserSearchTerm = useAppStore((state) => state.setEmbedBrowserSearchTerm)
   const setRightSidebarOpen = useAppStore((state) => state.setRightSidebarOpen)
@@ -19,7 +20,8 @@ export function EmbedBrowser(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [followSearch, setFollowSearch] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const followedQueryRef = useRef(searchQuery.trim())
+  const normalizedTerm = term?.trim() ?? ''
+  const followedTermRef = useRef(normalizedTerm)
   const hasUrl = url.length > 0
 
   useEffect(() => window.dictol.embedBrowser.onUrlChanged(setAddress), [])
@@ -40,22 +42,21 @@ export function EmbedBrowser(): React.JSX.Element {
 
   useEffect(() => {
     if (!followSearch) return
-    const nextTerm = searchQuery.trim()
-    if (nextTerm === followedQueryRef.current) return
+    if (normalizedTerm === followedTermRef.current) return
 
-    followedQueryRef.current = nextTerm
-    if (!nextTerm) return
+    followedTermRef.current = normalizedTerm
+    if (!normalizedTerm) return
 
     const previousTerm = searchTerm.trim()
     if (!previousTerm) return
-    if (nextTerm === previousTerm) return
+    if (normalizedTerm === previousTerm) return
 
-    const nextUrl = replaceSearchTerm(url, previousTerm, nextTerm)
+    const nextUrl = replaceSearchTerm(url, previousTerm, normalizedTerm)
     if (nextUrl === url) return
 
     setEmbedBrowserUrl(nextUrl)
-    setEmbedBrowserSearchTerm(nextTerm)
-  }, [followSearch, searchQuery, searchTerm, setEmbedBrowserSearchTerm, setEmbedBrowserUrl, url])
+    setEmbedBrowserSearchTerm(normalizedTerm)
+  }, [followSearch, normalizedTerm, searchTerm, setEmbedBrowserSearchTerm, setEmbedBrowserUrl, url])
 
   useLayoutEffect(() => {
     const container = contentRef.current
@@ -98,7 +99,7 @@ export function EmbedBrowser(): React.JSX.Element {
     setError(null)
     setAddress(nextUrl)
     setEmbedBrowserUrl(nextUrl)
-    setEmbedBrowserSearchTerm(searchQuery.trim())
+    setEmbedBrowserSearchTerm(normalizedTerm)
     if (nextUrl === url) {
       setIsLoading(true)
       void window.dictol.embedBrowser.load(nextUrl).catch((loadError: unknown) => {
@@ -122,7 +123,7 @@ export function EmbedBrowser(): React.JSX.Element {
             followSearch && 'bg-primary/10 text-primary hover:bg-primary/15'
           )}
           onClick={() => {
-            if (!followSearch) followedQueryRef.current = searchQuery.trim()
+            if (!followSearch) followedTermRef.current = normalizedTerm
             setFollowSearch((value) => !value)
           }}
           size="icon"

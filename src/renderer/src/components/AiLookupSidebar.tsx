@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   AuiIf,
   AssistantRuntimeProvider,
@@ -133,22 +134,22 @@ function createIpcChatModel(sourceText: string): ChatModelAdapter {
 }
 
 export function AiLookupSidebar(): React.JSX.Element {
+  const { term } = useParams<{ term?: string }>()
   const word = useAppStore((state) => state.aiSearchTerm)
-  const searchQuery = useAppStore((state) => state.searchQuery)
   const setAiSearchTerm = useAppStore((state) => state.setAiSearchTerm)
   const setRightSidebarOpen = useAppStore((state) => state.setRightSidebarOpen)
   const [followSearch, setFollowSearch] = useState(false)
-  const followedQueryRef = useRef(searchQuery.trim())
+  const normalizedTerm = term?.trim() ?? ''
   const normalizedWord = word.trim()
+  const followedTermRef = useRef(normalizedTerm)
 
   useEffect(() => {
     if (!followSearch) return
-    const normalizedQuery = searchQuery.trim()
-    if (normalizedQuery === followedQueryRef.current) return
+    if (normalizedTerm === followedTermRef.current) return
 
-    followedQueryRef.current = normalizedQuery
-    if (normalizedQuery && normalizedQuery !== normalizedWord) setAiSearchTerm(normalizedQuery)
-  }, [followSearch, normalizedWord, searchQuery, setAiSearchTerm])
+    followedTermRef.current = normalizedTerm
+    if (normalizedTerm && normalizedTerm !== normalizedWord) setAiSearchTerm(normalizedTerm)
+  }, [followSearch, normalizedTerm, normalizedWord, setAiSearchTerm])
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--ai-panel-background)]">
@@ -163,7 +164,7 @@ export function AiLookupSidebar(): React.JSX.Element {
             followSearch && 'bg-primary/10 text-primary hover:bg-primary/15'
           )}
           onClick={() => {
-            if (!followSearch) followedQueryRef.current = searchQuery.trim()
+            if (!followSearch) followedTermRef.current = normalizedTerm
             setFollowSearch((value) => !value)
           }}
           size="icon"
