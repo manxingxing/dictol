@@ -352,7 +352,11 @@ body [data-sonner-toaster].toaster {
   z-index: 50 !important;
 }
 
-@media (max-width: 1024px) {
+#search-results {
+  container: search-results / inline-size;
+}
+
+@container search-results (max-width: 1024px) {
   .online-dictionary-collapse {
     position: relative;
     width: 1.75rem;

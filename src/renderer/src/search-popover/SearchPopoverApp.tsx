@@ -3,6 +3,7 @@ import { LoaderCircle, Search, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useChromeTone } from '@/hooks/use-chrome-tone'
 import { cn } from '@/lib/utils'
 import { MAIN_WINDOW_TITLEBAR_CONTROL_HEIGHT } from '../../../shared/window-chrome'
 
@@ -39,6 +40,8 @@ const initialPayload: SearchPopoverPayload = {
 }
 
 export function SearchPopoverApp(): React.JSX.Element {
+  useChromeTone()
+
   const inputRef = useRef<HTMLInputElement>(null)
   const latestPayloadRef = useRef<SearchPopoverPayload>(initialPayload)
   const [payload, setPayload] = useState<SearchPopoverPayload>(initialPayload)

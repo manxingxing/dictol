@@ -47,14 +47,6 @@ export function SelectionToolbarApp(): React.JSX.Element {
   }, [])
 
   useEffect(() => window.dictolSelectionToolbar.onUpdate(setPayload), [])
-  useEffect(() => {
-    const dismiss = (event: KeyboardEvent): void => {
-      notifyActivity()
-      if (event.key === 'Escape') window.dictolSelectionToolbar.dismiss()
-    }
-    window.addEventListener('keydown', dismiss)
-    return () => window.removeEventListener('keydown', dismiss)
-  }, [notifyActivity])
 
   return (
     <div

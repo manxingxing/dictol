@@ -3,6 +3,7 @@ import {
   AuiIf,
   AssistantRuntimeProvider,
   ComposerPrimitive,
+  ErrorPrimitive,
   MessagePrimitive,
   MessagePartPrimitive,
   ThreadPrimitive,
@@ -226,15 +227,7 @@ function AiLookupThread({ word }: AiLookupThreadProps): React.JSX.Element {
       return (
         <MessagePrimitive.Root className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
           <div className={isUser ? 'max-w-[88%]' : 'max-w-[94%]'}>
-            <div
-              className={
-                isUser
-                  ? 'rounded-2xl rounded-br-md border border-[var(--ai-user-message-border)] bg-[var(--ai-user-message-background)] px-3 py-2 text-sm text-foreground'
-                  : 'rounded-2xl rounded-bl-md border border-[var(--ai-assistant-message-border)] bg-[var(--ai-assistant-message-background)] px-3 py-2.5 text-sm leading-6'
-              }
-            >
-              <MessagePrimitive.Parts components={{ Text: MarkdownMessagePart }} />
-            </div>
+            <AiMessageBubble isUser={isUser} />
             {!isUser && (
               <AuiIf condition={(state) => state.message.status?.type === 'complete'}>
                 <p className="mt-1 flex items-center gap-1 px-1 text-xs leading-4 text-muted-foreground/70">
@@ -298,6 +291,35 @@ function AiLookupThread({ word }: AiLookupThreadProps): React.JSX.Element {
         </div>
       </ComposerPrimitive.Root>
     </ThreadPrimitive.Root>
+  )
+}
+
+function AiMessageBubble({ isUser }: { isUser: boolean }): React.JSX.Element {
+  const hasError = useAuiState(
+    (state) =>
+      state.message.status?.type === 'incomplete' && state.message.status.reason === 'error'
+  )
+
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border px-3 py-2 text-sm',
+        isUser &&
+          'rounded-br-md border-[var(--ai-user-message-border)] bg-[var(--ai-user-message-background)] text-foreground',
+        !isUser &&
+          (hasError
+            ? 'rounded-bl-md border-destructive/25 bg-destructive/8 text-xs leading-6 text-destructive'
+            : 'rounded-bl-md border-[var(--ai-assistant-message-border)] bg-[var(--ai-assistant-message-background)] text-sm leading-6')
+      )}
+    >
+      <MessagePrimitive.Parts components={{ Text: MarkdownMessagePart }} />
+      <MessagePrimitive.Error>
+        <ErrorPrimitive.Root>
+          <span className="font-medium">AI 请求失败：</span>
+          <ErrorPrimitive.Message />
+        </ErrorPrimitive.Root>
+      </MessagePrimitive.Error>
+    </div>
   )
 }
 

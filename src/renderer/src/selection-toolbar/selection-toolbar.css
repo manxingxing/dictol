@@ -27,8 +27,7 @@ body {
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 68%);
   border-radius: 12px;
-  background:
-    linear-gradient(rgb(255 255 255 / 16%), rgb(255 255 255 / 4%)), rgb(246 248 245 / 88%);
+  background-color: rgba(246, 248, 245, 97%);
   /* The transparent BrowserWindow owns the toolbar shadow. */
   box-shadow: none;
   color: #242824;
@@ -59,11 +58,11 @@ body {
 
 .selection-action:hover,
 .selection-action:focus-visible {
-  background: rgb(255 255 255 / 52%);
+  background: rgb(255 255 255 / 62%);
 }
 
 .selection-action:active {
-  background: rgb(218 224 217 / 62%);
+  background: rgb(218 224 217 / 76%);
 }
 
 .selection-action-primary {
@@ -104,7 +103,7 @@ body {
 @media (prefers-color-scheme: dark) {
   .selection-menu {
     border-color: rgb(255 255 255 / 14%);
-    background: linear-gradient(rgb(255 255 255 / 7%), transparent), rgb(30 34 30 / 88%);
+    background: linear-gradient(rgb(255 255 255 / 7%), transparent), rgb(30 34 30 / 90%);
     color: #ecefeb;
   }
 
