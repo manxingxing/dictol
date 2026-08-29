@@ -134,7 +134,7 @@ export const SearchPanel = (): React.JSX.Element => {
   const hasCandidates = results.length > 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[var(--surface-secondary)]">
+    <div className="flex h-full min-h-0 flex-col bg-[var(--panel-background)]">
       <div className="border-b border-border px-3.5 py-4">
         <div className="relative">
           {isFetching ? (

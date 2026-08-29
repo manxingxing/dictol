@@ -14,7 +14,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
+  --color-sidebar: var(--sidebar-background);
 }
 
 :root {
@@ -33,15 +33,15 @@
   --border-strong: #cbcbc7;
   --input: #cbcbc7;
   --ring: #6d987e;
-  --sidebar: #f5f5f2;
-  --app-chrome-background: var(--sidebar);
-  --app-chrome-backdrop-filter: none;
-  --app-chrome-native-opacity: 42%;
-  --surface-secondary: #faf9f6;
+  --sidebar-background: #f5f5f2;
+  --window-chrome-background: var(--sidebar-background);
+  --window-chrome-backdrop-filter: none;
+  --window-vibrancy-opacity: 42%;
+  --panel-background: #faf9f6;
   --surface-hover: #eeeeea;
   --surface-pressed: #e5e6e1;
   --accent-soft: #e3ebe5;
-  --ai-panel-background: var(--surface-secondary);
+  --ai-panel-background: var(--panel-background);
   --ai-user-message-background: color-mix(in oklch, var(--primary) 8%, var(--card));
   --ai-user-message-border: color-mix(in oklch, var(--primary) 14%, transparent);
   --ai-assistant-message-background: #f1f1f1;
@@ -71,14 +71,14 @@
   --border: #d8d7ce;
   --border-strong: #c6c9bf;
   --input: #c6c9bf;
-  --sidebar: #e8ebdf;
-  --app-chrome-background: color-mix(in srgb, var(--sidebar) 78%, transparent);
-  --app-chrome-backdrop-filter: blur(18px) saturate(135%);
-  --surface-secondary: #f2f7f1;
+  --sidebar-background: #e8ebdf;
+  --window-chrome-background: color-mix(in srgb, var(--sidebar-background) 78%, transparent);
+  --window-chrome-backdrop-filter: blur(18px) saturate(135%);
+  --panel-background: color-mix(in oklab, var(--sidebar-background) 35%, transparent);
   --surface-hover: #ecefe5;
   --surface-pressed: #dce3d8;
   --accent-soft: #dfeadf;
-  --ai-panel-background: #f2f7f1;
+  --ai-panel-background: var(--panel-background);
   --ai-user-message-background: #dfeadf;
   --ai-user-message-border: rgb(53 106 77 / 12%);
   --ai-assistant-message-background: #fbfcf9;
@@ -106,13 +106,13 @@
     --border-strong: #4a4a4a;
     --input: #4a4a4a;
     --ring: #8db89a;
-    --sidebar: #151515;
-    --app-chrome-native-opacity: 48%;
-    --surface-secondary: #1a1a1a;
+    --sidebar-background: #151515;
+    --window-vibrancy-opacity: 48%;
+    --panel-background: #1a1a1a;
     --surface-hover: #292929;
     --surface-pressed: #333333;
     --accent-soft: #263229;
-    --ai-panel-background: var(--surface-secondary);
+    --ai-panel-background: var(--panel-background);
     --ai-user-message-background: color-mix(in oklch, var(--primary) 12%, var(--card));
     --ai-user-message-border: color-mix(in oklch, var(--primary) 20%, transparent);
     --ai-assistant-message-background: #232323;
@@ -142,14 +142,14 @@
     --border: #313a30;
     --border-strong: #465044;
     --input: #465044;
-    --sidebar: #151b15;
-    --app-chrome-background: color-mix(in srgb, var(--sidebar) 82%, transparent);
-    --app-chrome-backdrop-filter: blur(18px) saturate(130%);
-    --surface-secondary: #171c16;
+    --sidebar-background: #151b15;
+    --window-chrome-background: color-mix(in srgb, var(--sidebar-background) 82%, transparent);
+    --window-chrome-backdrop-filter: blur(18px) saturate(130%);
+    --panel-background: color-mix(in oklab, var(--sidebar-background) 35%, transparent);
     --surface-hover: #222b21;
     --surface-pressed: #2a3529;
     --accent-soft: #24382b;
-    --ai-panel-background: var(--surface-secondary);
+    --ai-panel-background: var(--panel-background);
     --ai-user-message-background: #24382b;
     --ai-user-message-border: #35513e;
     --ai-assistant-message-background: #1b211a;
@@ -213,18 +213,18 @@ body [data-sonner-toaster].toaster {
 }
 
 .app-chrome-surface {
-  background: var(--app-chrome-background);
-  -webkit-backdrop-filter: var(--app-chrome-backdrop-filter);
-  backdrop-filter: var(--app-chrome-backdrop-filter);
+  background: var(--window-chrome-background);
+  -webkit-backdrop-filter: var(--window-chrome-backdrop-filter);
+  backdrop-filter: var(--window-chrome-backdrop-filter);
 }
 
 :root[data-chrome-vibrancy='on'] {
-  --app-chrome-background: color-mix(
+  --window-chrome-background: color-mix(
     in srgb,
-    var(--sidebar) var(--app-chrome-native-opacity),
+    var(--sidebar-background) var(--window-vibrancy-opacity),
     transparent
   );
-  --app-chrome-backdrop-filter: none;
+  --window-chrome-backdrop-filter: none;
 }
 
 :root[data-chrome-vibrancy='on'] body {
@@ -256,7 +256,7 @@ body [data-sonner-toaster].toaster {
   flex: none;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   border-radius: 5px;
-  background: var(--surface-secondary);
+  background: var(--panel-background);
   padding: 2px 5px;
   color: var(--muted-foreground);
   font-family: inherit;
