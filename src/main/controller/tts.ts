@@ -12,7 +12,7 @@ export class TtsController extends BaseController {
   override mount(): void {
     ipcMain.handle('tts:get-config', this.getConfig)
     ipcMain.handle('tts:save-config', this.saveConfig)
-    ipcMain.handle('dictionary-view:read-aloud', this.readAloud)
+    ipcMain.handle('entry:read-aloud', this.readAloud)
   }
 
   private readonly getConfig = (event: IpcMainInvokeEvent): TtsConfig | null => {
@@ -57,7 +57,7 @@ export class TtsController extends BaseController {
     }
 
     console.debug('[TTS] request received', { ...context, text: rawText })
-    if (!this.acceptsDictionaryViewSender(event.sender.id)) {
+    if (!this.acceptsEntrySender(event.sender.id)) {
       console.warn('[TTS] request rejected: unknown sender', context)
       return null
     }
@@ -98,9 +98,12 @@ export class TtsController extends BaseController {
     }
   }
 
-  private acceptsDictionaryViewSender(senderId: number): boolean {
-    const dictionaryView = this.runtime.windowManager.dictionaryView
-    return dictionaryView?.acceptsSender(senderId) === true
+  private acceptsEntrySender(senderId: number): boolean {
+    const { dictionaryView, selectionExplanationView } = this.runtime.windowManager
+    return (
+      dictionaryView?.acceptsSender(senderId) === true ||
+      selectionExplanationView?.acceptsSender(senderId) === true
+    )
   }
 
   private acceptsMainSender(sender: WebContents): boolean {

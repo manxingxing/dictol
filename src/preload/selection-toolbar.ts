@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld(
     copy: (): void => ipcRenderer.send('selection-toolbar:copy'),
     google: (): void => ipcRenderer.send('selection-toolbar:google'),
     openMenu: (): void => ipcRenderer.send('selection-toolbar:open-menu'),
-    activity: (): void => ipcRenderer.send('selection-toolbar:activity')
+    activity: (): void => ipcRenderer.send('selection-toolbar:activity'),
+    rendered: (requestId: number): void => ipcRenderer.send('selection-toolbar:rendered', requestId)
   })
 )

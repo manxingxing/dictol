@@ -23,12 +23,12 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.send('notification:show-toast', payload),
     readAloud: (text: string, voice?: string): Promise<Uint8Array | null> => {
       return ipcRenderer
-        .invoke('dictionary-view:read-aloud', text, voice)
+        .invoke('entry:read-aloud', text, voice)
         .then((audioData: Uint8Array | null) => {
           return audioData
         })
         .catch((error: unknown) => {
-          console.error('[TTS][dictionary-preload] failed', error )
+          console.error('[TTS][dictionary-preload] failed', error)
           throw error
         })
     },
