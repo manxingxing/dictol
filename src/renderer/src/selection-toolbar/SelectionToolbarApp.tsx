@@ -4,17 +4,12 @@ import { BookOpen, Copy, MoreHorizontal, Search, Sparkles } from 'lucide-react'
 import appIcon from '@/assets/icon_32x32.png'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-
-type SelectionToolbarPayload = {
-  word: string
-  programName: string
-  canExclude: boolean
-  aiEnabled: boolean
-}
+import type { SelectionToolbarPayload } from '../../../shared/selection-toolbar'
 
 declare global {
   interface Window {
     dictolSelectionToolbar: {
+      platform: string
       onUpdate: (callback: (payload: SelectionToolbarPayload) => void) => () => void
       lookupInMain: () => void
       explain: () => void
@@ -23,11 +18,13 @@ declare global {
       google: () => void
       openMenu: () => void
       activity: () => void
+      rendered: (requestId: number) => void
     }
   }
 }
 
 const initialPayload: SelectionToolbarPayload = {
+  requestId: 0,
   word: '',
   programName: '',
   canExclude: false,
@@ -47,9 +44,27 @@ export function SelectionToolbarApp(): React.JSX.Element {
 
   useEffect(() => window.dictolSelectionToolbar.onUpdate(setPayload), [])
 
+  useEffect(() => {
+    if (payload.requestId === 0) return
+
+    // Let Chromium commit the updated toolbar before the Windows native window
+    // changes from zero opacity to visible.
+    let paintedFrame = 0
+    const committedFrame = requestAnimationFrame(() => {
+      paintedFrame = requestAnimationFrame(() => {
+        window.dictolSelectionToolbar.rendered(payload.requestId)
+      })
+    })
+    return () => {
+      cancelAnimationFrame(committedFrame)
+      cancelAnimationFrame(paintedFrame)
+    }
+  }, [payload.requestId])
+
   return (
     <div
       className="selection-toolbar-shell"
+      data-platform={window.dictolSelectionToolbar.platform}
       onPointerDown={notifyActivity}
       onPointerMove={notifyActivity}
     >

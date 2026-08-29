@@ -1,11 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-export type SelectionToolbarPayload = {
-  word: string
-  programName: string
-  canExclude: boolean
-  aiEnabled: boolean
-}
+import type { SelectionToolbarPayload } from '../shared/selection-toolbar'
 
 type Subscriber = (payload: SelectionToolbarPayload) => void
 
@@ -20,6 +15,7 @@ ipcRenderer.on('selection-toolbar:update', (_event, payload: SelectionToolbarPay
 contextBridge.exposeInMainWorld(
   'dictolSelectionToolbar',
   Object.freeze({
+    platform: process.platform,
     onUpdate: (callback: Subscriber): (() => void) => {
       subscribers.add(callback)
       if (latestPayload) callback(latestPayload)

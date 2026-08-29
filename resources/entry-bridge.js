@@ -22,7 +22,7 @@
       flex-direction: row;
       gap: 2px;
       padding: 4px;
-      border: 1px solid rgba(255, 255, 255, .68);
+      border: 1px solid rgba(34, 40, 34, .2);
       border-radius: 12px;
       background:
         linear-gradient(rgba(255, 255, 255, .16), rgba(255, 255, 255, .04)),

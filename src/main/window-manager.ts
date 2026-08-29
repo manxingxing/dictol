@@ -5,6 +5,7 @@ import {
   SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT,
   SELECTION_EXPLANATION_HEADER_HEIGHT
 } from '../shared/selection-explanation'
+import { getSelectionToolbarWindowSize } from '../shared/selection-toolbar'
 import { MAIN_WINDOW_TITLEBAR_HEIGHT } from '../shared/window-chrome'
 import { resolvePreloadPath } from './output-path'
 import { applySelectionWindowBehavior, hideSelectionWindow } from './selection-window-behavior'
@@ -183,13 +184,23 @@ export class WindowManager {
       return this.selectionToolbarWindow
     }
 
+    const initialSize = getSelectionToolbarWindowSize(false, process.platform)
     const window = new BrowserWindow({
-      width: 280,
-      height: 44,
+      ...initialSize,
       show: false,
       frame: false,
       transparent: true,
       backgroundColor: '#00000000',
+      // The Windows controller reveals the first fully rendered frame and then
+      // uses opacity for logical hide/show to avoid transparent-window flicker.
+      ...(process.platform === 'win32'
+        ? {
+            opacity: 0,
+            roundedCorners: false,
+            thickFrame: false,
+            backgroundMaterial: 'none' as const
+          }
+        : {}),
       resizable: false,
       movable: false,
       minimizable: false,
@@ -201,7 +212,9 @@ export class WindowManager {
         : {}),
       skipTaskbar: true,
       alwaysOnTop: true,
-      hasShadow: true,
+      // Windows DWM can add a thin non-client border without producing a useful
+      // shadow for transparent frameless windows. CSS owns that shadow instead.
+      hasShadow: process.platform !== 'win32',
       webPreferences: {
         preload: resolvePreloadPath('selection-toolbar.js'),
         contextIsolation: true,

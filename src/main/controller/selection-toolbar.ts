@@ -16,6 +16,11 @@ import type {
   SelectionExplanationDictionary,
   SelectionExplanationPayload
 } from '../../shared/selection-explanation'
+import {
+  getSelectionToolbarWindowSize,
+  SELECTION_TOOLBAR_WINDOWS_SHADOW_MARGIN,
+  type SelectionToolbarPayload
+} from '../../shared/selection-toolbar'
 import type {
   CapturedSelection,
   KeyDownListener,
@@ -32,9 +37,6 @@ import { hideSelectionWindow, showSelectionWindowInactive } from '../selection-w
 import { BaseController } from './base-controller'
 
 const MAX_SELECTION_LENGTH = 200
-const TOOLBAR_HEIGHT = 44
-const TOOLBAR_WIDTH = 280
-const TOOLBAR_WIDTH_WITH_AI = 352
 const MOUSE_ANCHOR_GAP = 16
 const SELECTION_ANCHOR_GAP = 4
 const EXPLANATION_SELECTION_GAP = 8
@@ -66,13 +68,6 @@ type ExplanationSize = {
   height: number
 }
 
-type SelectionToolbarPayload = {
-  word: string
-  programName: string
-  canExclude: boolean
-  aiEnabled: boolean
-}
-
 type PendingExplanationLoading = {
   requestId: number
   resolve: () => void
@@ -85,6 +80,11 @@ export class SelectionToolbarController extends BaseController {
   private toolbarWebContentsId: number | undefined
   private explanationWebContentsId: number | undefined
   private toolbarLoaded = false
+  // Windows keeps the transparent native window shown at zero opacity to avoid
+  // DWM flicker, so native isVisible() is not the toolbar's logical visibility.
+  private toolbarVisible = false
+  private toolbarRenderRequestId = 0
+  private pendingToolbarRenderRequestId: number | undefined
   private explanationLoaded = false
   private explanationPayload: SelectionExplanationPayload | undefined
   private explanationDictionaryMatches: DictionaryMatch[] = []
@@ -108,6 +108,7 @@ export class SelectionToolbarController extends BaseController {
     ipcMain.on('selection-toolbar:google', this.google)
     ipcMain.on('selection-toolbar:open-menu', this.openNativeMenu)
     ipcMain.on('selection-toolbar:activity', this.handleToolbarActivity)
+    ipcMain.on('selection-toolbar:rendered', this.handleToolbarRendered)
     ipcMain.on('selection-explanation:close', this.closeExplanation)
     ipcMain.on('selection-explanation:loading-ready', this.handleExplanationLoadingReady)
     ipcMain.on('selection-explanation:select-dictionary', this.selectExplanationDictionary)
@@ -137,15 +138,15 @@ export class SelectionToolbarController extends BaseController {
     this.hideExplanation()
 
     const window = this.initializeToolbarWindow()
-    this.syncToolbarSize(window, this.runtime.appConfig.load().aiLookup.enabled)
-    this.positionToolbar(window, TOOLBAR_HEIGHT)
+    const toolbarSize = this.syncToolbarSize(window, this.runtime.appConfig.load().aiLookup.enabled)
+    this.positionToolbar(window, toolbarSize.height)
     if (this.toolbarLoaded) this.showPendingToolbar(window)
     this.prewarmExplanationWindow()
   }
 
   private readonly handleGlobalMouseDown: MouseDownListener = (event): void => {
     console.log('[selection-popup] global mouse-down', {
-      toolbarVisible: this.currentToolbarWindow?.isVisible() ?? false,
+      toolbarVisible: this.toolbarVisible,
       explanationVisible: this.currentExplanationWindow?.isVisible() ?? false,
       ignoredForNativeMenu: Boolean(this.nativeMenu)
     })
@@ -157,7 +158,7 @@ export class SelectionToolbarController extends BaseController {
 
   private readonly handleGlobalKeyDown: KeyDownListener = (): void => {
     console.log('[selection-popup] global key-down', {
-      toolbarVisible: this.currentToolbarWindow?.isVisible() ?? false,
+      toolbarVisible: this.toolbarVisible,
       explanationVisible: this.currentExplanationWindow?.isVisible() ?? false
     })
     this.hideToolbar()
@@ -165,7 +166,7 @@ export class SelectionToolbarController extends BaseController {
 
   private readonly handleMouseWheel: MouseWheelListener = (): void => {
     console.log('[selection-popup] global mouse-wheel', {
-      toolbarVisible: this.currentToolbarWindow?.isVisible() ?? false,
+      toolbarVisible: this.toolbarVisible,
       explanationVisible: this.currentExplanationWindow?.isVisible() ?? false
     })
     // Keep the explanation document scrollable. Only the short-lived selection
@@ -250,12 +251,13 @@ export class SelectionToolbarController extends BaseController {
     this.clearToolbarAutoHide()
     const cursorPoint = screen.getCursorScreenPoint()
     const toolbarBounds = window.getBounds()
+    const toolbarShadowMargin = getToolbarShadowMargin()
 
     try {
       menu.popup({
         window,
         x: clamp(cursorPoint.x - toolbarBounds.x - 6, 0, toolbarBounds.width),
-        y: toolbarBounds.height + NATIVE_MENU_GAP,
+        y: toolbarBounds.height - toolbarShadowMargin + NATIVE_MENU_GAP,
         callback: () => {
           if (this.nativeMenu === menu) this.nativeMenu = undefined
           this.hideToolbar()
@@ -270,8 +272,26 @@ export class SelectionToolbarController extends BaseController {
 
   // 无活动时，自动隐藏toolbar
   private readonly handleToolbarActivity = (event: IpcMainEvent): void => {
-    if (!this.acceptsToolbarSender(event) || !this.currentToolbarWindow?.isVisible()) return
+    if (!this.acceptsToolbarSender(event) || !this.toolbarVisible) return
     this.scheduleToolbarAutoHide()
+  }
+
+  private readonly handleToolbarRendered = (event: IpcMainEvent, requestId: number): void => {
+    if (
+      process.platform !== 'win32' ||
+      !this.acceptsToolbarSender(event) ||
+      !Number.isSafeInteger(requestId) ||
+      requestId !== this.pendingToolbarRenderRequestId
+    ) {
+      return
+    }
+
+    const window = this.currentToolbarWindow
+    if (!window) return
+    this.pendingToolbarRenderRequestId = undefined
+    window.setIgnoreMouseEvents(false)
+    window.setOpacity(1)
+    this.completeToolbarShow()
   }
 
   private readonly closeExplanation = (event: IpcMainEvent): void => {
@@ -397,27 +417,51 @@ export class SelectionToolbarController extends BaseController {
     if (!capture || window.isDestroyed()) return
     this.pendingToolbarCapture = undefined
     const programName = capture.selection.programName.trim()
+    const requestId = ++this.toolbarRenderRequestId
     const payload: SelectionToolbarPayload = {
+      requestId,
       word: capture.selection.text.trim(),
       programName,
       canExclude: Boolean(programName),
       aiEnabled: this.runtime.appConfig.load().aiLookup.enabled
     }
-    this.syncToolbarSize(window, payload.aiEnabled)
-    this.positionToolbar(window, TOOLBAR_HEIGHT)
+    const toolbarSize = this.syncToolbarSize(window, payload.aiEnabled)
+    this.positionToolbar(window, toolbarSize.height)
     window.webContents.send('selection-toolbar:update', payload)
+
+    if (process.platform === 'win32') {
+      if (this.toolbarVisible) this.handleToolbarHidden()
+      this.pendingToolbarRenderRequestId = requestId
+      // Do not toggle native visibility after the first presentation. Transparent
+      // BrowserWindows can flash when Windows adds them back to the DWM scene.
+      window.setOpacity(0)
+      window.setIgnoreMouseEvents(true)
+      if (!window.isVisible()) showSelectionWindowInactive(window)
+      return
+    }
+
     showSelectionWindowInactive(window, { preventActivationOnClick: true })
+    this.completeToolbarShow()
+  }
+
+  private completeToolbarShow(): void {
+    this.toolbarVisible = true
     this.subscribeToolbarDismissEvents()
     this.syncGlobalMouseDownSubscription()
     this.scheduleToolbarAutoHide()
   }
 
-  private syncToolbarSize(window: BrowserWindow, aiEnabled: boolean): void {
-    if (window.isDestroyed()) return
-    const width = aiEnabled ? TOOLBAR_WIDTH_WITH_AI : TOOLBAR_WIDTH
+  private syncToolbarSize(
+    window: BrowserWindow,
+    aiEnabled: boolean
+  ): { width: number; height: number } {
+    const size = getSelectionToolbarWindowSize(aiEnabled, process.platform)
+    if (window.isDestroyed()) return size
     const [currentWidth, currentHeight] = window.getSize()
-    if (currentWidth === width && currentHeight === TOOLBAR_HEIGHT) return
-    window.setSize(width, TOOLBAR_HEIGHT, false)
+    if (currentWidth !== size.width || currentHeight !== size.height) {
+      window.setSize(size.width, size.height, false)
+    }
+    return size
   }
 
   private scheduleToolbarAutoHide(): void {
@@ -450,15 +494,15 @@ export class SelectionToolbarController extends BaseController {
 
   private readonly handleToolbarHidden = (): void => {
     this.pendingToolbarCapture = undefined
+    this.pendingToolbarRenderRequestId = undefined
+    this.toolbarVisible = false
     this.clearToolbarAutoHide()
     this.unsubscribeToolbarDismissEvents()
     this.syncGlobalMouseDownSubscription()
   }
 
   private readonly syncGlobalMouseDownSubscription = (): void => {
-    const shouldListen = Boolean(
-      this.currentToolbarWindow?.isVisible() || this.currentExplanationWindow?.isVisible()
-    )
+    const shouldListen = Boolean(this.toolbarVisible || this.currentExplanationWindow?.isVisible())
     if (shouldListen && !this.globalMouseDownUnsubscribe) {
       this.globalMouseDownUnsubscribe = this.runtime.selectionHookService.onMouseDown(
         this.handleGlobalMouseDown
@@ -863,7 +907,12 @@ export class SelectionToolbarController extends BaseController {
 
   private positionToolbar(window: BrowserWindow, height: number): void {
     const anchor = this.anchor ?? createCursorAnchor()
-    const bounds = fitNearSelection(anchor, window.getBounds().width, height)
+    const shadowMargin = getToolbarShadowMargin()
+    const bounds = fitNearSelection(
+      { ...anchor, gap: anchor.gap - shadowMargin },
+      window.getBounds().width,
+      height
+    )
     window.setBounds(bounds, false)
   }
 
@@ -888,7 +937,11 @@ export class SelectionToolbarController extends BaseController {
 
   private hideSelectionWindowsOutside(point: Point): void {
     const toolbar = this.currentToolbarWindow
-    if (toolbar?.isVisible() && !containsPoint(toolbar.getBounds(), point)) {
+    if (
+      toolbar &&
+      this.toolbarVisible &&
+      !containsPoint(insetRectangle(toolbar.getBounds(), getToolbarShadowMargin()), point)
+    ) {
       this.hideToolbar()
     }
 
@@ -905,8 +958,15 @@ export class SelectionToolbarController extends BaseController {
 
   private hideToolbar(): void {
     this.pendingToolbarCapture = undefined
+    this.pendingToolbarRenderRequestId = undefined
     const window = this.currentToolbarWindow
-    if (window?.isVisible()) {
+    if (process.platform === 'win32' && window?.isVisible()) {
+      // Keep the native surface alive and click-through; the next renderer frame
+      // can be revealed by opacity without another hide/show compositor cycle.
+      window.setIgnoreMouseEvents(true)
+      window.setOpacity(0)
+      this.handleToolbarHidden()
+    } else if (window?.isVisible()) {
       hideSelectionWindow(window)
     } else {
       this.handleToolbarHidden()
@@ -1150,6 +1210,19 @@ function containsPoint(bounds: Rectangle, point: Point): boolean {
     point.y >= bounds.y &&
     point.y < bounds.y + bounds.height
   )
+}
+
+function insetRectangle(bounds: Rectangle, inset: number): Rectangle {
+  return {
+    x: bounds.x + inset,
+    y: bounds.y + inset,
+    width: Math.max(0, bounds.width - inset * 2),
+    height: Math.max(0, bounds.height - inset * 2)
+  }
+}
+
+function getToolbarShadowMargin(): number {
+  return process.platform === 'win32' ? SELECTION_TOOLBAR_WINDOWS_SHADOW_MARGIN : 0
 }
 
 function decodeEntryTarget(url: string): string {
