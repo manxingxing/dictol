@@ -207,6 +207,7 @@ export class WindowManager {
       maximizable: false,
       fullscreenable: false,
       focusable: true,
+      acceptFirstMouse: true,
       ...(process.platform === 'darwin'
         ? { type: 'panel' as const, hiddenInMissionControl: true }
         : {}),
