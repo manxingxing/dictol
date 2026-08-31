@@ -440,7 +440,10 @@ export class SelectionToolbarController extends BaseController {
       return
     }
 
-    showSelectionWindowInactive(window, { preventActivationOnClick: true })
+    showSelectionWindowInactive(window, {
+      mainWindowToKeepHidden: this.runtime.mainWindow,
+      preventActivationOnClick: true
+    })
     this.completeToolbarShow()
   }
 
@@ -565,7 +568,9 @@ export class SelectionToolbarController extends BaseController {
   }
 
   private showExplanationWindow(window: BrowserWindow): void {
-    showSelectionWindowInactive(window)
+    showSelectionWindowInactive(window, {
+      mainWindowToKeepHidden: this.runtime.mainWindow
+    })
     this.syncGlobalMouseDownSubscription()
   }
 

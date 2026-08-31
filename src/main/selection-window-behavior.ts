@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 
 /**
  * Shared native-window behavior for the two cross-application selection surfaces.
@@ -19,11 +19,19 @@ export function applySelectionWindowBehavior(window: BrowserWindow): void {
  */
 export function showSelectionWindowInactive(
   window: BrowserWindow,
-  options: { preventActivationOnClick?: boolean } = {}
+  options: {
+    preventActivationOnClick?: boolean
+    mainWindowToKeepHidden?: BrowserWindow
+  } = {}
 ): void {
   if (window.isDestroyed()) return
 
   if (process.platform === 'darwin') {
+    // Cmd+H hides the whole application, not only the main BrowserWindow. On
+    // macOS, showing a panel can implicitly unhide the application and reveal
+    // the main window as a side effect. Preserve the user's hidden state by
+    // hiding the main window again after the auxiliary surface is shown.
+    const appWasHidden = app.isHidden()
     if (options.preventActivationOnClick) {
       // `showInactive()` only prevents activation while showing. A subsequent
       // first click can still activate the application, making the main window
@@ -37,6 +45,8 @@ export function showSelectionWindowInactive(
     // as a localized alternative to monkey-patching BrowserWindow.showInactive().
     window.setAlwaysOnTop(true, 'screen-saver')
     if (options.preventActivationOnClick) window.setFocusable(true)
+    const mainWindow = options.mainWindowToKeepHidden
+    if (appWasHidden && mainWindow && !mainWindow.isDestroyed()) mainWindow.hide()
     return
   }
 
