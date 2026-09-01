@@ -1,4 +1,4 @@
-import { dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { extname, isAbsolute } from 'node:path'
 
 import type {
@@ -20,6 +20,7 @@ export class DictionaryController extends BaseController {
     ipcMain.handle('dictionaries:select-file', this.selectImportFile)
     ipcMain.handle('dictionaries:import', this.importDictionary)
     ipcMain.handle('dictionaries:delete', this.deleteDictionary)
+    ipcMain.handle('dictionaries:open-directory', this.openDirectory)
     ipcMain.handle('dictionaries:reorder', this.reorderDictionaries)
     ipcMain.handle('dictionaries:update-name', this.updateDictionaryName)
     ipcMain.handle('dictionaries:update-custom-css', this.updateDictionaryCustomCss)
@@ -70,6 +71,14 @@ export class DictionaryController extends BaseController {
       throw error
     }
     if (validNumericId) await this.runtime.resourceCache.removeDictionary(numericId)
+  }
+
+  openDirectory = async (_event: IpcMainInvokeEvent, dictionaryId: string): Promise<void> => {
+    const dictionaryPath = await this.db.getDictionaryPath(dictionaryId)
+    if (!dictionaryPath) throw new Error('词典目录不存在')
+
+    const error = await shell.openPath(dictionaryPath)
+    if (error) throw new Error(error)
   }
 
   reorderDictionaries = async (

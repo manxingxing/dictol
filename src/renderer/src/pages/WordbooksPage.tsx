@@ -1,6 +1,15 @@
 import { useState } from 'react'
 
-import { BookMarked, FolderPlus, List, LoaderCircle, MoreHorizontal, Plus } from 'lucide-react'
+import {
+  BookMarked,
+  FolderPlus,
+  List,
+  LoaderCircle,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -352,11 +361,15 @@ function WordbookNavigation({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-28">
-                <DropdownMenuItem onClick={() => onRename?.(wordbook)}>重命名</DropdownMenuItem>
+                <DropdownMenuItem className="text-sm" onClick={() => onRename?.(wordbook)}>
+                  <Pencil className="size-3.5" />
+                  重命名
+                </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="text-destructive focus:bg-destructive/10"
-                  onClick={() => onDelete?.(wordbook) }
+                  className="text-sm hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  onClick={() => onDelete?.(wordbook)}
                 >
+                  <Trash2 className="size-3.5" />
                   删除
                 </DropdownMenuItem>
               </DropdownMenuContent>

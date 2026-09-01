@@ -50,6 +50,7 @@ declare global {
           }[]
         }>
         delete: (dictionaryId: string) => Promise<void>
+        openDirectory: (dictionaryId: string) => Promise<void>
         reorder: (dictionaryIds: string[]) => Promise<void>
         updateName: (dictionaryId: string, name: string) => Promise<void>
         updateCustomCss: (dictionaryId: string, customCss: string) => Promise<void>

@@ -5,14 +5,17 @@ import {
   Clock3,
   Code2,
   Files,
+  FolderOpen,
   GripVertical,
   LoaderCircle,
+  MoreHorizontal,
   Pencil,
   Trash2,
   Upload,
   Plus,
   Globe2
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,6 +27,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import {
   useDeleteDictionary,
   useDictionaries,
@@ -96,6 +106,7 @@ export function DictionariesPage(): React.JSX.Element {
     id: string
     position: 'before' | 'after'
   } | null>(null)
+  const [openingDictionaryId, setOpeningDictionaryId] = useState<string | null>(null)
 
   const finishDragging = (): void => {
     setDraggedDictionaryId(null)
@@ -105,6 +116,23 @@ export function DictionariesPage(): React.JSX.Element {
   const finishOnlineDragging = (): void => {
     setDraggedOnlineId(null)
     setOnlineDropTarget(null)
+  }
+
+  const openDictionaryDirectory = async (
+    dictionaryId: string,
+    dictionaryName: string
+  ): Promise<void> => {
+    setOpeningDictionaryId(dictionaryId)
+    try {
+      await window.dictol.dictionaries.openDirectory(dictionaryId)
+    } catch (error) {
+      console.error('Failed to open dictionary directory', { dictionaryId, error })
+      toast.error(`无法打开“${dictionaryName}”所在目录`, {
+        description: error instanceof Error ? error.message : '请稍后重试。'
+      })
+    } finally {
+      setOpeningDictionaryId(null)
+    }
   }
 
   const selectImportFile = async (): Promise<void> => {
@@ -330,25 +358,56 @@ export function DictionariesPage(): React.JSX.Element {
                       >
                         <Code2 />
                       </Button>
-                      <Button
-                        aria-label={`删除词典 ${dictionary.name}`}
-                        className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        disabled={dictionary.status === 'importing' || deleteDictionary.isPending}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `确定删除“${dictionary.name}”吗？词典记录、索引和已复制文件都会被删除。`
-                            )
-                          ) {
-                            deleteDictionary.mutate(dictionary.id)
-                          }
-                        }}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        {isDeleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-label={`更多词典操作 ${dictionary.name}`}
+                            className="shrink-0 text-muted-foreground"
+                            disabled={isDeleting || deleteDictionary.isPending}
+                            size="icon"
+                            title="更多操作"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            className="text-sm"
+                            disabled={openingDictionaryId === dictionary.id}
+                            onClick={() => {
+                              void openDictionaryDirectory(dictionary.id, dictionary.name)
+                            }}
+                          >
+                            {openingDictionaryId === dictionary.id ? (
+                              <LoaderCircle className="size-3.5 animate-spin" />
+                            ) : (
+                              <FolderOpen className="size-3.5" />
+                            )}
+                            打开所在目录
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-sm hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+                            disabled={
+                              dictionary.status === 'importing' || deleteDictionary.isPending
+                            }
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `确定删除“${dictionary.name}”吗？词典记录、索引和已复制文件都会被删除。`
+                                )
+                              ) {
+                                deleteDictionary.mutate(dictionary.id)
+                              }
+                            }}
+                          >
+                            <Trash2 className="size-3.5" />
+                            删除词典
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </li>
                   )
                 })}
