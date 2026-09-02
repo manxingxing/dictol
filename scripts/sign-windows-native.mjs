@@ -32,6 +32,9 @@ for (const input of files) {
       signer,
       [
         'sign',
+        // The Homebrew OpenSSL 3 signer handles this PFX more reliably with
+        // legacy-provider auto-loading disabled.
+        '-nolegacy',
         '-pkcs12',
         certificateFile,
         '-pass',

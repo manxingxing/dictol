@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Globe2, LoaderCircle, Sparkles, Star } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
+import { AiLookupButton } from '@/components/AiLookupButton'
+import { OnlineDictionaryButton } from '@/components/OnlineDictionaryButton'
+import { StarButton } from '@/components/StarButton'
 import { useDictionaryLookup } from '@/hooks/use-dictionary-entries'
 import { useRecordQueryHistory } from '@/hooks/use-query-history'
-import { useIsStarred, useToggleStar } from '@/hooks/use-wordbooks'
 import { useAppStore } from '@/stores/app-store'
 import { useAiLookupConfig } from '@/hooks/use-ai-lookup'
 import { useOnlineDictionaries } from '@/hooks/use-online-dictionaries'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
 
 export function SearchResultPage(): React.JSX.Element {
   const location = useLocation()
@@ -20,14 +18,6 @@ export function SearchResultPage(): React.JSX.Element {
   const { term } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const setSearchQuery = useAppStore((state) => state.setSearchQuery)
-  const rightSidebarOpen = useAppStore((state) => state.rightSidebarOpen)
-  const setRightSidebarOpen = useAppStore((state) => state.setRightSidebarOpen)
-  const rightSidebarType = useAppStore((state) => state.rightSidebarType)
-  const setRightSidebarType = useAppStore((state) => state.setRightSidebarType)
-  const setEmbedBrowserUrl = useAppStore((state) => state.setEmbedBrowserUrl)
-  const setEmbedBrowserSearchTerm = useAppStore((state) => state.setEmbedBrowserSearchTerm)
-  const aiSearchTerm = useAppStore((state) => state.aiSearchTerm)
-  const setAiSearchTerm = useAppStore((state) => state.setAiSearchTerm)
 
   const [contentContainer, setContentContainer] = useState<HTMLDivElement | null>(null)
   const [dictionaryViewLoading, setDictionaryViewLoading] = useState(false)
@@ -38,12 +28,7 @@ export function SearchResultPage(): React.JSX.Element {
   const recordedPathname = useRef<string | null>(null)
   const activeDictionaryTabRef = useRef<HTMLButtonElement | null>(null)
   const normalizedTerm = term?.trim()
-  const isAiSearchActive = Boolean(
-    rightSidebarOpen &&
-    rightSidebarType === 'ai-search' &&
-    normalizedTerm &&
-    normalizedTerm === aiSearchTerm
-  )
+
   const {
     data: group,
     isLoading,
@@ -51,25 +36,16 @@ export function SearchResultPage(): React.JSX.Element {
     isError,
     isPlaceholderData
   } = useDictionaryLookup(normalizedTerm)
-  const { mutateAsync: recordQueryHistory } = useRecordQueryHistory()
-  const toggleStar = useToggleStar()
-  const isStarred = useIsStarred(group?.word)
-  const aiConfig = useAiLookupConfig()
-  const { data: onlineDictionaries = [] } = useOnlineDictionaries()
 
-  const handleToggleStar = useCallback((): void => {
-    if (!group) return
-    toggleStar.mutate(group.word, {
-      onError: (error) => {
-        toast.error('操作失败', { description: error.message })
-      }
-    })
-  }, [group, toggleStar])
+  const aiConfig = useAiLookupConfig()
+
+  const { data: onlineDictionaries = [] } = useOnlineDictionaries()
 
   const requestedDictionaryId = searchParams.get('dictionary')
   const activeDictionary =
     group?.dictionaries.find((item) => item.dictionaryId === requestedDictionaryId) ??
     group?.dictionaries[0]
+
   const activeEntryId = activeDictionary?.entryId
   const hasDictionaryEntries = Boolean(group && group.dictionaries.length > 0)
   const hasSearchActions = Boolean(
@@ -79,10 +55,12 @@ export function SearchResultPage(): React.JSX.Element {
     entryId: activeEntryId,
     failed: false
   })
+
   if (entryFailure.entryId !== activeEntryId) {
     setEntryFailure({ entryId: activeEntryId, failed: false })
   }
 
+  // 词典tab滚动到当前 active 词典
   useLayoutEffect(() => {
     activeDictionaryTabRef.current?.scrollIntoView({
       behavior: 'smooth',
@@ -91,6 +69,7 @@ export function SearchResultPage(): React.JSX.Element {
     })
   }, [activeDictionary?.dictionaryId, normalizedTerm])
 
+  const { mutateAsync: recordQueryHistory } = useRecordQueryHistory()
   useEffect(() => {
     if (!group || isPlaceholderData || recordedPathname.current === location.pathname) {
       return
@@ -119,16 +98,6 @@ export function SearchResultPage(): React.JSX.Element {
       void navigate(`/search/${encodeURIComponent(word)}${queryString ? `?${queryString}` : ''}`)
     })
   }, [activeDictionary, navigate, setSearchQuery])
-
-  useEffect(() => {
-    return window.dictol.dictionaryView.onExplainWithAi((value) => {
-      const text = value.trim()
-      if (!text) return
-      setAiSearchTerm(text)
-      setRightSidebarType('ai-search')
-      setRightSidebarOpen(true)
-    })
-  }, [setAiSearchTerm, setRightSidebarOpen, setRightSidebarType])
 
   useEffect(() => window.dictol.dictionaryView.onLoadingChanged(setDictionaryViewLoading), [])
 
@@ -215,79 +184,18 @@ export function SearchResultPage(): React.JSX.Element {
         >
           <div className="online-dictionary-options flex items-center gap-1">
             {onlineDictionaries.map((dictionary, index) => (
-              <Button
-                aria-label={`使用 ${dictionary.name} 查询 ${normalizedTerm}`}
-                className="online-dictionary-icon relative size-7 rounded-full border-2 border-background bg-background p-0 transition-transform duration-150 ease-out hover:scale-115 focus-visible:scale-120"
+              <OnlineDictionaryButton
+                dictionary={dictionary}
                 key={dictionary.id}
-                onClick={() => {
-                  const url = dictionary.urlTemplate
-                    .split('%s')
-                    .join(encodeURIComponent(normalizedTerm))
-                  setEmbedBrowserSearchTerm(normalizedTerm)
-                  setEmbedBrowserUrl(url)
-                  setRightSidebarType('embed-browser')
-                  setRightSidebarOpen(true)
-                }}
-                size="icon"
-                style={{ zIndex: onlineDictionaries.length - index }}
-                title={`在 ${dictionary.name} 中查询`}
-                type="button"
-                variant="ghost"
-              >
-                <img
-                  alt=""
-                  className="size-full rounded-full object-cover bg-white"
-                  onError={(event) => {
-                    event.currentTarget.style.display = 'none'
-                    event.currentTarget.nextElementSibling?.classList.remove('hidden')
-                  }}
-                  src={dictionary.faviconUrl}
-                />
-                <Globe2 className="absolute hidden size-4 text-muted-foreground" />
-              </Button>
+                searchTerm={normalizedTerm}
+                zIndex={onlineDictionaries.length - index}
+              />
             ))}
           </div>
         </div>
       )}
-      {hasDictionaryEntries && (
-        <Button
-          aria-label="加入默认生词本"
-          className="search-action-button size-7 shrink-0 rounded-lg"
-          disabled={toggleStar.isPending}
-          onClick={handleToggleStar}
-          size="icon"
-          title={isStarred.data ? '取消标星' : '加入默认生词本'}
-          type="button"
-          variant="ghost"
-        >
-          {toggleStar.isPending ? (
-            <LoaderCircle className="animate-spin" />
-          ) : (
-            <Star className={isStarred.data ? 'fill-amber-400 text-amber-400' : ''} />
-          )}
-        </Button>
-      )}
-      {aiConfig.data?.enabled && (
-        <Button
-          aria-label="AI 查词"
-          aria-pressed={isAiSearchActive}
-          className={cn(
-            'search-action-button size-7 shrink-0 rounded-lg',
-            isAiSearchActive && 'search-action-button-active'
-          )}
-          onClick={() => {
-            setAiSearchTerm(normalizedTerm)
-            setRightSidebarType('ai-search')
-            setRightSidebarOpen(true)
-          }}
-          size="icon"
-          title="使用 AI 查词"
-          type="button"
-          variant="ghost"
-        >
-          <Sparkles />
-        </Button>
-      )}
+      {hasDictionaryEntries && <StarButton word={group?.word} />}
+      {aiConfig.data?.enabled && <AiLookupButton term={normalizedTerm} />}
     </div>
   )
   const isDictionaryContentLoading = isFetching || dictionaryViewLoading

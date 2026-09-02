@@ -1,30 +1,12 @@
 import { MddList } from '@dictol/mdict-native'
-import { app, protocol } from 'electron'
 import { readFile } from 'node:fs/promises'
-import { dirname, extname, join, resolve, sep } from 'node:path'
+import { dirname, extname, resolve, sep } from 'node:path'
 
 import { getAppRunTime, type AppRuntime } from './app-runtime'
 import type { DBService } from './db-service'
-import { DICTIONARY_RESOURCE_SCHEME, parseDictionaryResourceUrl } from './dictionary-resource-url'
-import { readDictionaryEntryText } from './dictionary-entry-content'
-import { createEntryDocument } from './entry-document'
-import { ENTRY_BRIDGE_URL, ENTRY_GLOBAL_STYLE_URL, ENTRY_SCHEME } from './entry-assets'
 
-const MAX_PREPARED_ENTRY_DOCUMENTS = 32
-const STATIC_RESOURCE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const dictionaryFiles = new Map<number, Promise<DictionaryResourceFiles | null>>()
 const suspendedDictionaryResources = new Set<number>()
-const preparedEntryDocuments = new Map<string, string>()
-let registered = false
-const entryAssetSources = new Map<string, Promise<Buffer>>()
-
-const ENTRY_ASSETS = new Map([
-  [ENTRY_BRIDGE_URL, { fileName: 'entry-bridge.js', mimeType: 'text/javascript; charset=utf-8' }],
-  [
-    ENTRY_GLOBAL_STYLE_URL,
-    { fileName: 'dictionary-entry.css', mimeType: 'text/css; charset=utf-8' }
-  ]
-])
 
 type DictionaryResourceFiles = {
   directory: string
@@ -37,41 +19,8 @@ export type LoadedDictionaryResource = {
   source: 'cache' | 'local' | 'mdd'
 }
 
-export function registerResourceScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: DICTIONARY_RESOURCE_SCHEME,
-      privileges: {
-        standard: true,
-        secure: true,
-        supportFetchAPI: true,
-        corsEnabled: true
-      }
-    },
-    {
-      scheme: ENTRY_SCHEME,
-      privileges: {
-        standard: true,
-        secure: true,
-        supportFetchAPI: true
-      }
-    }
-  ])
-}
-
-export function registerResourceProtocol(runtime = getAppRunTime()): void {
-  if (registered) return
-  registered = true
-  protocol.handle(DICTIONARY_RESOURCE_SCHEME, (request) => handleResourceRequest(runtime, request))
-  protocol.handle(ENTRY_SCHEME, (request) => handleEntryRequest(runtime, request))
-}
-
 export function invalidateDictionaryResources(dictionaryId: number): void {
   dictionaryFiles.delete(dictionaryId)
-  const prefix = `${dictionaryId}/`
-  for (const key of preparedEntryDocuments.keys()) {
-    if (key.startsWith(prefix)) preparedEntryDocuments.delete(key)
-  }
 }
 
 /** Stop new resource loads and wait for the current file-discovery promise to settle. */
@@ -83,131 +32,72 @@ export async function suspendDictionaryResources(dictionaryId: number): Promise<
   return () => suspendedDictionaryResources.delete(dictionaryId)
 }
 
-export function prepareEntryDocument(
-  dictionaryId: string,
-  entryId: string,
-  document: string
-): void {
-  const key = entryDocumentKey(dictionaryId, entryId)
-  preparedEntryDocuments.delete(key)
-  preparedEntryDocuments.set(key, document)
-
-  while (preparedEntryDocuments.size > MAX_PREPARED_ENTRY_DOCUMENTS) {
-    const oldestKey = preparedEntryDocuments.keys().next().value
-    if (oldestKey === undefined) break
-    preparedEntryDocuments.delete(oldestKey)
-  }
-}
-
-export function hasPreparedEntryDocument(dictionaryId: string, entryId: string): boolean {
-  return preparedEntryDocuments.has(entryDocumentKey(dictionaryId, entryId))
-}
-
-async function handleEntryRequest(runtime: AppRuntime, request: Request): Promise<Response> {
-  try {
-    const entryAsset = ENTRY_ASSETS.get(request.url)
-    if (entryAsset) {
-      return response(
-        await loadEntryAssetSource(entryAsset.fileName),
-        entryAsset.mimeType,
-        200,
-        'no-cache'
-      )
-    }
-
-    const url = new URL(request.url)
-    const dictionaryId = /^dictionary-(\d+)$/.exec(url.hostname)?.[1]
-    const entryId = decodeURIComponent(url.pathname).replace(/^\/+/, '')
-    if (!dictionaryId || !entryId) {
-      return response('Invalid entry URL', 'text/plain; charset=utf-8', 400)
-    }
-
-    const preparedDocument = getPreparedEntryDocument(dictionaryId, entryId)
-    if (preparedDocument !== undefined) {
-      return response(preparedDocument, 'text/html; charset=utf-8')
-    }
-
-    const records = await requireDBService(runtime).getDictionaryEntryRecords(entryId)
-    const record = records[0]
-    if (!record) return response('Entry not found', 'text/plain; charset=utf-8', 404)
-    if (record.dictionaryId !== dictionaryId) {
-      return response('Dictionary mismatch', 'text/plain; charset=utf-8', 404)
-    }
-    const html = await readDictionaryEntryText(runtime, records)
-    return response(
-      createEntryDocument(html, record.dictionaryId, record.customCss),
-      'text/html; charset=utf-8'
-    )
-  } catch (error) {
-    console.error('Failed to load dictionary entry', error)
-    return response('Failed to load entry', 'text/plain; charset=utf-8', 500)
-  }
-}
-
-async function loadEntryAssetSource(fileName: string): Promise<Buffer> {
-  let source = entryAssetSources.get(fileName)
-  if (!source) {
-    source = readFirstAvailableFile([
-      join(app.getAppPath(), 'resources', fileName),
-      join(app.getAppPath(), '..', 'resources', fileName)
-    ])
-    entryAssetSources.set(fileName, source)
-  }
-  try {
-    return await source
-  } catch (error) {
-    entryAssetSources.delete(fileName)
-    throw error
-  }
-}
-
-async function readFirstAvailableFile(paths: string[]): Promise<Buffer> {
-  for (const path of paths) {
-    try {
-      return await readFile(path)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    }
-  }
-  throw new Error(`Entry asset not found in: ${paths.join(', ')}`)
-}
-
-async function handleResourceRequest(runtime: AppRuntime, request: Request): Promise<Response> {
-  console.log('requesting resource: ', request.url)
-  try {
-    const parsed = parseDictionaryResourceUrl(request.url)
-    if (!parsed) return response('Invalid resource URL', 'text/plain; charset=utf-8', 400)
-
-    const resource = await loadDictionaryResource(parsed.dictionaryId, parsed.resourcePath, runtime)
-    return resource
-      ? response(resource.bytes, resource.mimeType, 200, STATIC_RESOURCE_CACHE_CONTROL)
-      : response('Resource not found', 'text/plain; charset=utf-8', 404)
-  } catch (error) {
-    console.error('Failed to load dictionary resource', error)
-    return response('Failed to load resource', 'text/plain; charset=utf-8', 500)
-  }
-}
-
-export { parseDictionaryResourceUrl }
-
 export async function loadDictionaryResource(
   dictionaryId: number,
   resourcePath: string,
   runtime = getAppRunTime()
 ): Promise<LoadedDictionaryResource | null> {
-  if (suspendedDictionaryResources.has(dictionaryId)) return null
+  if (suspendedDictionaryResources.has(dictionaryId)) {
+    console.debug('[DictionaryResource] lookup skipped: dictionary suspended', {
+      dictionaryId,
+      resourcePath
+    })
+    return null
+  }
+
   const mimeType = getMimeType(resourcePath)
-  const cached = await runtime.resourceCache.read(dictionaryId, resourcePath, mimeType)
-  if (cached) return { bytes: cached, mimeType, source: 'cache' }
+  console.debug('[DictionaryResource] lookup started', {
+    dictionaryId,
+    resourcePath,
+    mimeType
+  })
 
   const files = await getDictionaryResourceFiles(runtime, dictionaryId)
-  if (!files) return null
+  if (!files) {
+    console.debug('[DictionaryResource] lookup failed: dictionary files unavailable', {
+      dictionaryId,
+      resourcePath
+    })
+    return null
+  }
 
+  // Companion files are user-provided and must override extracted MDD data.
+  // readFile is intentionally used as the existence check so a hit costs one
+  // filesystem read instead of an access/stat call followed by another read.
   const local = await readLocalCompanion(files.directory, resourcePath)
-  if (local) return { bytes: local, mimeType, source: 'local' }
+  if (local) {
+    console.debug('[DictionaryResource] local companion hit', {
+      dictionaryId,
+      resourcePath,
+      byteLength: local.length
+    })
+    return { bytes: local, mimeType, source: 'local' }
+  }
+
+  const cached = await runtime.resourceCache.read(dictionaryId, resourcePath, mimeType)
+  if (cached) {
+    console.debug('[DictionaryResource] cache hit', {
+      dictionaryId,
+      resourcePath,
+      byteLength: cached.length
+    })
+    return { bytes: cached, mimeType, source: 'cache' }
+  }
 
   const extracted = files.mddList ? await readMddResource(files.mddList, resourcePath) : null
-  if (!extracted) return null
+  if (!extracted) {
+    console.debug('[DictionaryResource] lookup miss', {
+      dictionaryId,
+      resourcePath
+    })
+    return null
+  }
+
+  console.debug('[DictionaryResource] MDD hit', {
+    dictionaryId,
+    resourcePath,
+    byteLength: extracted.length
+  })
 
   try {
     await runtime.resourceCache.write(dictionaryId, resourcePath, mimeType, extracted)
@@ -285,36 +175,6 @@ async function readMddResource(mdd: MddList, resourcePath: string): Promise<Buff
   return null
 }
 
-function entryDocumentKey(dictionaryId: string, entryId: string): string {
-  return `${dictionaryId}/${entryId}`
-}
-
-function getPreparedEntryDocument(dictionaryId: string, entryId: string): string | undefined {
-  const key = entryDocumentKey(dictionaryId, entryId)
-  const document = preparedEntryDocuments.get(key)
-  if (document === undefined) return undefined
-
-  preparedEntryDocuments.delete(key)
-  preparedEntryDocuments.set(key, document)
-  return document
-}
-
-function response(
-  body: Buffer | string,
-  contentType: string,
-  status = 200,
-  cacheControl = 'no-store'
-): Response {
-  return new Response(typeof body === 'string' ? body : new Uint8Array(body), {
-    status,
-    headers: {
-      'content-type': contentType,
-      'access-control-allow-origin': '*',
-      'cache-control': cacheControl
-    }
-  })
-}
-
 function requireDBService(runtime: AppRuntime): DBService {
   if (!runtime.dbService) throw new Error('资源协议启动前必须初始化 DBService')
   return runtime.dbService
@@ -357,6 +217,8 @@ function getMimeType(resourcePath: string): string {
       return 'font/woff2'
     case '.ttf':
       return 'font/ttf'
+    case '.otf':
+      return 'font/otf'
     default:
       return 'application/octet-stream'
   }

@@ -4,8 +4,11 @@ import { join } from 'node:path'
 
 import { getAppRunTime } from './app-runtime'
 import { registerIPCHandlers } from './controller/ipc-register'
+import {
+  registerResourceProtocolHandlers,
+  registerResourceSchemes
+} from './resource-protocol-handlers'
 import { MainWindowShortcutRouter } from './main-window-shortcut-router'
-import { registerResourceProtocol, registerResourceScheme } from './resource-protocol'
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
@@ -14,7 +17,7 @@ if (!hasSingleInstanceLock) {
   // hook in a secondary process. The primary process receives `second-instance`.
   app.quit()
 } else {
-  registerResourceScheme()
+  registerResourceSchemes()
   startPrimaryInstance()
 }
 
@@ -48,8 +51,8 @@ function startPrimaryInstance(): void {
       })
 
       try {
+        registerResourceProtocolHandlers(runtime)
         runtime.initialize()
-        registerResourceProtocol(runtime)
         registerIPCHandlers(runtime)
         runtime.setMainWindowInitializer((mainWindow) => configureMainWindow(runtime, mainWindow))
         configureMainWindow(runtime, requireMainWindow(runtime))

@@ -54,6 +54,8 @@ export class ResourceCache {
       ? 'images'
       : mimeType.startsWith('audio/')
         ? 'audio'
+        : mimeType.startsWith('font/')
+          ? 'fonts'
         : null
     if (!category) return null
 

@@ -7,6 +7,7 @@ import {
 } from '../shared/selection-explanation'
 import { getSelectionToolbarWindowSize } from '../shared/selection-toolbar'
 import { MAIN_WINDOW_TITLEBAR_HEIGHT } from '../shared/window-chrome'
+import { DICTIONARY_SESSION_PARTITION } from './entry-assets'
 import { resolvePreloadPath } from './output-path'
 import { applySelectionWindowBehavior, hideSelectionWindow } from './selection-window-behavior'
 import { WebContentsViewManager } from './web-contents-view-manager'
@@ -98,11 +99,16 @@ export class WindowManager {
       backgroundColor: nativeTheme.shouldUseDarkColors ? '#171a18' : '#ffffff',
       view: {
         webPreferences: {
+          partition: DICTIONARY_SESSION_PARTITION,
           preload: resolvePreloadPath('dictionary.js'),
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
-          webSecurity: true
+          // Chromium only dispatches file: subresources from dictol-entry: pages to
+          // the session protocol handler when web security is disabled. This view's
+          // dedicated session intercepts every file: request and never falls through
+          // to Chromium's built-in local-file loader.
+          webSecurity: false
         }
       }
     })
@@ -269,11 +275,14 @@ export class WindowManager {
       backgroundColor: darkMode ? '#171a18' : '#ffffff',
       view: {
         webPreferences: {
+          partition: DICTIONARY_SESSION_PARTITION,
           preload: resolvePreloadPath('selection-entry.js'),
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
-          webSecurity: true
+          // Keep this aligned with dictionaryView so file: resources use the same
+          // dedicated-session protocol handler in selection explanations.
+          webSecurity: false
         }
       }
     })

@@ -10,6 +10,7 @@ import {
   createDictionaryImportPreview,
   resolveDictionaryImportSelection
 } from '../dictionary-import-files'
+import { parseDictionaryEntryUrl } from '../dictionary-entry-url'
 import { invalidateDictionaryResources, suspendDictionaryResources } from '../resource-protocol'
 import { BaseController } from './base-controller'
 
@@ -109,11 +110,8 @@ export class DictionaryController extends BaseController {
     }
 
     const view = this.runtime.windowManager.dictionaryView
-    if (
-      view &&
-      !view.isDestroyed &&
-      view.getURL().startsWith(`dictol-entry://dictionary-${dictionaryId}/`)
-    ) {
+    const currentEntry = view ? parseDictionaryEntryUrl(view.getURL()) : null
+    if (view && !view.isDestroyed && currentEntry?.dictionaryId === numericId) {
       view.reload()
     }
   }

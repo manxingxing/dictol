@@ -29,10 +29,8 @@ import type {
   SelectionListener
 } from '../selection-hook-service'
 import type { WebContentsViewManager } from '../web-contents-view-manager'
-import { createEntryDocument } from '../entry-document'
-import { readDictionaryEntryText } from '../dictionary-entry-content'
+import { createDictionaryEntryUrl } from '../dictionary-entry-url'
 import { resolveRendererPath } from '../output-path'
-import { hasPreparedEntryDocument, prepareEntryDocument } from '../resource-protocol'
 import { hideSelectionWindow, showSelectionWindowInactive } from '../selection-window-behavior'
 import { BaseController } from './base-controller'
 
@@ -661,7 +659,6 @@ export class SelectionToolbarController extends BaseController {
       const entry = await this.db.getDictionaryEntryRecord(firstMatch.entryId)
       if (version !== this.lookupVersion) return
       if (!entry) throw new Error('首个词典命中的词条记录不存在')
-      if (!(await this.prepareExplanationEntry(entry, version))) return
 
       await this.loadExplanationEntry(entry, version, normalizedWord, dictionaries, true)
     } catch (error) {
@@ -775,7 +772,6 @@ export class SelectionToolbarController extends BaseController {
       const entry = await this.db.getDictionaryEntryRecord(match.entryId)
       if (version !== this.lookupVersion) return
       if (!entry) throw new Error('所选词典的词条记录不存在')
-      if (!(await this.prepareExplanationEntry(entry, version))) return
       await this.loadExplanationEntry(entry, version, word, dictionaries, false)
     } catch (error) {
       if (version !== this.lookupVersion || isNavigationAborted(error)) return
@@ -812,23 +808,6 @@ export class SelectionToolbarController extends BaseController {
     }
   }
 
-  private async prepareExplanationEntry(
-    entry: DictionaryEntryRecord,
-    version: number
-  ): Promise<boolean> {
-    if (hasPreparedEntryDocument(entry.dictionaryId, entry.id)) return true
-
-    const records = await this.db.getDictionaryEntryRecords(entry.id)
-    const html = await readDictionaryEntryText(this.runtime, records)
-    if (version !== this.lookupVersion) return false
-    prepareEntryDocument(
-      entry.dictionaryId,
-      entry.id,
-      createEntryDocument(html, entry.dictionaryId, entry.customCss)
-    )
-    return true
-  }
-
   private async loadExplanationEntry(
     entry: DictionaryEntryRecord,
     version: number,
@@ -837,7 +816,7 @@ export class SelectionToolbarController extends BaseController {
     recordQuery: boolean
   ): Promise<void> {
     const view = this.explanationView
-    const url = `dictol-entry://dictionary-${entry.dictionaryId}/${encodeURIComponent(entry.id)}`
+    const url = createDictionaryEntryUrl(entry.dictionaryId, entry.id)
     let shown = false
     const showLoadedEntry = (): void => {
       if (shown || version !== this.lookupVersion || view.webContents.getURL() !== url) return

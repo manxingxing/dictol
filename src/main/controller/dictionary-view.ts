@@ -9,6 +9,7 @@ import {
 import { is } from '@electron-toolkit/utils'
 
 import type { WebContentsViewManager } from '../web-contents-view-manager'
+import { createDictionaryEntryUrl } from '../dictionary-entry-url'
 import { resolveRendererPath } from '../output-path'
 import { BaseController } from './base-controller'
 import { dismissSearchPopover } from './search-popover'
@@ -169,9 +170,7 @@ export class DictionaryViewController extends BaseController {
 
     this.view.show()
     try {
-      await this.view.loadURL(
-        `dictol-entry://dictionary-${dictionaryId}/${encodeURIComponent(entryId)}`
-      )
+      await this.view.loadURL(createDictionaryEntryUrl(dictionaryId, entryId))
       if (version !== this.loadVersion) return false
       this.loadedEntryId = entryId
       const shouldRemainVisible = this.desiredEntryId === entryId

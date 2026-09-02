@@ -376,30 +376,14 @@
     },
     true
   )
+
   const dictionaryAudioPattern = /\.(?:mp3|wav|ogg|oga|spx|m4a)(?:[?#]|$)/i
 
   const resolveDictionaryAudioHref = (anchor) => {
     const rawHref = anchor?.getAttribute('href')?.trim()
     if (!rawHref) return ''
-
-    try {
-      if (/^dictol-resource:\/\//i.test(rawHref)) {
-        const url = new URL(rawHref, document.baseURI)
-        return dictionaryAudioPattern.test(url.href) ? url.href : ''
-      }
-
-      // 兼容动态插入、尚未经过 createEntryDocument 重写的 sound:// 链接。
-      if (/^sound:\/\//i.test(rawHref)) {
-        const soundUrl = new URL(rawHref)
-        const resourcePath = `${soundUrl.hostname}${soundUrl.pathname}`
-        const url = new URL(resourcePath, document.baseURI)
-        return dictionaryAudioPattern.test(url.href) ? url.href : ''
-      }
-    } catch {
-      return ''
-    }
-
-    return ''
+    if (!/^(?:sound|audio|file):\/\//i.test(rawHref)) return ''
+    return dictionaryAudioPattern.test(rawHref) ? rawHref : ''
   }
 
   const playDictionaryAudio = (href) => {
@@ -443,7 +427,7 @@
       playDictionaryAudio(href)
     }
 
-    console.debug("installing fallback listerning for element", target)
+    console.debug('installing fallback listerning for element', target)
     /*
      * 让 fallback 运行在实际 target 阶段：
      * - 可以绕过词典父级 listener 的 stopPropagation；
