@@ -7,6 +7,7 @@ import type {
   AiStreamEvent
 } from '../shared/ai-ipc'
 import type { DictionaryImportPreview, DictionaryImportRequest } from '../shared/dictionary-import'
+import type { DictionaryInfo } from '../shared/dictionary-info'
 import type { ToastPayload } from '../shared/notification'
 import type { TtsConfig, TtsSaveConfigRequest } from '../shared/tts'
 
@@ -176,6 +177,8 @@ const api = Object.freeze({
     listReady: (): Promise<ReadyDictionary[]> => ipcRenderer.invoke('dictionaries:list-ready'),
     selectFile: (): Promise<DictionaryImportPreview | null> =>
       ipcRenderer.invoke('dictionaries:select-file'),
+    getInfo: (dictionaryId: string): Promise<DictionaryInfo> =>
+      ipcRenderer.invoke('dictionaries:get-info', dictionaryId),
     import: (request: DictionaryImportRequest): Promise<ImportedDictionary> =>
       ipcRenderer.invoke('dictionaries:import', request),
     delete: (dictionaryId: string): Promise<void> =>

@@ -5,15 +5,32 @@ import {
   type UseMutationResult,
   type UseQueryResult
 } from '@tanstack/react-query'
+import type { DictionaryInfo } from '../../../shared/dictionary-info'
 
 export const readyDictionariesQueryKey = ['dictionaries', 'ready'] as const
 export const dictionariesQueryKey = ['dictionaries', 'all'] as const
+export const dictionaryInfoQueryKey = (dictionaryId: string | null) =>
+  ['dictionary-info', dictionaryId] as const
 
 type DictionarySummary = Awaited<ReturnType<Window['dictol']['dictionaries']['list']>>[number]
 type ReadyDictionary = Awaited<ReturnType<Window['dictol']['dictionaries']['listReady']>>[number]
 type ImportedDictionary = Awaited<ReturnType<Window['dictol']['dictionaries']['import']>>
 type DictionaryImportRequest = Parameters<Window['dictol']['dictionaries']['import']>[0]
 type ReorderDictionariesContext = { previousDictionaries?: DictionarySummary[] }
+
+export function useDictionaryInfo(
+  dictionaryId: string | null
+): UseQueryResult<DictionaryInfo, Error> {
+  return useQuery({
+    queryKey: dictionaryInfoQueryKey(dictionaryId),
+    queryFn: () => {
+      if (!dictionaryId) throw new Error('Dictionary id is required')
+      return window.dictol.dictionaries.getInfo(dictionaryId)
+    },
+    enabled: dictionaryId !== null,
+    staleTime: 5 * 60_000
+  })
+}
 
 export function useDictionaries(): UseQueryResult<DictionarySummary[], Error> {
   return useQuery({

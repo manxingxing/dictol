@@ -7,6 +7,7 @@ import {
   Files,
   FolderOpen,
   GripVertical,
+  Info,
   LoaderCircle,
   MoreHorizontal,
   Pencil,
@@ -26,6 +27,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DictionaryInfoDialog } from '@/components/DictionaryInfoDialog'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import {
   DropdownMenu,
@@ -53,7 +55,6 @@ const CssCodeEditor = lazy(() => import('@/components/CssCodeEditor'))
 type DictionaryImportPreview = NonNullable<
   Awaited<ReturnType<Window['dictol']['dictionaries']['selectFile']>>
 >
-
 export function DictionariesPage(): React.JSX.Element {
   const { data: dictionaries = [], isLoading, isError } = useDictionaries()
   const importDictionary = useImportDictionary()
@@ -107,6 +108,7 @@ export function DictionariesPage(): React.JSX.Element {
     position: 'before' | 'after'
   } | null>(null)
   const [openingDictionaryId, setOpeningDictionaryId] = useState<string | null>(null)
+  const [dictionaryInfoId, setDictionaryInfoId] = useState<string | null>(null)
 
   const finishDragging = (): void => {
     setDraggedDictionaryId(null)
@@ -133,6 +135,10 @@ export function DictionariesPage(): React.JSX.Element {
     } finally {
       setOpeningDictionaryId(null)
     }
+  }
+
+  const openDictionaryInfo = (dictionaryId: string): void => {
+    setDictionaryInfoId(dictionaryId)
   }
 
   const selectImportFile = async (): Promise<void> => {
@@ -373,6 +379,15 @@ export function DictionariesPage(): React.JSX.Element {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            className="text-sm"
+                            onClick={() => {
+                              openDictionaryInfo(dictionary.id)
+                            }}
+                          >
+                            <Info className="size-3.5" />
+                            信息
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-sm"
                             disabled={openingDictionaryId === dictionary.id}
@@ -1025,6 +1040,14 @@ export function DictionariesPage(): React.JSX.Element {
           </form>
         </DialogContent>
       </Dialog>
+
+      <DictionaryInfoDialog
+        dictionaryId={dictionaryInfoId}
+        dictionaryName={dictionaries.find((dictionary) => dictionary.id === dictionaryInfoId)?.name}
+        onOpenChange={(open) => {
+          if (!open) setDictionaryInfoId(null)
+        }}
+      />
 
       <Dialog
         open={cssEditor !== null}

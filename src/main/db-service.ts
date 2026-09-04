@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { Mdx } from '@dictol/mdict-native'
 import { randomUUID } from 'node:crypto'
 import { copyFile, rename, rm, unlink } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -6,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { Worker } from 'node:worker_threads'
 
 import type { DictionaryImportSourceFile } from '../shared/dictionary-import'
+import type { DictionaryInfo } from '../shared/dictionary-info'
 import type { BuiltInLexiconEntry } from './built-in-lexicon-service'
 import type { DictolDatabase } from './db/drizzle'
 import { getDatabasePath } from './db/paths'
@@ -403,6 +405,21 @@ export class DBService {
       faviconUrl: row.faviconUrl,
       urlTemplate: row.urlTemplate
     }))
+  }
+
+  async getDictionaryInfoSource(
+    dictionaryId: string
+  ): Promise<{ mdxPath: string; dictionaryFileNames: string[] }> {
+    const numericDictionaryId = this.parseDictionaryId(dictionaryId)
+    const dictionaryFiles = await this.listDictionaryResourceFiles(numericDictionaryId)
+    const mdxFile = dictionaryFiles.find((file) => file.fileType == 'mdx')
+
+    if (!mdxFile) throw new Error('词典 MDX 文件不存在')
+
+    return {
+      mdxPath: mdxFile.filePath,
+      dictionaryFileNames: dictionaryFiles.map((file) => file.fileName)
+    }
   }
 
   async addOnlineDictionary(input: OnlineDictionaryInput): Promise<OnlineDictionaryConfig> {

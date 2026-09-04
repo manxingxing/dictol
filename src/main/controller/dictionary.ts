@@ -5,6 +5,7 @@ import type {
   DictionaryImportPreview,
   DictionaryImportRequest
 } from '../../shared/dictionary-import'
+import type { DictionaryInfo } from '../../shared/dictionary-info'
 import type { DictionarySummary, ImportedDictionary, ReadyDictionary } from '../db-service'
 import {
   createDictionaryImportPreview,
@@ -19,6 +20,7 @@ export class DictionaryController extends BaseController {
     ipcMain.handle('dictionaries:list-ready', this.listReady)
     ipcMain.handle('dictionaries:list', this.listDictionaries)
     ipcMain.handle('dictionaries:select-file', this.selectImportFile)
+    ipcMain.handle('dictionaries:get-info', this.getInfo)
     ipcMain.handle('dictionaries:import', this.importDictionary)
     ipcMain.handle('dictionaries:delete', this.deleteDictionary)
     ipcMain.handle('dictionaries:open-directory', this.openDirectory)
@@ -43,6 +45,26 @@ export class DictionaryController extends BaseController {
 
     if (result.canceled || result.filePaths.length === 0) return null
     return createDictionaryImportPreview(result.filePaths[0])
+  }
+
+  getInfo = async (_event: IpcMainInvokeEvent, dictionaryId: string): Promise<DictionaryInfo> => {
+    const { mdxPath, dictionaryFileNames } = await this.db.getDictionaryInfoSource(dictionaryId)
+    const metadata = this.runtime.mdFileCache.fetchMdx(mdxPath).metadata
+
+    return {
+      title: metadata.title,
+      description: metadata.description,
+      dictionaryFileNames,
+      entryCount: metadata.entryCount.toString(),
+      version: metadata.version,
+      engineVersion: metadata.engineVersion,
+      requiredVersion: metadata.requiredVersion ?? null,
+      format: metadata.format,
+      encoding: metadata.encoding,
+      encrypted: metadata.encrypted,
+      keyCaseSensitive: metadata.keyCaseSensitive,
+      stripKey: metadata.stripKey
+    }
   }
 
   importDictionary = async (

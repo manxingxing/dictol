@@ -38,6 +38,20 @@ declare global {
             required: boolean
           }[]
         } | null>
+        getInfo: (dictionaryId: string) => Promise<{
+          title: string
+          description: string
+          dictionaryFileNames: string[]
+          entryCount: string
+          version: string
+          engineVersion: number
+          requiredVersion: number | null
+          format: string
+          encoding: string
+          encrypted: number
+          keyCaseSensitive: boolean
+          stripKey: boolean
+        }>
         import: (request: { mdxPath: string; selectedRelativePaths: string[] }) => Promise<{
           id: string
           name: string
