@@ -49,6 +49,7 @@ type DictionaryMatch = {
   entryId: string
   dictionaryId: string
   dictionaryName: string
+  dictionaryIconUrl: string | null
 }
 
 type DictionaryEntryGroup = {

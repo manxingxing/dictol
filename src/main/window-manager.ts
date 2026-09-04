@@ -288,10 +288,11 @@ export class WindowManager {
     })
     const updateViewBounds = (): void => {
       const [width, height] = window.getContentSize()
+      // Keep the native view below the renderer-owned divider instead of sharing its edge pixel.
       const viewTop =
         SELECTION_EXPLANATION_HEADER_HEIGHT +
         (this.selectionExplanationSwitcherVisible
-          ? SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT
+          ? SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT + 1
           : 0)
       view.setBounds({
         x: 1,

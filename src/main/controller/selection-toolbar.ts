@@ -620,7 +620,26 @@ export class SelectionToolbarController extends BaseController {
     this.positionExplanation(window)
 
     try {
-      const lookupPromise = this.db.lookupDictionaryEntryGroup(normalizedWord)
+      const startedAt = performance.now()
+      const lookupPromise = this.db.lookupDictionaryEntryGroup(normalizedWord).then(
+        (group) => {
+          console.debug('[DictionaryLookup] selection popup', {
+            term: normalizedWord,
+            takeMs: performance.now() - startedAt,
+            matched: Boolean(group)
+          })
+          return group
+        },
+        (error: unknown) => {
+          console.debug('[DictionaryLookup] selection popup', {
+            term: normalizedWord,
+            takeMs: performance.now() - startedAt,
+            matched: false,
+            failed: true
+          })
+          throw error
+        }
+      )
       await loadingReady
       if (version !== this.lookupVersion) return
       if (!keepWindowVisible) this.showExplanationWindow(window)
@@ -862,7 +881,8 @@ export class SelectionToolbarController extends BaseController {
   private getExplanationDictionaryOptions(): SelectionExplanationDictionary[] {
     return this.explanationDictionaryMatches.map((dictionary) => ({
       dictionaryId: dictionary.dictionaryId,
-      dictionaryName: dictionary.dictionaryName
+      dictionaryName: dictionary.dictionaryName,
+      dictionaryIconUrl: dictionary.dictionaryIconUrl
     }))
   }
 

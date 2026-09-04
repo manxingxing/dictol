@@ -7,6 +7,7 @@ import type { DBService } from './db-service'
 import {
   parseDictionaryEntryResourceUrl,
   parseDictionaryEntryUrl,
+  parseDictionaryAssetUrl,
   parseDictionaryIdFromReferrer,
   parseNativeDictionaryResourcePath
 } from './dictionary-entry-url'
@@ -14,6 +15,7 @@ import { readDictionaryEntryText } from './dictionary-entry-content'
 import { createEntryDocument } from './entry-document'
 import {
   DICTIONARY_SESSION_PARTITION,
+  DICTOL_ASSET_SCHEME,
   ENTRY_BRIDGE_URL,
   ENTRY_GLOBAL_STYLE_URL,
   ENTRY_SCHEME
@@ -41,6 +43,15 @@ export function registerResourceSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: ENTRY_SCHEME,
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        corsEnabled: true
+      }
+    },
+    {
+      scheme: DICTOL_ASSET_SCHEME,
       privileges: {
         standard: true,
         secure: true,
@@ -83,6 +94,17 @@ export class DictionaryResourceProtocolHandlers {
 
   register(): void {
     this.registerRequestContextInterception()
+    this.registerDictionaryViewProtocolHanders()
+    this.registerAssetsHandlers()
+  }
+
+  private registerAssetsHandlers(): void {
+    session.defaultSession.protocol.handle(DICTOL_ASSET_SCHEME, (request) =>
+      this.handleDictionaryAssetProtocol(request)
+    )
+  }
+
+  private registerDictionaryViewProtocolHanders(): void {
     this.dictionarySession.protocol.handle(ENTRY_SCHEME, (request) =>
       this.handleEntryProtocol(request)
     )
@@ -155,6 +177,28 @@ export class DictionaryResourceProtocolHandlers {
     }
   }
 
+  private async handleDictionaryAssetProtocol(request: Request): Promise<Response> {
+    const methodError = validateMethod(request)
+    if (methodError) return methodError
+
+    const location = parseDictionaryAssetUrl(request.url)
+    if (!location) return textResponse('Invalid dictionary asset URL', 400)
+
+    // 获取 dict path
+    try {
+      const icon = await requireDBService(this.runtime).getDictionaryIconResource(
+        String(location.dictionaryId),
+        location.resourcePath
+      )
+      return icon
+        ? bytesResponse(request, icon.bytes, icon.mimeType, STATIC_RESOURCE_CACHE_CONTROL)
+        : textResponse('Dictionary icon not found', 404)
+    } catch (error) {
+      console.error('Failed to handle dictionary asset request', { url: request.url, error })
+      return textResponse('Failed to load dictionary icon', 500)
+    }
+  }
+
   private async handleNativeResourceProtocol(
     request: Request,
     scheme: 'sound' | 'audio' | 'file'
@@ -194,6 +238,7 @@ export class DictionaryResourceProtocolHandlers {
     dictionaryId: number,
     entryId: string
   ): Promise<Response> {
+    const startedAt = performance.now()
     const records = await requireDBService(this.runtime).getDictionaryEntryRecords(entryId)
     const record = records[0]
     if (!record) return textResponse('Entry not found', 404)
@@ -202,11 +247,19 @@ export class DictionaryResourceProtocolHandlers {
     }
 
     const html = await readDictionaryEntryText(this.runtime, records)
-    return stringResponse(
+    const response = stringResponse(
       request,
       createEntryDocument(html, record.dictionaryId, record.customCss),
       'text/html; charset=utf-8'
     )
+    console.debug('[DictionaryEntry] load document', {
+      dictionaryId,
+      entryId,
+      recordCount: records.length,
+      htmlBytes: Buffer.byteLength(html, 'utf8'),
+      takeMs: performance.now() - startedAt
+    })
+    return response
   }
 
   private async loadResource(

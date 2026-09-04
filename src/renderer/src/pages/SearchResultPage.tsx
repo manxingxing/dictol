@@ -11,6 +11,7 @@ import { useAppStore } from '@/stores/app-store'
 import { useAiLookupConfig } from '@/hooks/use-ai-lookup'
 import { useOnlineDictionaries } from '@/hooks/use-online-dictionaries'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { DictionaryTabIcon } from '@/components/DictionaryIcon'
 
 export function SearchResultPage(): React.JSX.Element {
   const location = useLocation()
@@ -235,16 +236,19 @@ export function SearchResultPage(): React.JSX.Element {
           <TabsList className="h-9 shrink-0 gap-1.5 rounded-none bg-transparent p-0 pr-3">
             {group.dictionaries.map((item) => (
               <TabsTrigger
-                className="dictionary-tab-trigger h-8 flex-none scroll-mx-3 rounded-full border px-3.5 transition-[background-color,border-color,color,box-shadow] duration-150 ease-out"
+                aria-label={item.dictionaryName}
+                className="dictionary-tab-trigger search-result-dictionary-tab group scroll-mx-3"
                 key={item.dictionaryId}
                 ref={
                   item.dictionaryId === activeDictionary?.dictionaryId
                     ? activeDictionaryTabRef
                     : undefined
                 }
+                tabIndex={0}
+                title={item.dictionaryName}
                 value={item.dictionaryId}
               >
-                {item.dictionaryName}
+                <DictionaryTabIcon iconUrl={item.dictionaryIconUrl} name={item.dictionaryName} />
               </TabsTrigger>
             ))}
           </TabsList>

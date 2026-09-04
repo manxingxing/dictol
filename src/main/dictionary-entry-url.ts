@@ -1,4 +1,4 @@
-import { ENTRY_SCHEME } from './entry-assets'
+import { DICTOL_ASSET_SCHEME, ENTRY_SCHEME } from './entry-assets'
 
 export const ENTRY_LOOKUP_PATH = '/_dictol-lookup'
 
@@ -23,6 +23,36 @@ export function createDictionaryEntryUrl(dictionaryId: string | number, entryId:
   )
   url.searchParams.set('entryId', String(numericEntryId))
   return url.href
+}
+
+export function createDictionaryAssetUrl(
+  dictionaryId: string | number,
+  resourcePath: string
+): string {
+  const numericDictionaryId = parsePositiveSafeInteger(String(dictionaryId))
+  const normalizedPath = resourcePath.replaceAll('\\', '/')
+  const pathParts = normalizedPath.split('/').filter(Boolean)
+  if (
+    numericDictionaryId === null ||
+    normalizedPath.startsWith('/') ||
+    pathParts.length === 0 ||
+    pathParts.some((part) => part === '.' || part === '..')
+  ) {
+    throw new Error('Invalid dictionary asset path')
+  }
+
+  const url = new URL(`${DICTOL_ASSET_SCHEME}://dictionary-${numericDictionaryId}.dictol/`)
+  url.pathname = `/${pathParts.map((part) => encodeURIComponent(part)).join('/')}`
+  return url.href
+}
+
+export function parseDictionaryAssetUrl(value: string): DictionaryResourceLocation | null {
+  const url = parseUrl(value)
+  if (!url || url.protocol !== `${DICTOL_ASSET_SCHEME}:`) return null
+
+  const dictionaryId = parseDictionaryHostname(url.hostname)
+  const resourcePath = decodeResourcePath(url.pathname)
+  return dictionaryId === null || resourcePath === null ? null : { dictionaryId, resourcePath }
 }
 
 export function parseDictionaryEntryUrl(value: string): DictionaryEntryLocation | null {

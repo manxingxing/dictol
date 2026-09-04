@@ -13,8 +13,7 @@ import {
   Pencil,
   Trash2,
   Upload,
-  Plus,
-  Globe2
+  Plus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -27,8 +26,9 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DictionaryAvatar } from '@/components/DictionaryIcon'
 import { DictionaryInfoDialog } from '@/components/DictionaryInfoDialog'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { AddOnlineDictionaryDialog } from '@/components/AddOnlineDictionaryDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +45,6 @@ import {
   useUpdateDictionaryName
 } from '@/hooks/use-dictionaries'
 import {
-  useAddOnlineDictionary,
   useOnlineDictionaries,
   useRemoveOnlineDictionary,
   useReorderOnlineDictionaries
@@ -67,7 +66,6 @@ export function DictionariesPage(): React.JSX.Element {
     isLoading: onlineLoading,
     isError: onlineError
   } = useOnlineDictionaries()
-  const addOnlineDictionary = useAddOnlineDictionary()
   const removeOnlineDictionary = useRemoveOnlineDictionary()
   const reorderOnlineDictionaries = useReorderOnlineDictionaries()
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -79,14 +77,7 @@ export function DictionariesPage(): React.JSX.Element {
   )
   const [selectingImportFile, setSelectingImportFile] = useState(false)
   const [importFileError, setImportFileError] = useState<string | null>(null)
-  const [onlineEditor, setOnlineEditor] = useState<{
-    name: string
-    faviconUrl: string
-    urlTemplate: string
-    faviconAuto: boolean
-  } | null>(null)
-  const [loadedFaviconUrl, setLoadedFaviconUrl] = useState<string | null>(null)
-  const [failedFaviconUrl, setFailedFaviconUrl] = useState<string | null>(null)
+  const [isOnlineDictionaryDialogOpen, setIsOnlineDictionaryDialogOpen] = useState(false)
   const [nameEditor, setNameEditor] = useState<{
     id: string
     originalName: string
@@ -173,19 +164,9 @@ export function DictionariesPage(): React.JSX.Element {
   }
 
   const openOnlineEditor = (): void => {
-    addOnlineDictionary.reset()
-    setLoadedFaviconUrl(null)
-    setFailedFaviconUrl(null)
-    setOnlineEditor({ name: '', faviconUrl: '', urlTemplate: '', faviconAuto: true })
+    setIsOnlineDictionaryDialogOpen(true)
   }
 
-  const faviconPreviewUrl = onlineEditor?.faviconUrl.trim() ?? ''
-  const isPreviewableFaviconUrl = isHttpUrl(faviconPreviewUrl)
-  const faviconPreviewFailed = failedFaviconUrl === faviconPreviewUrl
-  const faviconPreviewLoading =
-    isPreviewableFaviconUrl && !faviconPreviewFailed && loadedFaviconUrl !== faviconPreviewUrl
-  const faviconPreviewHasError =
-    Boolean(faviconPreviewUrl) && (!isPreviewableFaviconUrl || faviconPreviewFailed)
   const selectedImportFileItems =
     importPreview?.files.filter((file) => selectedImportFiles.has(file.relativePath)) ?? []
   const selectedImportSize = selectedImportFileItems.reduce(
@@ -306,6 +287,7 @@ export function DictionariesPage(): React.JSX.Element {
                       >
                         <GripVertical className="size-4" />
                       </button>
+                      <DictionaryAvatar iconUrl={dictionary.iconUrl} name={dictionary.name} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="truncate text-sm font-medium">{dictionary.name}</p>
@@ -538,18 +520,7 @@ export function DictionariesPage(): React.JSX.Element {
                       >
                         <GripVertical className="size-4" />
                       </button>
-                      <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background">
-                        <img
-                          alt=""
-                          className="size-full rounded-full object-cover"
-                          onError={(event) => {
-                            event.currentTarget.style.display = 'none'
-                            event.currentTarget.nextElementSibling?.classList.remove('hidden')
-                          }}
-                          src={dictionary.faviconUrl}
-                        />
-                        <Globe2 className="absolute hidden size-4 text-muted-foreground" />
-                      </span>
+                      <DictionaryAvatar iconUrl={dictionary.faviconUrl} name={dictionary.name} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{dictionary.name}</p>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -708,7 +679,7 @@ export function DictionariesPage(): React.JSX.Element {
                     取消
                   </Button>
                   <Button onClick={() => closeImportPreview(true)} type="button">
-                    完成
+                    确定
                   </Button>
                 </div>
               </DialogFooter>
@@ -813,174 +784,9 @@ export function DictionariesPage(): React.JSX.Element {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={onlineEditor !== null}
-        onOpenChange={(open) => {
-          if (!open && !addOnlineDictionary.isPending) setOnlineEditor(null)
-        }}
-      >
-        <DialogContent>
-          <form
-            className="grid gap-5"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (!onlineEditor) return
-              void addOnlineDictionary
-                .mutateAsync({
-                  name: onlineEditor.name,
-                  faviconUrl: onlineEditor.faviconUrl,
-                  urlTemplate: onlineEditor.urlTemplate
-                })
-                .then(() => setOnlineEditor(null))
-                .catch(() => undefined)
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>添加在线词典</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="online-dictionary-name">
-                  名称
-                </label>
-                <Input
-                  autoFocus
-                  id="online-dictionary-name"
-                  maxLength={100}
-                  onChange={(event) =>
-                    setOnlineEditor((current) =>
-                      current ? { ...current, name: event.target.value } : current
-                    )
-                  }
-                  placeholder="例如：Google 翻译"
-                  value={onlineEditor?.name ?? ''}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="online-dictionary-url">
-                  URL 模板
-                </label>
-                <Input
-                  id="online-dictionary-url"
-                  maxLength={2_000}
-                  onChange={(event) =>
-                    setOnlineEditor((current) => {
-                      if (!current) return current
-                      const urlTemplate = event.target.value
-                      const suggestedFavicon = inferFaviconUrl(urlTemplate)
-                      return {
-                        ...current,
-                        urlTemplate,
-                        faviconUrl: current.faviconAuto
-                          ? (suggestedFavicon ?? current.faviconUrl)
-                          : current.faviconUrl
-                      }
-                    })
-                  }
-                  placeholder="https://example.com/search?q=%s"
-                  value={onlineEditor?.urlTemplate ?? ''}
-                />
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {/* <DialogDescription> */}用 %s 代表当前查词条目，例如
-                  https://example.com/search?q=%s。
-                  {/* </DialogDescription> */}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="online-dictionary-favicon">
-                  favicon URL
-                </label>
-                <InputGroup aria-invalid={faviconPreviewHasError || undefined}>
-                  <InputGroupInput
-                    aria-invalid={faviconPreviewHasError || undefined}
-                    className="pl-11"
-                    id="online-dictionary-favicon"
-                    maxLength={2_000}
-                    onChange={(event) => {
-                      setLoadedFaviconUrl(null)
-                      setFailedFaviconUrl(null)
-                      setOnlineEditor((current) =>
-                        current
-                          ? { ...current, faviconUrl: event.target.value, faviconAuto: false }
-                          : current
-                      )
-                    }}
-                    placeholder="自动使用网站 /favicon.ico"
-                    value={onlineEditor?.faviconUrl ?? ''}
-                  />
-                  <InputGroupAddon align="inline-start">
-                    <span className="relative flex size-5 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
-                      {isPreviewableFaviconUrl && !faviconPreviewFailed && (
-                        <img
-                          alt=""
-                          className={
-                            faviconPreviewLoading
-                              ? 'size-full rounded-full object-cover opacity-0'
-                              : 'size-full rounded-full object-cover'
-                          }
-                          key={faviconPreviewUrl}
-                          onError={() => setFailedFaviconUrl(faviconPreviewUrl)}
-                          onLoad={() => setLoadedFaviconUrl(faviconPreviewUrl)}
-                          src={faviconPreviewUrl}
-                        />
-                      )}
-                      {faviconPreviewLoading && (
-                        <LoaderCircle className="absolute size-3 animate-spin text-muted-foreground" />
-                      )}
-                      {!faviconPreviewUrl && <Globe2 className="size-3 text-muted-foreground" />}
-                      {faviconPreviewHasError && (
-                        <CircleAlert className="size-3 text-destructive" />
-                      )}
-                    </span>
-                  </InputGroupAddon>
-                </InputGroup>
-                <p
-                  className={
-                    faviconPreviewHasError
-                      ? 'text-xs leading-5 text-destructive'
-                      : 'text-xs leading-5 text-muted-foreground'
-                  }
-                >
-                  {!faviconPreviewUrl
-                    ? '输入 URL 模板后会自动推导 favicon 地址，也可以手动修改。'
-                    : !isPreviewableFaviconUrl
-                      ? '请输入有效的 HTTP 或 HTTPS 地址。'
-                      : faviconPreviewFailed
-                        ? '无法加载该图标，请检查 favicon URL。'
-                        : faviconPreviewLoading
-                          ? '正在加载图标…'
-                          : '图标可加载'}
-                </p>
-              </div>
-            </div>
-            {addOnlineDictionary.isError && (
-              <p className="text-sm text-destructive">
-                保存失败：{addOnlineDictionary.error.message}
-              </p>
-            )}
-            <DialogFooter>
-              <Button
-                disabled={addOnlineDictionary.isPending}
-                onClick={() => setOnlineEditor(null)}
-                type="button"
-                variant="outline"
-              >
-                取消
-              </Button>
-              <Button
-                disabled={
-                  !onlineEditor?.name.trim() ||
-                  !onlineEditor.urlTemplate.trim() ||
-                  addOnlineDictionary.isPending
-                }
-                type="submit"
-              >
-                {addOnlineDictionary.isPending ? '正在保存…' : '保存'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {isOnlineDictionaryDialogOpen && (
+        <AddOnlineDictionaryDialog onClose={() => setIsOnlineDictionaryDialogOpen(false)} />
+      )}
 
       <Dialog
         open={nameEditor !== null}
@@ -1176,23 +982,4 @@ function formatFileSize(bytes: number): string {
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
   return `${bytes} B`
-}
-
-function inferFaviconUrl(urlTemplate: string): string | null {
-  try {
-    const url = new URL(urlTemplate.replaceAll('%s', 'term'))
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    return `${url.origin}/favicon.ico`
-  } catch {
-    return null
-  }
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
 }

@@ -11,6 +11,7 @@ declare global {
             id: string
             name: string
             description: string | null
+            iconUrl: string | null
             customCss: string
             recordCount: string | null
             status: 'pending' | 'importing' | 'ready' | 'error'
@@ -105,6 +106,7 @@ declare global {
             entryId: string
             dictionaryId: string
             dictionaryName: string
+            dictionaryIconUrl: string | null
           }[]
         } | null>
         get: (entryId: string) => Promise<{

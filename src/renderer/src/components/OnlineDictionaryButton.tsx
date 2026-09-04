@@ -32,7 +32,7 @@ export function OnlineDictionaryButton({
   return (
     <Button
       aria-label={`使用 ${dictionary.name} 查询 ${searchTerm}`}
-      className="online-dictionary-icon relative size-7 rounded-full border-2 border-background bg-background p-0 transition-transform duration-150 ease-out hover:scale-115 focus-visible:scale-120"
+      className="dictionary-source-icon online-dictionary-icon relative size-7 rounded-full border-2 border-background bg-background p-0 transition-transform duration-150 ease-out hover:scale-115 focus-visible:scale-120"
       onClick={lookupInOnlineDictionary}
       size="icon"
       style={{ zIndex }}

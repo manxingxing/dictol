@@ -4,9 +4,10 @@ import { ExternalLink, LoaderCircle, Star, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { AiRichText } from '@/components/AiRichText'
+import { DictionaryTabIcon } from '@/components/DictionaryIcon'
 import { useChromeTone } from '@/hooks/use-chrome-tone'
-import { cn } from '@/lib/utils'
 import {
+  SELECTION_EXPLANATION_DICTIONARY_TAB_BAR_HEIGHT,
   SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT,
   SELECTION_EXPLANATION_HEADER_HEIGHT,
   type SelectionExplanationPayload
@@ -159,39 +160,49 @@ export function SelectionExplanationApp(): React.JSX.Element {
 
       {hasDictionarySwitcher && (
         <div
-          className="no-drag relative shrink-0 border-b border-border bg-muted/20"
+          className="no-drag relative flex shrink-0 flex-col bg-[var(--dictionary-toolbar-background)]"
           style={{ height: SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT }}
         >
-          <ScrollArea className="h-full w-full" viewportClassName="[&>div]:!block">
-            <div className="flex h-8 w-max items-center gap-1 px-2">
-              {dictionaries.map((dictionary) => {
-                const isActive = dictionary.dictionaryId === payload.activeDictionaryId
-                return (
-                  <Button
-                    key={dictionary.dictionaryId}
-                    aria-pressed={isActive}
-                    className={cn(
-                      'h-7 shrink-0 rounded-full px-3 text-xs',
-                      isActive && 'bg-primary/10 text-primary hover:bg-primary/15'
-                    )}
-                    onClick={() => {
-                      if (!isActive) {
-                        window.dictolSelectionExplanation.selectDictionary(dictionary.dictionaryId)
-                      }
-                    }}
-                    size="sm"
-                    title={dictionary.dictionaryName}
-                    type="button"
-                    variant="ghost"
-                  >
-                    {dictionary.dictionaryName}
-                  </Button>
-                )
-              })}
-            </div>
-            <ScrollBar className="h-2" orientation="horizontal" />
-          </ScrollArea>
-          {payload.state === 'refreshing' && <DictionaryLoadingIndicator />}
+          <div
+            className="relative flex w-full shrink-0 items-center overflow-hidden"
+            style={{ height: SELECTION_EXPLANATION_DICTIONARY_TAB_BAR_HEIGHT }}
+          >
+            <ScrollArea className="w-full" viewportClassName="[&>div]:!block">
+              <div className="flex h-9 w-max items-center gap-1.5 px-2">
+                {dictionaries.map((dictionary) => {
+                  const isActive = dictionary.dictionaryId === payload.activeDictionaryId
+                  return (
+                    <Button
+                      key={dictionary.dictionaryId}
+                      aria-label={dictionary.dictionaryName}
+                      aria-pressed={isActive}
+                      className="dictionary-tab-trigger group"
+                      data-state={isActive ? 'active' : 'inactive'}
+                      onClick={() => {
+                        if (!isActive) {
+                          window.dictolSelectionExplanation.selectDictionary(
+                            dictionary.dictionaryId
+                          )
+                        }
+                      }}
+                      size="icon"
+                      title={dictionary.dictionaryName}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <DictionaryTabIcon
+                        iconUrl={dictionary.dictionaryIconUrl}
+                        name={dictionary.dictionaryName}
+                      />
+                    </Button>
+                  )
+                })}
+              </div>
+              <ScrollBar className="h-2" orientation="horizontal" />
+            </ScrollArea>
+            {payload.state === 'refreshing' && <DictionaryLoadingIndicator />}
+          </div>
+          <div aria-hidden="true" className="h-px w-full shrink-0 bg-border" />
         </div>
       )}
 

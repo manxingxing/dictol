@@ -1,9 +1,12 @@
-export const SELECTION_EXPLANATION_HEADER_HEIGHT = 44
-export const SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT = 36
+export const SELECTION_EXPLANATION_HEADER_HEIGHT = 40
+export const SELECTION_EXPLANATION_DICTIONARY_TAB_BAR_HEIGHT = 42
+export const SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT =
+  SELECTION_EXPLANATION_DICTIONARY_TAB_BAR_HEIGHT + 1
 
 export type SelectionExplanationDictionary = {
   dictionaryId: string
   dictionaryName: string
+  dictionaryIconUrl: string | null
 }
 
 export type SelectionExplanationPayload = {

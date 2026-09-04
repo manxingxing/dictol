@@ -1,19 +1,18 @@
 import { app } from 'electron'
-import { Mdx } from '@dictol/mdict-native'
 import { randomUUID } from 'node:crypto'
-import { copyFile, rename, rm, unlink } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { copyFile, readFile, readdir, rename, rm, unlink } from 'node:fs/promises'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { Worker } from 'node:worker_threads'
 
 import type { DictionaryImportSourceFile } from '../shared/dictionary-import'
-import type { DictionaryInfo } from '../shared/dictionary-info'
 import type { BuiltInLexiconEntry } from './built-in-lexicon-service'
 import type { DictolDatabase } from './db/drizzle'
 import { getDatabasePath } from './db/paths'
 import { DictionaryEntryRepository } from './db/repository/dictionary-entry-repository'
 import { DictionaryFileRepository } from './db/repository/dictionary-file-repository'
 import { DictionaryRepository } from './db/repository/dictionary-repository'
+import type { Dictionary } from './db/schema'
 import { QueryHistoryRepository } from './db/repository/query-history-repository'
 import {
   OnlineDictionaryRepository,
@@ -24,6 +23,7 @@ import {
   type WordbookImportItem,
   type WordbookWordWithWordbook
 } from './db/repository/wordbook-repository'
+import { createDictionaryAssetUrl } from './dictionary-entry-url'
 
 export type DictionaryStatus = 'pending' | 'importing' | 'ready' | 'error'
 
@@ -35,6 +35,7 @@ export type DictionarySummary = {
   name: string
   description: string | null
   customCss: string
+  iconUrl: string | null
   recordCount: string | null
   status: DictionaryStatus
   createdAt: string
@@ -67,6 +68,7 @@ export type DictionaryMatch = {
   entryId: string
   dictionaryId: string
   dictionaryName: string
+  dictionaryIconUrl: string | null
 }
 
 export type DictionaryEntryGroup = {
@@ -384,12 +386,14 @@ export class DBService {
 
   async listDictionaries(): Promise<DictionarySummary[]> {
     const rows = await this.dictionaryRepo.listAll()
+    const iconUrls = await Promise.all(rows.map((row) => this.createDictionaryIconUrl(row)))
 
-    return rows.map((row) => ({
+    return rows.map((row, index) => ({
       id: String(row.id),
       name: row.name,
       description: row.description,
       customCss: row.customCss,
+      iconUrl: iconUrls[index],
       recordCount: row.recordCount?.toString() ?? null,
       status: row.status,
       createdAt: row.createdAt,
@@ -556,6 +560,31 @@ export class DBService {
     return row?.dictPath ?? null
   }
 
+  async getDictionaryIconResource(
+    dictionaryId: string,
+    resourcePath: string
+  ): Promise<{ bytes: Buffer; mimeType: string } | null> {
+    const dictPath = await this.getDictionaryPath(dictionaryId)
+
+    if (!dictPath) {
+      return null
+    }
+
+    const dictionaryDirectory = resolve(dictPath)
+    const requestedPath = resolve(dictionaryDirectory, ...resourcePath.split('/'))
+
+    try {
+      const bytes = await readFile(requestedPath)
+      return {
+        bytes,
+        mimeType: getImageMimeType(requestedPath)
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+      throw error
+    }
+  }
+
   async updateDictionaryName(dictionaryId: string, name: string): Promise<void> {
     const numericId = this.parseDictionaryId(dictionaryId)
     if (typeof name !== 'string') throw new Error('无效的词典名称')
@@ -662,9 +691,8 @@ export class DBService {
     const normalizedTerm = term.trim().toLowerCase()
     if (!normalizedTerm) return null
 
-    const matchedTerm = await this.entryRepo.findByNormalizedWord(normalizedTerm)
-    if (!matchedTerm) return null
-    return (await this.loadDictionaryEntryGroups([matchedTerm]))[0] ?? null
+    const group = (await this.loadDictionaryEntryGroups([normalizedTerm]))[0] ?? null
+    return group
   }
 
   async getDictionaryEntryRecord(entryId: string): Promise<DictionaryEntryRecord | null> {
@@ -695,7 +723,9 @@ export class DBService {
     const numericEntryId = Number(entryId)
     if (!Number.isSafeInteger(numericEntryId) || numericEntryId <= 0) return []
 
-    return (await this.entryRepo.findEntryContentsForDisplay(numericEntryId)).map((row) => ({
+    const rows = await this.entryRepo.findEntryContentsForDisplay(numericEntryId)
+
+    return rows.map((row) => ({
       id: String(row.id),
       dictionaryId: String(row.dictionaryId),
       dictionaryName: row.dictionaryName,
@@ -831,23 +861,64 @@ export class DBService {
   }
 
   private async loadDictionaryEntryGroups(
-    terms: Array<{ normalizedWord: string; word: string }>
+    normalizedWords: string[]
   ): Promise<DictionaryEntryGroup[]> {
-    if (terms.length === 0) return []
-    const matches = await this.entryRepo.lookupByNormalizedWords(
-      terms.map((term) => term.normalizedWord)
+    if (normalizedWords.length === 0) return []
+    const matches = await this.entryRepo.lookupByNormalizedWords(normalizedWords)
+
+    const mdxFileIds = [...new Set(matches.map((match) => match.dictionaryFileId))]
+    const mdxFiles = await this.fileRepo.listMdxByIds(mdxFileIds)
+    const mdxPathById = new Map(mdxFiles.map((file) => [file.id, file.filePath]))
+
+    const iconPaths = await Promise.all(
+      matches.map((match) =>
+        match.dictionaryPath && mdxPathById.has(match.dictionaryFileId)
+          ? findDictionaryIconPath(match.dictionaryPath, mdxPathById.get(match.dictionaryFileId)!)
+          : null
+      )
     )
-    const groups = new Map<string, DictionaryEntryGroup>(
-      terms.map((term) => [term.normalizedWord, { ...term, dictionaries: [] }])
-    )
-    for (const match of matches) {
-      groups.get(match.normalizedWord)?.dictionaries.push({
+
+    const groups = new Map<string, DictionaryEntryGroup>()
+    for (const [index, match] of matches.entries()) {
+      let group = groups.get(match.normalizedWord)
+      if (!group) {
+        group = {
+          normalizedWord: match.normalizedWord,
+          word: match.word,
+          dictionaries: []
+        }
+        groups.set(match.normalizedWord, group)
+      } else if (match.word < group.word) {
+        group.word = match.word
+      }
+
+      group.dictionaries.push({
         entryId: String(match.entryId),
         dictionaryId: String(match.dictionaryId),
-        dictionaryName: match.dictionaryName
+        dictionaryName: match.dictionaryName,
+        dictionaryIconUrl: iconPaths[index]
+          ? createDictionaryAssetUrl(match.dictionaryId, iconPaths[index])
+          : null
       })
     }
-    return [...groups.values()].filter((group) => group.dictionaries.length > 0)
+    const result = [...new Set(normalizedWords)]
+      .map((normalizedWord) => groups.get(normalizedWord))
+      .filter((group): group is DictionaryEntryGroup => Boolean(group))
+    return result
+  }
+
+  private async getDictionaryIconPath(
+    dictionaryId: number,
+    dictionaryPath: string | null
+  ): Promise<string | null> {
+    if (!dictionaryPath) return null
+    const [mdxFile] = await this.fileRepo.listByDictionaryIdAndType(dictionaryId, 'mdx')
+    return mdxFile ? findDictionaryIconPath(dictionaryPath, mdxFile.filePath) : null
+  }
+
+  private async createDictionaryIconUrl(row: Dictionary): Promise<string | null> {
+    const iconPath = await this.getDictionaryIconPath(row.id, row.dictPath)
+    return iconPath ? createDictionaryAssetUrl(row.id, iconPath) : null
   }
 }
 
@@ -867,6 +938,22 @@ function parseWordbookImportText(text: string): string[] {
     words.push(word)
   }
   return words
+}
+
+function getImageMimeType(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.png':
+      return 'image/png'
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.gif':
+      return 'image/gif'
+    case '.webp':
+      return 'image/webp'
+    default:
+      return 'application/octet-stream'
+  }
 }
 
 async function renameDictionaryDirectory(source: string, destination: string): Promise<void> {
@@ -903,5 +990,39 @@ function toWordbookWordItem(row: WordbookWordWithWordbook): WordbookWordItem {
     ecdictVersion: row.ecdictVersion,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
+  }
+}
+
+const DICTIONARY_ICON_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
+
+async function findDictionaryIconPath(
+  dictionaryPath: string,
+  mdxPath: string
+): Promise<string | null> {
+  try {
+    const entries = await readdir(dirname(mdxPath), { withFileTypes: true })
+    const mdxBaseName = basename(mdxPath, extname(mdxPath)).toLowerCase()
+    const icon = entries
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          basename(entry.name, extname(entry.name)).toLowerCase() === mdxBaseName &&
+          DICTIONARY_ICON_EXTENSIONS.includes(extname(entry.name).toLowerCase())
+      )
+      .sort(
+        (left, right) =>
+          DICTIONARY_ICON_EXTENSIONS.indexOf(extname(left.name).toLowerCase()) -
+          DICTIONARY_ICON_EXTENSIONS.indexOf(extname(right.name).toLowerCase())
+      )[0]
+
+    if (!icon) return null
+    const relativeIconPath = relative(resolve(dictionaryPath), join(dirname(mdxPath), icon.name))
+    if (!relativeIconPath || relativeIconPath === '..' || relativeIconPath.startsWith(`..${sep}`)) {
+      return null
+    }
+    return relativeIconPath.split(sep).join('/')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
   }
 }

@@ -12,25 +12,15 @@ export type EntrySearchResult = {
   dictionaryCount: number
 }
 
-/** lookup 方法的返回结构 */
-export type EntryLookupMatch = {
-  entryId: string
-  dictionaryId: string
-  dictionaryName: string
-}
-
-export type EntryLookupGroup = {
-  normalizedWord: string
-  word: string
-  dictionaries: EntryLookupMatch[]
-}
-
 /** lookupByNormalizedWords 返回的单行 */
 export type EntryLookupRow = {
   normalizedWord: string
+  word: string
   entryId: number
   dictionaryId: number
   dictionaryName: string
+  dictionaryPath: string | null
+  dictionaryFileId: number
 }
 
 /** findEntryContent 返回的条目内容 */
@@ -94,26 +84,6 @@ export class DictionaryEntryRepository {
     return rows
   }
 
-  /** 精确匹配 normalizedWord */
-  async findByNormalizedWord(
-    normalizedWord: string
-  ): Promise<Pick<EntryLookupGroup, 'normalizedWord' | 'word'> | undefined> {
-    const [row] = await this.db
-      .select({
-        normalizedWord: dictionaryEntry.normalizedWord,
-        word: sql<string>`min(${dictionaryEntry.word})`.as('word')
-      })
-      .from(dictionaryEntry)
-      .innerJoin(dictionary, eq(dictionary.id, dictionaryEntry.dictionaryId))
-      .where(
-        and(eq(dictionary.status, 'ready'), eq(dictionaryEntry.normalizedWord, normalizedWord))
-      )
-      .groupBy(dictionaryEntry.normalizedWord)
-      .limit(1)
-
-    return row
-  }
-
   /** 按 normalizedWord 列表批量查出各词典中的匹配 */
   async lookupByNormalizedWords(normalizedWords: string[]): Promise<EntryLookupRow[]> {
     if (normalizedWords.length === 0) return []
@@ -121,9 +91,12 @@ export class DictionaryEntryRepository {
     return this.db
       .select({
         normalizedWord: dictionaryEntry.normalizedWord,
+        word: sql<string>`min(${dictionaryEntry.word})`.as('word'),
         entryId: sql<number>`min(${dictionaryEntry.id})`.as('entryId'),
         dictionaryId: dictionary.id,
-        dictionaryName: dictionary.name
+        dictionaryName: dictionary.name,
+        dictionaryPath: dictionary.dictPath,
+        dictionaryFileId: dictionaryEntry.dictionaryFileId
       })
       .from(dictionaryEntry)
       .innerJoin(dictionary, eq(dictionary.id, dictionaryEntry.dictionaryId))
@@ -133,7 +106,13 @@ export class DictionaryEntryRepository {
           inArray(dictionaryEntry.normalizedWord, normalizedWords)
         )
       )
-      .groupBy(dictionaryEntry.normalizedWord, dictionary.id, dictionary.name)
+      .groupBy(
+        dictionaryEntry.normalizedWord,
+        dictionary.id,
+        dictionary.name,
+        dictionary.dictPath,
+        dictionaryEntry.dictionaryFileId
+      )
       .orderBy(asc(dictionaryEntry.normalizedWord), asc(dictionary.sortOrder), asc(dictionary.id))
   }
 

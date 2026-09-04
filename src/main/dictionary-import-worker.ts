@@ -46,6 +46,7 @@ async function importDictionary(data: ImportWorkerData): Promise<void> {
   const dictionaryEntryRepo = new DictionaryEntryRepository(orm)
   const selectedName = basename(data.mdxPath)
   const targetDirectory = join(data.userDataPath, 'dictionaries', data.targetDirectoryName)
+  const sourceFiles = data.sourceFiles
   let dictionaryId: number | undefined
 
   try {
@@ -68,7 +69,7 @@ async function importDictionary(data: ImportWorkerData): Promise<void> {
     let mdxFileId: number | undefined
     let mdxTargetPath: string | undefined
 
-    for (const { sourcePath, relativePath } of data.sourceFiles) {
+    for (const { sourcePath, relativePath } of sourceFiles) {
       const fileName = basename(relativePath)
       const targetPath = join(targetDirectory, relativePath)
       await mkdir(dirname(targetPath), { recursive: true })

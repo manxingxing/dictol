@@ -87,6 +87,17 @@ export class DictionaryFileRepository {
       .orderBy(asc(dictionaryFile.id))
   }
 
+  /** 批量查询指定 MDX 文件的路径。 */
+  async listMdxByIds(ids: number[]): Promise<Array<Pick<DictionaryFile, 'id' | 'filePath'>>> {
+    if (ids.length === 0) return []
+
+    return this.db
+      .select({ id: dictionaryFile.id, filePath: dictionaryFile.filePath })
+      .from(dictionaryFile)
+      .where(and(eq(dictionaryFile.fileType, 'mdx'), inArray(dictionaryFile.id, ids)))
+      .orderBy(asc(dictionaryFile.id))
+  }
+
   /** 根据 ID 查询 */
   async findById(id: number): Promise<DictionaryFile | undefined> {
     const [row] = await this.db

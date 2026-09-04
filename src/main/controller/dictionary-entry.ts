@@ -26,7 +26,24 @@ export class DictionaryEntryController extends BaseController {
     _event: IpcMainInvokeEvent,
     term: string
   ): Promise<DictionaryEntryGroup | null> => {
-    return this.db.lookupDictionaryEntryGroup(term)
+    const startedAt = performance.now()
+    try {
+      const group = await this.db.lookupDictionaryEntryGroup(term)
+      console.debug('[DictionaryLookup] main window', {
+        term,
+        takeMs: performance.now() - startedAt,
+        matched: Boolean(group)
+      })
+      return group
+    } catch (error) {
+      console.debug('[DictionaryLookup] main window', {
+        term,
+        takeMs: performance.now() - startedAt,
+        matched: false,
+        failed: true
+      })
+      throw error
+    }
   }
 
   get = async (

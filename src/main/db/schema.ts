@@ -69,9 +69,12 @@ export const dictionaryEntry = sqliteTable(
     recordEndOffset: integer('record_end_offset').notNull()
   },
   (table) => [
-    index('dictionary_entry_dictionary_id_idx').on(table.dictionaryId),
     index('dictionary_entry_file_id_idx').on(table.dictionaryFileId),
-    index('dictionary_entry_normalized_word_idx').on(table.normalizedWord)
+    index('dictionary_entry_normalized_word_idx').on(table.normalizedWord),
+    index('dictionary_entry_dictionary_id_normalized_word_idx').on(
+      table.dictionaryId,
+      table.normalizedWord
+    )
   ]
 )
 
