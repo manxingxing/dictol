@@ -1,5 +1,9 @@
 appId: com.dictol.app
 productName: Dictol
+protocols:
+  - name: Dictol
+    schemes:
+      - dictol
 directories:
   buildResources: build
 files:
@@ -178,6 +182,9 @@ dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   icon: build/icon.png
+  desktop:
+    entry:
+      MimeType: x-scheme-handler/dictol
   target:
     - AppImage
     - snap

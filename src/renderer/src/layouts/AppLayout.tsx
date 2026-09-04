@@ -35,6 +35,14 @@ export function AppLayout(): React.JSX.Element {
     })
   }, [navigate, setSearchQuery])
 
+  useEffect(() => {
+    return window.dictol.app.onDeepLink((intent) => {
+      if (intent.type !== 'search') return
+      setSearchQuery(intent.term)
+      void navigate(`/search/${encodeURIComponent(intent.term)}`)
+    })
+  }, [navigate, setSearchQuery])
+
   return (
     <div className="relative flex h-screen min-h-0 flex-col text-foreground">
       <WindowTitleBar />

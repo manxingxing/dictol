@@ -1,5 +1,6 @@
 import type { ToastPayload } from '../shared/notification'
 import type { TtsConfig, TtsSaveConfigRequest } from '../shared/tts'
+import type { DeepLinkIntent } from '../shared/deep-link'
 
 declare global {
   interface Window {
@@ -250,6 +251,7 @@ declare global {
       }
       app: {
         getVersion: () => Promise<string | null>
+        onDeepLink: (callback: (intent: DeepLinkIntent) => void) => () => void
         onFocusSearch: (callback: () => void) => () => void
         onShowFindBar: (callback: () => void) => () => void
       }

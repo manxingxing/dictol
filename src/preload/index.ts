@@ -8,6 +8,7 @@ import type {
 } from '../shared/ai-ipc'
 import type { DictionaryImportPreview, DictionaryImportRequest } from '../shared/dictionary-import'
 import type { DictionaryInfo } from '../shared/dictionary-info'
+import type { DeepLinkIntent } from '../shared/deep-link'
 import type { ToastPayload } from '../shared/notification'
 import type { TtsConfig, TtsSaveConfigRequest } from '../shared/tts'
 
@@ -162,6 +163,8 @@ type WordCaptureSubscriber = (event: WordCaptureEvent) => void
 
 const wordCaptureSubscribers = new Set<WordCaptureSubscriber>()
 let pendingWordCaptureEvent: WordCaptureEvent | undefined
+const deepLinkSubscribers = new Set<(intent: DeepLinkIntent) => void>()
+const pendingDeepLinks: DeepLinkIntent[] = []
 
 ipcRenderer.on('word-capture:event', (_event, captureEvent: WordCaptureEvent) => {
   if (wordCaptureSubscribers.size === 0) {
@@ -169,6 +172,14 @@ ipcRenderer.on('word-capture:event', (_event, captureEvent: WordCaptureEvent) =>
     return
   }
   wordCaptureSubscribers.forEach((subscriber) => subscriber(captureEvent))
+})
+
+ipcRenderer.on('app:deep-link', (_event, intent: DeepLinkIntent) => {
+  if (deepLinkSubscribers.size === 0) {
+    pendingDeepLinks.push(intent)
+    return
+  }
+  deepLinkSubscribers.forEach((subscriber) => subscriber(intent))
 })
 
 const api = Object.freeze({
@@ -259,6 +270,14 @@ const api = Object.freeze({
   }),
   app: Object.freeze({
     getVersion: (): Promise<string | null> => ipcRenderer.invoke('app:get-version'),
+    onDeepLink: (callback: (intent: DeepLinkIntent) => void): (() => void) => {
+      deepLinkSubscribers.add(callback)
+      while (pendingDeepLinks.length > 0) {
+        const intent = pendingDeepLinks.shift()
+        if (intent) callback(intent)
+      }
+      return () => deepLinkSubscribers.delete(callback)
+    },
     onFocusSearch: (callback: () => void): (() => void) => {
       const listener = (): void => callback()
       ipcRenderer.on('app:focus-search', listener)

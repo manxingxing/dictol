@@ -3,6 +3,12 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { join } from 'node:path'
 
 import { getAppRunTime } from './app-runtime'
+import {
+  DEEP_LINK_SCHEME,
+  findDeepLink,
+  parseDeepLink,
+  type DeepLinkIntent
+} from '../shared/deep-link'
 import { registerIPCHandlers } from './controller/ipc-register'
 import {
   registerResourceProtocolHandlers,
@@ -18,17 +24,28 @@ if (!hasSingleInstanceLock) {
   app.quit()
 } else {
   registerResourceSchemes()
-  startPrimaryInstance()
+  registerDeepLinkProtocol()
+  startPrimaryInstance(findDeepLink(process.argv))
 }
 
-function startPrimaryInstance(): void {
+function startPrimaryInstance(initialDeepLink: DeepLinkIntent | null): void {
   const runtime = getAppRunTime()
   let runtimeDisposed = false
-  let pendingWindowActivation = false
+  let pendingWindowActivation = initialDeepLink !== null
+  const pendingDeepLinks: DeepLinkIntent[] = initialDeepLink ? [initialDeepLink] : []
 
   process.on('unhandledRejection', (reason: unknown) => {
     console.error('Unhandled promise rejection in Electron main process', reason)
   })
+
+  const flushDeepLinks = (): void => {
+    const mainWindow = runtime.mainWindow
+    if (!runtime.isInitialized || !mainWindow || mainWindow.isDestroyed()) return
+
+    while (pendingDeepLinks.length > 0) {
+      mainWindow.webContents.send('app:deep-link', pendingDeepLinks.shift())
+    }
+  }
 
   const showAndFocusMainWindow = (): void => {
     if (!runtime.isInitialized) {
@@ -38,9 +55,21 @@ function startPrimaryInstance(): void {
 
     pendingWindowActivation = false
     runtime.activateMainWindow()
+    flushDeepLinks()
   }
 
-  app.on('second-instance', showAndFocusMainWindow)
+  const handleDeepLink = (deepLink: DeepLinkIntent | null): void => {
+    if (deepLink) pendingDeepLinks.push(deepLink)
+    showAndFocusMainWindow()
+  }
+
+  app.on('second-instance', (_event, commandLine) => {
+    handleDeepLink(findDeepLink(commandLine))
+  })
+  app.on('open-url', (event, url) => {
+    event.preventDefault()
+    handleDeepLink(parseDeepLink(url))
+  })
 
   void app
     .whenReady()
@@ -58,6 +87,7 @@ function startPrimaryInstance(): void {
         configureMainWindow(runtime, requireMainWindow(runtime))
         runtime.trayManager.setMainWindowFactory(() => runtime.getOrCreateMainWindow())
         if (pendingWindowActivation) showAndFocusMainWindow()
+        flushDeepLinks()
       } catch (error: unknown) {
         console.error('Failed to initialize application', error)
         disposeRuntime()
@@ -91,6 +121,11 @@ function startPrimaryInstance(): void {
     runtimeDisposed = true
     runtime.dispose()
   }
+}
+
+function registerDeepLinkProtocol(): void {
+  if (process.platform !== 'darwin' && process.platform !== 'win32') return
+  app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME)
 }
 
 function configureMainWindow(
