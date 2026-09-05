@@ -46,13 +46,8 @@
   --ai-user-message-border: color-mix(in oklch, var(--primary) 14%, transparent);
   --ai-assistant-message-background: #f1f1f1;
   --ai-assistant-message-border: #d9d9d6;
-  --dictionary-tab-hover-background: #eaeaea;
   --search-action-dock-background: #f2f2f2;
   --dictionary-toolbar-background: #fcfcfa;
-  --dictionary-tab-active-shadow:
-    inset 0 1px 0 color-mix(in oklch, white 65%, transparent),
-    inset 0 -1px 0 color-mix(in oklch, var(--primary) 12%, transparent),
-    0 2px 6px -5px color-mix(in oklch, var(--primary) 30%, transparent);
   --online-dictionary-icon-shadow:
     0 0 0 1px color-mix(in oklch, var(--foreground) 12%, transparent),
     0 2px 4px color-mix(in oklch, var(--foreground) 16%, transparent),
@@ -82,7 +77,6 @@
   --ai-user-message-border: rgb(53 106 77 / 12%);
   --ai-assistant-message-background: #fbfcf9;
   --ai-assistant-message-border: #d8d7ce;
-  --dictionary-tab-hover-background: var(--surface-hover);
   --search-action-dock-background: #f2f7f1;
   --dictionary-toolbar-background: #fbfcf9;
 }
@@ -115,13 +109,8 @@
     --ai-user-message-border: color-mix(in oklch, var(--primary) 20%, transparent);
     --ai-assistant-message-background: #232323;
     --ai-assistant-message-border: #3d3d3d;
-    --dictionary-tab-hover-background: #303030;
     --search-action-dock-background: #252525;
     --dictionary-toolbar-background: #1d1d1d;
-    --dictionary-tab-active-shadow:
-      inset 0 1px 0 color-mix(in oklch, white 24%, transparent),
-      inset 0 -1px 0 color-mix(in oklch, var(--primary) 25%, transparent),
-      0 5px 14px -10px color-mix(in oklch, var(--primary) 60%, transparent);
     --online-dictionary-icon-shadow:
       0 0 0 1px color-mix(in oklch, white 18%, transparent),
       0 2px 4px color-mix(in oklch, black 52%, transparent),
@@ -151,7 +140,6 @@
     --ai-user-message-border: #35513e;
     --ai-assistant-message-background: #1b211a;
     --ai-assistant-message-border: #3b4a39;
-    --dictionary-tab-hover-background: #222b21;
     --search-action-dock-background: #171c16;
     --dictionary-toolbar-background: #1b211a;
   }
@@ -262,41 +250,56 @@ body [data-sonner-toaster].toaster {
 
 .dictionary-tab-trigger {
   width: 2rem;
-  height: 2rem;
+  height: 100%;
   flex: none;
   padding: 0;
+  position: relative;
   border: 1px solid transparent;
   border-radius: 9999px;
-  transition:
-    background-color 150ms ease-out,
-    border-color 150ms ease-out,
-    box-shadow 150ms ease-out;
+  background: transparent;
+  transition: none;
 }
 
-.dictionary-tab-trigger[data-state='inactive'] {
+.dictionary-tab-trigger[data-state='inactive'],
+.dictionary-tab-trigger[data-state='active'],
+.dictionary-tab-trigger:hover {
   border-color: transparent;
   background: transparent;
   box-shadow: none !important;
 }
 
-.dictionary-tab-trigger[data-state='inactive']:hover {
-  border-color: color-mix(in oklch, var(--border) 78%, transparent);
-  background: var(--dictionary-tab-hover-background);
+.dictionary-tab-trigger .dictionary-source-icon {
+  transition:
+    transform 150ms ease-out,
+    border-color 150ms ease-out;
 }
 
-.dictionary-tab-trigger[data-state='active'] {
-  border-color: color-mix(in oklch, var(--primary) 36%, transparent);
-  background: color-mix(in oklch, var(--primary) 11%, transparent);
-  backdrop-filter: blur(2px);
-  box-shadow: var(--dictionary-tab-active-shadow) !important;
+.dictionary-tab-trigger[data-state='active'] .dictionary-source-icon {
+  border-color: var(--primary);
+  box-shadow: none;
+  transform: scale(1.12);
 }
 
-.search-result-dictionary-tab .dictionary-source-icon {
-  transition: transform 150ms ease-out;
-}
-
-.search-result-dictionary-tab:hover .dictionary-source-icon {
+.dictionary-tab-trigger:hover .dictionary-source-icon {
   transform: scale(1.15);
+}
+
+.dictionary-tab-trigger[data-state='active']:hover .dictionary-source-icon {
+  transform: scale(1.18);
+}
+
+.dictionary-tab-trigger[data-state='active']::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  z-index: 2;
+  width: 16px;
+  height: 2px;
+  transform: translateX(calc((2rem - 16px) / 2));
+  border-radius: 9999px;
+  background: var(--primary);
+  pointer-events: none;
 }
 
 .appearance-tone-preview {

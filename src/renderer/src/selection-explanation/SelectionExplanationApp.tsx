@@ -164,11 +164,11 @@ export function SelectionExplanationApp(): React.JSX.Element {
           style={{ height: SELECTION_EXPLANATION_DICTIONARY_SWITCHER_HEIGHT }}
         >
           <div
-            className="relative flex w-full shrink-0 items-center overflow-hidden"
+            className="relative flex w-full shrink-0 items-center overflow-visible"
             style={{ height: SELECTION_EXPLANATION_DICTIONARY_TAB_BAR_HEIGHT }}
           >
-            <ScrollArea className="w-full" viewportClassName="[&>div]:!block">
-              <div className="flex h-9 w-max items-center gap-1.5 px-2">
+            <ScrollArea className="h-full w-full" viewportClassName="[&>div]:h-full">
+              <div className="flex h-full w-max items-center gap-1.5 px-2">
                 {dictionaries.map((dictionary) => {
                   const isActive = dictionary.dictionaryId === payload.activeDictionaryId
                   return (
@@ -244,7 +244,7 @@ function DictionaryLoadingIndicator(): React.JSX.Element {
   return (
     <div
       aria-label="词条内容正在加载"
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden"
+      className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-0.5 overflow-hidden"
       role="progressbar"
     >
       <div className="native-view-loading-indicator h-full bg-primary" />

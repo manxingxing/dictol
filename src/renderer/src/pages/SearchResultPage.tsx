@@ -231,13 +231,16 @@ export function SearchResultPage(): React.JSX.Element {
       }}
       value={activeDictionary?.dictionaryId}
     >
-      <div className="relative flex h-14 shrink-0 items-center overflow-hidden border-b border-border bg-[var(--dictionary-toolbar-background)] px-3">
-        <ScrollArea className="min-w-0 flex-1 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-3 after:bg-linear-to-r after:from-transparent after:to-[var(--dictionary-toolbar-background)] after:content-['']">
-          <TabsList className="h-9 shrink-0 gap-1.5 rounded-none bg-transparent p-0 pr-3">
+      <div className="relative flex h-14 shrink-0 items-center overflow-visible border-b border-border bg-[var(--dictionary-toolbar-background)] px-3">
+        <ScrollArea
+          className="h-full min-w-0 flex-1 after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-3 after:bg-linear-to-r after:from-transparent after:to-[var(--dictionary-toolbar-background)] after:content-['']"
+          viewportClassName="[&>div]:h-full"
+        >
+          <TabsList className="h-full shrink-0 gap-1.5 bg-transparent p-0 pr-3">
             {group.dictionaries.map((item) => (
               <TabsTrigger
                 aria-label={item.dictionaryName}
-                className="dictionary-tab-trigger search-result-dictionary-tab group scroll-mx-3"
+                className="dictionary-tab-trigger group scroll-mx-3"
                 key={item.dictionaryId}
                 ref={
                   item.dictionaryId === activeDictionary?.dictionaryId
@@ -286,7 +289,7 @@ function DictionaryViewLoadingIndicator(): React.JSX.Element {
   return (
     <div
       aria-label="词条内容正在加载"
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden"
+      className="pointer-events-none absolute inset-x-0 bottom-[-1px] h-0.5 overflow-hidden"
       role="progressbar"
     >
       <div className="native-view-loading-indicator h-full bg-primary" />
